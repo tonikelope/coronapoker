@@ -189,29 +189,6 @@ final class GdxSettingsTooltipsTest {
     }
 
     @Test
-    void shufflePreloadHasItsOwnConciseMemoryTooltip() {
-        GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
-                "animacion_barajado_precarga", new Properties(),
-                new GdxGameText("es"));
-        assertFalse(spanish.text().contains("MiB"));
-        assertTrue(spanish.text().contains("uso de memoria"));
-        assertTrue(spanish.text().length() < 140);
-
-        GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
-                "animacion_barajado_precarga", new Properties(),
-                new GdxGameText("en"));
-        assertFalse(english.text().contains("MiB"));
-        assertTrue(english.text().contains("memory usage"));
-        assertTrue(english.text().length() < 140);
-
-        assertEquals("gdx.settings.tooltip.animation_shuffle",
-                GdxSettingsTooltips.descriptionKey("animacion_barajado"));
-        assertEquals("gdx.settings.tooltip.shuffle_preload",
-                GdxSettingsTooltips.descriptionKey(
-                        "animacion_barajado_precarga"));
-    }
-
-    @Test
     void everyVisibleAnimationSettingExplainsItsOwnEffect() {
         Set<String> genericKeys = Set.of(
                 "gdx.settings.tooltip.generic",

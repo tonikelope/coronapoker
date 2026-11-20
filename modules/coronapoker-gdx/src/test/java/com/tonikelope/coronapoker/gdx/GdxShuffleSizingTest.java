@@ -9,22 +9,12 @@ import org.junit.jupiter.api.Test;
 final class GdxShuffleSizingTest {
 
     @Test
-    void preservesCanonicalShuffleSizeAtFullHdAndAbove() {
-        assertEquals(960, CoronaPokerGdxTable.shuffleDecodeWidth(1920, 1080));
-        assertEquals(960, CoronaPokerGdxTable.shuffleDecodeWidth(2560, 1440));
-        assertEquals(960, CoronaPokerGdxTable.shuffleDecodeWidth(3840, 2160));
-    }
-
-    @Test
-    void scalesShuffleDecodeOnceForLowerResolutionBackbuffers() {
-        int hd = CoronaPokerGdxTable.shuffleDecodeWidth(1280, 720);
-        int laptop = CoronaPokerGdxTable.shuffleDecodeWidth(1366, 768);
-        int narrow = CoronaPokerGdxTable.shuffleDecodeWidth(1024, 768);
-
-        assertEquals(640, hd);
-        assertEquals(683, laptop);
-        assertTrue(narrow <= Math.round(1024 * 0.78f));
-        assertTrue(hd < laptop && laptop < 960);
+    void replaysTheRecordedRiffleFromItsStartAtBothReleases() {
+        assertEquals(.92f, GdxShuffleGeometry.soundStart(0), .00001f);
+        assertEquals(2.60f, GdxShuffleGeometry.soundStart(1), .00001f);
+        assertEquals(1.96f, GdxShuffleGeometry.soundEnd(0), .00001f);
+        assertEquals(3.96f, GdxShuffleGeometry.soundEnd(1), .00001f);
+        assertEquals(4.46f, GdxShuffleGeometry.Motion.MID_BRIDGE.duration(), .00001f);
     }
 
     @Test

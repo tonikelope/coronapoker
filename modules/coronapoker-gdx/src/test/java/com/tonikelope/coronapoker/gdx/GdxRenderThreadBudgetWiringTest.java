@@ -66,8 +66,8 @@ final class GdxRenderThreadBudgetWiringTest {
 
         String blur = source("GdxModalBackdropBlur.java");
         assertTrue(blur.contains("boolean prepareNextBuffer("));
-        assertTrue(blur.contains("backdrop = createBuffer(width, height)"));
-        assertTrue(blur.contains("scratch = createBuffer(width, height)"));
+        assertTrue(blur.contains("backdrop = createBuffer(width, height, true)"));
+        assertTrue(blur.contains("scratch = createBuffer(width, height, false)"));
         assertTrue(blur.contains("void endCaptureAndCache("));
         assertTrue(blur.contains("boolean hasCachedFrame("));
 
@@ -124,77 +124,14 @@ final class GdxRenderThreadBudgetWiringTest {
     }
 
     @Test
-    void shufflePreloadsTheWholeLoopOnlyWhileItsAnimationIsEnabled()
-            throws Exception {
-        String table = source("CoronaPokerGdxTable.java");
-        String animation = source("StreamingGifTextureAnimation.java");
-
-        assertTrue(table.contains("if (liveShuffleAnimationEnabled()) {\n"
-                + "                prepareShuffleAnimation(liveDeck);"));
-        assertTrue(table.contains(
-                "StreamingGifTextureAnimation.prepareLoopingFully("));
-        assertTrue(table.contains(
-                "StreamingGifTextureAnimation.prepareLoopingPrimed("));
-        assertTrue(table.contains("liveShuffleFullPreloadEnabled()"));
-        assertTrue(table.contains(
-                "tablePreference(\"animacion_barajado_precarga\", true)"));
-        assertTrue(table.contains("reconcileShufflePreload();"));
-        assertTrue(table.contains("preparedShuffle = null;\n"
-                + "            preparedShuffleDeck = \"\";"));
-        assertFalse(animation.contains("MAX_FULLY_DECODED_BYTES"));
-        assertTrue(animation.contains(
-                "texture = new Texture(uploadPixmap, mipMaps);"));
-    }
-
-    @Test
-    void directDeckChangesDebounceTheShufflePreload() throws Exception {
-        String table = source("CoronaPokerGdxTable.java");
-        String deckChanged = method(table,
-                "if (event instanceof TableVisualEvent.DeckChanged changed)",
-                "if (autoActionDialog != null");
-        String deferred = method(table,
-                "private void deferShufflePreloadAfterDeckChange()",
-                "private void updateDeferredShufflePreload()");
-        String update = method(table,
-                "private void updateDeferredShufflePreload()",
-                "private boolean completeShufflePreparation()");
-        String reconciliation = method(table,
-                "private void reconcileShufflePreload()",
-                "private void deferShufflePreloadAfterDeckChange()");
-
-        assertTrue(deckChanged.contains("liveDeck = selectedDeck;\n"
-                + "                    // ChangeDeck is also emitted by right-clicking any table\n"
-                + "                    // card."));
-        assertTrue(deckChanged.contains(
-                "deferShufflePreloadAfterDeckChange();"));
-        assertTrue(deferred.contains("cancelShufflePreparation();"));
-        assertTrue(deferred.contains("preparedShuffle = null;"));
-        assertTrue(deferred.contains("System.nanoTime()"
-                + " + SHUFFLE_DECK_CHANGE_DEBOUNCE_NANOS"));
-        assertTrue(update.contains("System.nanoTime() - deadline < 0L"));
-        assertTrue(update.contains("reconcileShufflePreload();"));
-        assertTrue(table.contains(
-                "SHUFFLE_DECK_CHANGE_DEBOUNCE_NANOS =\n"
-                + "            1_000_000_000L;"));
-        assertTrue(table.indexOf("updateDeferredShufflePreload();")
-                < table.indexOf("updateLiveShuffle();"));
-        assertTrue(reconciliation.contains(
-                "shufflePreloadReconcileAfterNanos = 0L;"));
-        assertTrue(reconciliation.contains("cancelShufflePreparation();\n"
-                + "            prepareShuffleAnimation(selected);"));
-        assertTrue(table.contains(
-                "Executors.newSingleThreadExecutor(task -> {"));
-    }
-
-    @Test
-    void twoDimensionalSurfacesDoNotAllocateOrClearDepthAndStencil()
+    void shuffleWindowHasDepthAndOrdinaryTwoDimensionalClearsOnlyColour()
             throws Exception {
         String launcher = source("GdxLauncher.java");
         String table = source("CoronaPokerGdxTable.java");
         String blur = source("GdxModalBackdropBlur.java");
 
         assertTrue(launcher.contains(
-                "config.setBackBufferConfig(8, 8, 8, 8, 0, 0,"));
+                "config.setBackBufferConfig(8, 8, 8, 8, 24, 0,"));
         assertFalse(table.contains(
                 "ScreenUtils.clear(BACKGROUND_BOTTOM, true)"));
         assertFalse(blur.contains("ScreenUtils.clear(clearColor, true)"));

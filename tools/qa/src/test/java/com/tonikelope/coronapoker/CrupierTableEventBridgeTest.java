@@ -16,7 +16,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
@@ -91,18 +90,16 @@ final class CrupierTableEventBridgeTest {
     void rendererBarrierStopsWaitingAsSoonAsTableTerminationIsRequested()
             throws Exception {
         CompletableFuture<Void> animation = new CompletableFuture<>();
-        AtomicInteger cancellationPolls = new AtomicInteger();
-
-        long started = System.nanoTime();
-        boolean completed = Crupier.awaitPresentationBarrier(animation,
-                () -> cancellationPolls.incrementAndGet() >= 2, 4_000L);
-        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(
-                System.nanoTime() - started);
-
-        assertFalse(completed);
-        assertFalse(animation.isDone());
-        assertTrue(elapsedMillis < 500L,
-                "Exit waited for the renderer timeout instead of cancelling");
+        CompletableFuture<Void> cancelled = new CompletableFuture<>();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            var waiting = executor.submit(() -> Crupier.awaitPresentationBarrier(animation, cancelled));
+            cancelled.complete(null);
+            assertFalse(waiting.get(1, TimeUnit.SECONDS));
+            assertFalse(animation.isDone());
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -113,7 +110,7 @@ final class CrupierTableEventBridgeTest {
         try {
             Future<Boolean> wait = executor.submit(() ->
                     Crupier.awaitPresentationBarrier(animation,
-                            () -> false, 4_000L));
+                            new CompletableFuture<>()));
 
             assertFalse(wait.isDone());
             animation.complete(null);
@@ -215,6 +212,27 @@ final class CrupierTableEventBridgeTest {
             assertTrue(presented.get(1, TimeUnit.SECONDS));
             assertFalse(smallDeferred.get());
             assertFalse(bigDeferred.get());
+        } finally {
+            executor.shutdownNow();
+            bridge.close();
+        }
+    }
+
+    @Test
+    void closingAnAttachedTableReleasesAnUnfinishedShuffle() throws Exception {
+        TableEventBridge bridge = new TableEventBridge();
+        ShuffleRenderer renderer = new ShuffleRenderer();
+        bridge.attach(renderer, emptyTable()).toCompletableFuture().join();
+        Crupier dealer = new Crupier(bridge);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            dealer.presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.START);
+            var waiting = executor.submit(() -> dealer.presentShufflePhaseToAttachedRenderer(
+                    TableVisualEvent.Shuffle.Phase.FINISH));
+            assertTrue(renderer.finishReceived.await(1, TimeUnit.SECONDS));
+            bridge.close();
+            assertTrue(waiting.get(1, TimeUnit.SECONDS));
+            assertTrue(renderer.finishAnimation.isCompletedExceptionally());
         } finally {
             executor.shutdownNow();
             bridge.close();

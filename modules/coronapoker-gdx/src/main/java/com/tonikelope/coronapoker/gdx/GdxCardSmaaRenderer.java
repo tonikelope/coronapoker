@@ -48,6 +48,7 @@ final class GdxCardSmaaRenderer implements Disposable {
     static final int RENDERING_NATIVE = 0;
     /** Apply selective SMAA while preserving the native card detail. */
     static final int RENDERING_SMOOTH = 1;
+    static final int RENDERING_BALANCED = 2;
 
     /**
      * Keeps most of the unprocessed artwork at opaque internal edges while
@@ -336,9 +337,9 @@ final class GdxCardSmaaRenderer implements Disposable {
 
         disposeBuffers();
         try {
-            colorLayer = renderTarget(width, height);
-            edgesLayer = renderTarget(width, height);
-            blendLayer = renderTarget(width, height);
+            colorLayer = renderTarget(width, height, true);
+            edgesLayer = renderTarget(width, height, false);
+            blendLayer = renderTarget(width, height, false);
             rejectedBackBufferWidth = -1;
             rejectedBackBufferHeight = -1;
             return true;
@@ -350,9 +351,9 @@ final class GdxCardSmaaRenderer implements Disposable {
         }
     }
 
-    private static FrameBuffer renderTarget(int width, int height) {
-        FrameBuffer target = new FrameBuffer(Pixmap.Format.RGBA8888,
-                width, height, false);
+    private static FrameBuffer renderTarget(int width, int height, boolean scene) {
+        FrameBuffer target = scene ? new GdxSceneFrameBuffer(Pixmap.Format.RGBA8888, width, height, false)
+                : new FrameBuffer(Pixmap.Format.RGBA8888, width, height, false);
         Texture texture = target.getColorBufferTexture();
         texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         texture.setWrap(TextureWrap.ClampToEdge, TextureWrap.ClampToEdge);

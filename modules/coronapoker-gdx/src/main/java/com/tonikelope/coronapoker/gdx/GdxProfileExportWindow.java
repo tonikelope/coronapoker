@@ -75,7 +75,7 @@ final class GdxProfileExportWindow extends ApplicationAdapter {
         config.setDecorated(false);
         config.setResizable(false);
         config.disableAudio(true);
-        config.setBackBufferConfig(8, 8, 8, 8, 0, 0, 0);
+        config.setBackBufferConfig(8, 8, 8, 8, 0, 0, backup.msaaSamples());
         config.setTransparentFramebuffer(true);
         config.setForegroundFPS(30);
         config.setWindowListener(new Lwjgl3WindowAdapter() {

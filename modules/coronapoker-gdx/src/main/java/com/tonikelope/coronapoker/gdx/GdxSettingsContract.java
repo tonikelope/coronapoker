@@ -47,7 +47,7 @@ final class GdxSettingsContract {
     static final String FINAL_SUMMARY_CARDS_ANIMATION_KEY =
             "animacion_tarjetas_fin_timba";
     static final int DEFAULT_CARD_RENDERING_MODE =
-            GdxCardSmaaRenderer.RENDERING_SMOOTH;
+            GdxCardSmaaRenderer.RENDERING_BALANCED;
     static final int APPEARANCE_TABLE_VIEW_ROW = 0;
     static final int APPEARANCE_DECK_ROW = 1;
     static final int APPEARANCE_CARD_BACK_ROW = 2;
@@ -102,7 +102,7 @@ final class GdxSettingsContract {
     static final String ANTI_DOS_WARNINGS_KEY = "anti_dos_warnings";
 
     enum Gate {
-        NONE, MUSIC, EFFECTS, FUNNY_SOUNDS, ANIMATIONS, SHUFFLE_ANIMATION
+        NONE, MUSIC, EFFECTS, FUNNY_SOUNDS, ANIMATIONS
     }
 
     enum PerformanceImpact {
@@ -420,9 +420,6 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_barajado", "BARAJADO", true,
                     Gate.ANIMATIONS),
-            option("animacion_barajado_precarga",
-                    "PRECARGAR BARAJADO EN RAM", true,
-                    Gate.SHUFFLE_ANIMATION),
             option("animacion_reparto", "REPARTO", true,
                     Gate.ANIMATIONS),
             option("animacion_destape", "DESTAPAR", true,
@@ -630,7 +627,6 @@ final class GdxSettingsContract {
                     animationToggle("cinematicas_allin"),
                     animationToggle("cinematicas_gameover"),
                     animationToggle("animacion_barajado"),
-                    animationToggle("animacion_barajado_precarga"),
                     animationToggle("animacion_reparto"),
                     animationChoice("reparto_velocidad"),
                     animationChoice(COMMUNITY_DEAL_STYLE_KEY),
@@ -705,7 +701,7 @@ final class GdxSettingsContract {
             "cinematicas",
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
-            "animacion_barajado", "animacion_barajado_precarga",
+            "animacion_barajado",
             "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
             "animacion_apuestas", STACK_BET_PREVIEW_KEY,
@@ -747,7 +743,7 @@ final class GdxSettingsContract {
      * Estimates the cost of an active feature or the selected graphics value.
      * Low is brief or local work, medium is additional animation or decoding,
      * and high is sustained or expensive rendering. Monitor refresh varies
-     * by display. Shuffle preloading describes its RAM trade-off separately.
+     * by display.
      */
     static PerformanceImpact performanceImpact(String key,
             Properties properties) {
@@ -774,10 +770,11 @@ final class GdxSettingsContract {
                 case 8 -> PerformanceImpact.HIGH;
                 default -> PerformanceImpact.MEDIUM;
             };
-            case CARD_RENDERING_KEY ->
-                integer(values, key, DEFAULT_CARD_RENDERING_MODE)
-                        == GdxCardSmaaRenderer.RENDERING_NATIVE
-                        ? PerformanceImpact.NONE : PerformanceImpact.HIGH;
+            case CARD_RENDERING_KEY -> switch (integer(values, key, DEFAULT_CARD_RENDERING_MODE)) {
+                case GdxCardSmaaRenderer.RENDERING_NATIVE -> PerformanceImpact.NONE;
+                case GdxCardSmaaRenderer.RENDERING_SMOOTH -> PerformanceImpact.HIGH;
+                default -> PerformanceImpact.MEDIUM;
+            };
             case "gdx_fps_limit" -> switch (
                     integer(values, key, DEFAULT_FRAME_RATE_LIMIT)) {
                 case 0 -> PerformanceImpact.NONE;
@@ -835,7 +832,6 @@ final class GdxSettingsContract {
             case EFFECTS -> "sonido_efectos";
             case FUNNY_SOUNDS -> "sonidos_chorra";
             case ANIMATIONS -> "animaciones";
-            case SHUFFLE_ANIMATION -> "animacion_barajado";
             case NONE -> null;
         };
     }
@@ -1113,6 +1109,9 @@ final class GdxSettingsContract {
     }
 
     static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
+        if (rendering == GdxCardSmaaRenderer.RENDERING_BALANCED) {
+            return translatedUpper(text, "gdx.settings.value.balanced", "EQUILIBRADO");
+        }
         return rendering == GdxCardSmaaRenderer.RENDERING_SMOOTH
                 ? translatedUpper(text, "gdx.settings.value.smooth", "SUAVE")
                 : translatedUpper(text, "gdx.settings.value.native", "NATIVO");
@@ -1662,8 +1661,6 @@ final class GdxSettingsContract {
                 properties.getProperty("sonidos_chorra", "false"));
         boolean animations = Boolean.parseBoolean(
                 properties.getProperty("animaciones", "true"));
-        boolean shuffleAnimation = animations && Boolean.parseBoolean(
-                properties.getProperty("animacion_barajado", "true"));
         String concreteJoke = GamePresentationSettings.jokeSoundResource(
                 option.key());
         if (concreteJoke != null) {
@@ -1680,7 +1677,6 @@ final class GdxSettingsContract {
             case EFFECTS -> effects;
             case FUNNY_SOUNDS -> funnySounds;
             case ANIMATIONS -> animations;
-            case SHUFFLE_ANIMATION -> shuffleAnimation;
         };
     }
 

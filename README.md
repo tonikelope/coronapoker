@@ -270,7 +270,8 @@ can safely overlay the supported presentation assets:
 - **One responsive GDX table layout** that scales and extends with the available window while preserving the same controls and presentation model.
 - **Three display modes**: exclusive fullscreen, borderless fullscreen (the default) and windowed, with optional automatic fullscreen when a table starts.
 - **Appearance controls** for the deck, card back, felt and table-light level, with live previews where applicable.
-- **Graphics controls** for vertical synchronisation, frame-rate limit and overlay, MSAA and card rendering.
+- **A 52-card riffle shuffle with a bridge finish** uses the selected faces and back in the 3D table and the selected back in the overhead view. Both releases use the shuffle recording.
+- **Graphics controls** for vertical synchronisation, frame-rate limit and overlay, MSAA and card rendering. The default Balanced profile uses trilinear filtering and up to 16× anisotropy. Native and Smooth 16× remain available.
 - **Smoother native text** across the menu, HUD, chat and dialogs, with the same font sizing and spacing. Table tooltips use smaller text and wrap long descriptions. Clickable controls show a hand cursor.
 - **Consistent settings controls** in the main menu, waiting room and live table: categorical choices use scrollable drop-down lists, while minus/plus steppers are reserved for quantities. Live-table restrictions keep the same layout and clearly show whether an option is locked for everyone or host-only.
 - **Low-brightness overlay** for late-night sessions, with a configurable light level.

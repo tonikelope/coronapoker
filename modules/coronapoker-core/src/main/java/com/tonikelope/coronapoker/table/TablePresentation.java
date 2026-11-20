@@ -19,6 +19,8 @@ import java.util.function.LongFunction;
 public final class TablePresentation implements AutoCloseable {
 
     private final TableRenderer renderer;
+    private final java.util.Set<CompletableFuture<Void>> inFlight =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final AtomicLong sequence = new AtomicLong();
     private final ArrayDeque<PendingEvent> openingEvents = new ArrayDeque<>();
     private CompletableFuture<Void> openingBarrier;
@@ -105,7 +107,22 @@ public final class TablePresentation implements AutoCloseable {
             openingEvents.addLast(new PendingEvent(event, barrier));
             return barrier;
         }
-        return Objects.requireNonNull(renderer.render(event), "renderer barrier");
+        return render(event);
+    }
+
+    private CompletionStage<Void> render(TableVisualEvent event) {
+        var stage = Objects.requireNonNull(renderer.render(event), "renderer barrier");
+        // CloseTable has its own completion after controller cleanup.
+        return event instanceof TableVisualEvent.CloseTable ? stage : untilClosed(stage);
+    }
+
+    private CompletionStage<Void> untilClosed(CompletionStage<Void> stage) {
+        var completion = stage.toCompletableFuture();
+        if (!completion.isDone()) {
+            inFlight.add(completion);
+            completion.whenComplete((ignored, failure) -> inFlight.remove(completion));
+        }
+        return completion;
     }
 
     public long lastSequence() {
@@ -114,7 +131,7 @@ public final class TablePresentation implements AutoCloseable {
 
     synchronized CompletionStage<Void> collectCompletedHandCards() {
         return opened && !closed && !terminalPublished
-                ? renderer.collectCompletedHandCards() : CompletableFuture.completedFuture(null);
+                ? untilClosed(renderer.collectCompletedHandCards()) : CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -130,13 +147,14 @@ public final class TablePresentation implements AutoCloseable {
             openingBarrier.completeExceptionally(failure);
             openingBarrier = null;
         }
+        for (var pending : inFlight) pending.completeExceptionally(failure);
         renderer.close();
     }
 
     private void dispatch(TableVisualEvent event,
             CompletableFuture<Void> barrier) {
         try {
-            Objects.requireNonNull(renderer.render(event), "renderer barrier")
+            render(event)
                     .whenComplete((ignored, failure) -> {
                         if (failure == null) barrier.complete(null);
                         else barrier.completeExceptionally(failure);

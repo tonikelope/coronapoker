@@ -126,35 +126,6 @@ class StreamingGifTextureAnimationTest {
     }
 
     @Test
-    void shuffleMetadataPreservesCanonicalLoopAndAudioCutoff()
-            throws Exception {
-        byte[] data;
-        try (InputStream input = getClass().getResourceAsStream(
-                "/images/decks/goliat/gif/shuffle.gif")) {
-            assertTrue(input != null, "packaged Goliat shuffle GIF");
-            data = input.readAllBytes();
-        }
-
-        StreamingGifTextureAnimation.GifTiming timing =
-                StreamingGifTextureAnimation.inspect(data,
-                        "shuffle.gif", 960);
-
-        assertEquals(960, timing.width());
-        assertEquals(540, timing.height());
-        assertEquals(86, timing.frameEndMs().length);
-        assertEquals(1_720L, timing.durationMs());
-        assertEquals(178_329_600L,
-                StreamingGifTextureAnimation.fullyDecodedByteCount(timing),
-                "native preload must retain the exact decoded footprint");
-        assertThrows(java.io.IOException.class,
-                () -> StreamingGifTextureAnimation.prepareLoopingFully(data,
-                        "cancelled-shuffle.gif", 180, () -> true),
-                "disabling shuffle must abort a full preload cooperatively");
-        assertEquals(1_040L, timing.frameEndMs()[51],
-                "frame 53 starts after frame 52");
-    }
-
-    @Test
     void downloadedGifCanPrepareItsLoopAwayFromTheRenderThread()
             throws Exception {
         byte[] data;
@@ -168,8 +139,6 @@ class StreamingGifTextureAnimationTest {
                 StreamingGifTextureAnimation.prepareLooping(
                         data, "chat-fixture.gif", 360);
         assertEquals(360, prepared.timing().width());
-        assertTrue(prepared.primedFrames().isEmpty(),
-                "ordinary streaming GIFs must retain no decoded frame cache");
         StreamingGifTextureAnimation animation =
                 StreamingGifTextureAnimation.loadLooping(prepared);
         try {
@@ -179,133 +148,6 @@ class StreamingGifTextureAnimationTest {
         } finally {
             animation.dispose();
         }
-    }
-
-    @Test
-    void shuffleCanPrimeExactlyOneBoundedStreamingWindow()
-            throws Exception {
-        byte[] data;
-        try (InputStream input = getClass().getResourceAsStream(
-                "/images/decks/goliat/gif/shuffle.gif")) {
-            assertNotNull(input, "packaged Goliat shuffle GIF");
-            data = input.readAllBytes();
-        }
-
-        StreamingGifTextureAnimation.PreparedLooping prepared =
-                StreamingGifTextureAnimation.prepareLoopingPrimed(data,
-                        "shuffle.gif", 360,
-                        StreamingGifTextureAnimation.DECODED_FRAME_BUFFER);
-
-        assertEquals(StreamingGifTextureAnimation.DECODED_FRAME_BUFFER,
-                prepared.primedFrames().size());
-        assertEquals(0L, prepared.primedFrames().get(0).startMs());
-        assertEquals(prepared.timing().frameEndMs()[5],
-                prepared.primedFrames().get(5).endMs());
-        assertThrows(IllegalArgumentException.class,
-                () -> StreamingGifTextureAnimation.prepareLoopingPrimed(data,
-                        "shuffle.gif", 360,
-                        StreamingGifTextureAnimation.DECODED_FRAME_BUFFER + 1));
-
-        StreamingGifTextureAnimation animation =
-                StreamingGifTextureAnimation.loadLooping(prepared);
-        try {
-            assertNotNull(animation.decodedFrameAt(0f),
-                    "frame zero must be ready before live playback starts");
-        } finally {
-            animation.dispose();
-        }
-    }
-
-    @Test
-    void shuffleCanPreloadOneCompactCompleteLoop() throws Exception {
-        byte[] data;
-        try (InputStream input = getClass().getResourceAsStream(
-                "/images/decks/goliat/gif/shuffle.gif")) {
-            assertNotNull(input, "packaged Goliat shuffle GIF");
-            data = input.readAllBytes();
-        }
-
-        StreamingGifTextureAnimation.PreparedLooping prepared =
-                StreamingGifTextureAnimation.prepareLoopingFully(data,
-                        "shuffle.gif", 180);
-        StreamingGifTextureAnimation.PreloadedFrames store =
-                prepared.preloadedFrames();
-        assertNotNull(store);
-        assertTrue(prepared.data().length == 0,
-                "the compressed source must be released after full preload");
-        assertTrue(prepared.primedFrames().isEmpty(),
-                "a complete loop must not retain the streaming prefix");
-        assertEquals(86, store.frameCount());
-        assertEquals(StreamingGifTextureAnimation.fullyDecodedByteCount(
-                prepared.timing()), store.rgba().length);
-
-        List<StreamingGifTextureAnimation.CpuFrame> canonical =
-                new ArrayList<>();
-        StreamingGifTextureAnimation.decode(data, "shuffle.gif", 180,
-                86, 0, canonical::add, () -> canonical.size() >= 3);
-        for (int frame = 0; frame < canonical.size(); frame++) {
-            int offset = frame * store.frameBytes();
-            assertArrayEquals(canonical.get(frame).rgba(),
-                    Arrays.copyOfRange(store.rgba(), offset,
-                            offset + store.frameBytes()),
-                    "full preload must preserve exact decoded pixels");
-        }
-
-        StreamingGifTextureAnimation animation =
-                StreamingGifTextureAnimation.loadLooping(prepared);
-        try {
-            assertTrue(animation.fullyPreloaded());
-            assertEquals(store.rgba().length,
-                    animation.preloadedByteCount());
-            assertFalse(animation.playbackComplete(60f),
-                    "a preloaded looping animation never completes itself");
-        } finally {
-            animation.dispose();
-        }
-    }
-
-    @Test
-    void streamingAfterPrimedPrefixPreservesPixelsAndTiming()
-            throws Exception {
-        byte[] data;
-        try (InputStream input = getClass().getResourceAsStream(
-                "/images/decks/goliat/gif/shuffle.gif")) {
-            assertNotNull(input, "packaged Goliat shuffle GIF");
-            data = input.readAllBytes();
-        }
-
-        int primed = StreamingGifTextureAnimation.DECODED_FRAME_BUFFER;
-        int compared = 4;
-        List<StreamingGifTextureAnimation.CpuFrame> canonical
-                = new ArrayList<>();
-        StreamingGifTextureAnimation.decode(data, "shuffle.gif", 360,
-                86, 0, frame -> canonical.add(frame),
-                () -> canonical.size() >= primed + compared);
-
-        List<StreamingGifTextureAnimation.CpuFrame> afterPrefix
-                = new ArrayList<>();
-        StreamingGifTextureAnimation.decode(data, "shuffle.gif", 360,
-                86, primed, frame -> afterPrefix.add(frame),
-                () -> afterPrefix.size() >= compared);
-
-        assertEquals(compared, afterPrefix.size());
-        for (int index = 0; index < compared; index++) {
-            StreamingGifTextureAnimation.CpuFrame expected
-                    = canonical.get(primed + index);
-            StreamingGifTextureAnimation.CpuFrame actual
-                    = afterPrefix.get(index);
-            assertEquals(expected.width(), actual.width());
-            assertEquals(expected.height(), actual.height());
-            assertEquals(expected.startMs(), actual.startMs());
-            assertEquals(expected.endMs(), actual.endMs());
-            assertArrayEquals(expected.rgba(), actual.rgba(),
-                    "primed prefix must preserve GIF composition");
-        }
-
-        assertThrows(IllegalArgumentException.class,
-                () -> StreamingGifTextureAnimation.decode(data,
-                        "shuffle.gif", 360, 86, -1,
-                        frame -> { }, () -> false));
     }
 
     @Test

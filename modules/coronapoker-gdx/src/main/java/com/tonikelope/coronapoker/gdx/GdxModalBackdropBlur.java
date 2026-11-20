@@ -105,11 +105,11 @@ final class GdxModalBackdropBlur implements Disposable {
             disposeBuffers();
         }
         if (backdrop == null) {
-            backdrop = createBuffer(width, height);
+            backdrop = createBuffer(width, height, true);
             return false;
         }
         if (scratch == null) {
-            scratch = createBuffer(width, height);
+            scratch = createBuffer(width, height, false);
         }
         return true;
     }
@@ -229,9 +229,9 @@ final class GdxModalBackdropBlur implements Disposable {
                 || buffer.getHeight() != height);
     }
 
-    private static FrameBuffer createBuffer(int width, int height) {
-        FrameBuffer buffer = new FrameBuffer(Pixmap.Format.RGBA8888,
-                width, height, false);
+    private static FrameBuffer createBuffer(int width, int height, boolean scene) {
+        FrameBuffer buffer = scene ? new GdxSceneFrameBuffer(Pixmap.Format.RGBA8888, width, height, true)
+                : new FrameBuffer(Pixmap.Format.RGBA8888, width, height, false);
         buffer.getColorBufferTexture().setFilter(
                 TextureFilter.Linear, TextureFilter.Linear);
         return buffer;

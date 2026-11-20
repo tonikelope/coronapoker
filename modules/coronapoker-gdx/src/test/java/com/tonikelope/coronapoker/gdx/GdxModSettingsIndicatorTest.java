@@ -36,9 +36,6 @@ final class GdxModSettingsIndicatorTest {
         Path deck = Files.createDirectories(installation.resolve(
                 "mod/decks/pepsiman/hq"));
         Files.writeString(deck.resolve("A_C.jpg"), "card");
-        Path shuffle = Files.createDirectories(installation.resolve(
-                "mod/decks/pepsiman/gif"));
-        Files.writeString(shuffle.resolve("shuffle.gif"), "gif");
         Path allIn = Files.createDirectories(installation.resolve(
                 "mod/cinematics/allin"));
         Files.writeString(allIn.resolve("custom.gif"), "gif");

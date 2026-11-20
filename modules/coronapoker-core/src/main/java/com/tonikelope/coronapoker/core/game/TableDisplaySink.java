@@ -12,7 +12,6 @@ import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BooleanSupplier;
 
 /** Immediate, semantic table-display operations retained by the classic flow. */
 public interface TableDisplaySink {
@@ -168,9 +167,6 @@ public interface TableDisplaySink {
 
     void animateStackFill(List<StackTransfer> transfers,
             long durationMillis, Runnable onComplete);
-
-    void playShuffleLoop(boolean animationEnabled, boolean soundEnabled,
-            BooleanSupplier keepRunning, Runnable onComplete);
 
     OverlayHandle addPositionChipOverlay(String nickname);
 
@@ -417,13 +413,6 @@ public interface TableDisplaySink {
             @Override
             public void animateStackFill(List<StackTransfer> transfers,
                     long durationMillis, Runnable onComplete) {
-                onComplete.run();
-            }
-
-            @Override
-            public void playShuffleLoop(boolean animationEnabled,
-                    boolean soundEnabled, BooleanSupplier keepRunning,
-                    Runnable onComplete) {
                 onComplete.run();
             }
 

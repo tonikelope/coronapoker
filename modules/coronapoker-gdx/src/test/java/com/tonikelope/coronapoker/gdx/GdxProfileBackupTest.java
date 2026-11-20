@@ -116,7 +116,7 @@ final class GdxProfileBackupTest {
             }
         });
         var request = new GdxProfileBackupTransfer.Request(false, archive,
-                Set.of(Category.DATABASE), "en");
+                Set.of(Category.DATABASE), "en", 4);
         var result = CompletableFuture.supplyAsync(() -> request.run(profile, export));
         try {
             assertTrue(writing.await(10, TimeUnit.SECONDS), "Export did not start writing");

@@ -97,6 +97,10 @@ final class GdxRiffleShuffle implements Disposable {
             }
             void main() {
                 float id = v_material.x;
+                if (id < -3.5) {
+                    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.30 * (1.0 - visibility()));
+                    return;
+                }
                 vec3 color;
                 if (id < -1.5) {
                     color = vec3(1.0, 0.99, 0.98);
@@ -116,6 +120,7 @@ final class GdxRiffleShuffle implements Disposable {
 
     private final GdxShuffleGeometry geometry = new GdxShuffleGeometry();
     private final Mesh mesh;
+    private final Mesh felt;
     private final ShaderProgram shader;
     private final ShaderProgram shadowShader;
     private final FrameBuffer shadowMap;
@@ -145,6 +150,12 @@ final class GdxRiffleShuffle implements Disposable {
                 new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
                 new VertexAttribute(Usage.Generic, 2, "a_material"));
         mesh.setIndices(indices);
+        // Flat receiver in the same model coordinates as the deck and light.
+        felt = new Mesh(true, 4, 6, mesh.getVertexAttributes());
+        felt.setVertices(new float[]{
+                -1.7f, 0,  1.2f, 0, 0, -4, 1,  1.7f, 0,  1.2f, 0, 0, -4, 1,
+                 1.7f, 0, -1.2f, 0, 0, -4, 1, -1.7f, 0, -1.2f, 0, 0, -4, 1});
+        felt.setIndices(new short[]{0, 1, 2, 0, 2, 3});
         perspective.fieldOfView = 20.25f;
         perspective.position.set(1.597f, 1.212f, 2.735f);
         perspective.lookAt(.030f, .240f, 0f);
@@ -177,6 +188,7 @@ final class GdxRiffleShuffle implements Disposable {
         }
         if (view == View.FRONT || shadowReady) return;
         shadowMap.begin();
+        Gdx.gl.glDepthMask(true);
         Gdx.gl.glClearColor(1f, 1f, 1f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
@@ -192,24 +204,7 @@ final class GdxRiffleShuffle implements Disposable {
 
     void draw(int x, int y, int width, int height, Texture back, GdxShuffleArtwork faces,
             View view, boolean gameFilter, int face, float frontScale) {
-        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
-        Gdx.gl.glEnable(GL20.GL_CULL_FACE);
-        Gdx.gl.glDepthFunc(GL20.GL_LEQUAL);
-        shader.bind();
-        shadowMap.getColorBufferTexture().bind(2);
-        GdxShuffleArtwork.bind(back, 0, gameFilter);
-        shader.setUniformMatrix("u_light", light.combined);
-        shader.setUniformi("u_shadow", 2);
-        shader.setUniformf("u_shadowTexel", 1f / SHADOW_SIZE);
-        shader.setUniformi("u_back", 0);
-        shader.setUniformi("u_face", 1);
-        shader.setUniformf("u_gameFilter", gameFilter ? 1f : 0f);
-        shader.setUniformf("u_frontView", view == View.FRONT ? 1f : 0f);
-        shader.setUniformf("u_artworkSmooth", 1f);
-        shader.setUniformf("u_artworkLodBias", -.25f);
-        shader.setUniformf("u_extraArtworkSampling", 0f);
-        shader.setUniformf("u_projectedArtwork", view == View.FRONT ? 0f : 88f / 63f);
-        mesh.bind(shader);
+        begin(back, view, gameFilter ? GdxCardSmaaRenderer.RENDERING_SMOOTH : GdxCardSmaaRenderer.RENDERING_BALANCED);
         if (view == View.FRONT) {
             // Draw the same squared card twice, face-on and without directional lighting.
             int halfWidth = width / 2;
@@ -240,6 +235,56 @@ final class GdxRiffleShuffle implements Disposable {
                 drawCard(order);
             }
         }
+        end();
+    }
+
+    /** The caller supplies the same camera and board plane used by the live table. */
+    void drawOnTable(com.badlogic.gdx.math.Matrix4 projection, Texture back, Texture[] faces, int mode) {
+        begin(back, faces == null ? View.OVERHEAD : View.PERSPECTIVE, mode);
+        shader.setUniformMatrix("u_camera", projection);
+        mesh.unbind(shader);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFuncSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA,
+                GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glDepthMask(false);
+        felt.render(shader, GL20.GL_TRIANGLES);
+        Gdx.gl.glDepthMask(true);
+        mesh.bind(shader);
+        if (faces == null) {
+            // The orthographic overhead view sees only backs and edges.
+            back.bind(1);
+            mesh.render(shader, GL20.GL_TRIANGLES, 0, mesh.getNumIndices(), false);
+        } else {
+            for (int order = 0; order < faces.length; order++) {
+                GdxCardSampling.bind(faces[order], 1, mode);
+                drawCard(order);
+            }
+        }
+        end();
+    }
+
+    private void begin(Texture back, View view, int mode) {
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glEnable(GL20.GL_CULL_FACE);
+        Gdx.gl.glDepthFunc(GL20.GL_LEQUAL);
+        shader.bind();
+        shadowMap.getColorBufferTexture().bind(2);
+        GdxCardSampling.bind(back, 0, mode);
+        shader.setUniformMatrix("u_light", light.combined);
+        shader.setUniformi("u_shadow", 2);
+        shader.setUniformf("u_shadowTexel", 1f / SHADOW_SIZE);
+        shader.setUniformi("u_back", 0);
+        shader.setUniformi("u_face", 1);
+        shader.setUniformf("u_gameFilter", mode == GdxCardSmaaRenderer.RENDERING_BALANCED ? 0f : 1f);
+        shader.setUniformf("u_frontView", view == View.FRONT ? 1f : 0f);
+        shader.setUniformf("u_artworkSmooth", GdxCardSampling.shaderValue(mode));
+        shader.setUniformf("u_artworkLodBias", CoronaPokerGdxTable.cardArtworkLodBias(mode));
+        shader.setUniformf("u_extraArtworkSampling", 0f);
+        shader.setUniformf("u_projectedArtwork", view == View.FRONT ? 0f : 88f / 63f);
+        mesh.bind(shader);
+    }
+
+    private void end() {
         mesh.unbind(shader);
         Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0);
         Gdx.gl.glDisable(GL20.GL_CULL_FACE);
@@ -252,6 +297,7 @@ final class GdxRiffleShuffle implements Disposable {
     }
 
     @Override public void dispose() {
+        felt.dispose();
         mesh.dispose();
         shader.dispose();
         shadowShader.dispose();

@@ -4,7 +4,6 @@ package com.tonikelope.coronapoker.gdx;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.utils.Disposable;
 
 /** Both filters sample the same native-resolution textures and mip levels. */
@@ -48,10 +47,8 @@ final class GdxShuffleArtwork implements Disposable {
     }
 
     static void bind(Texture texture, int unit, boolean gameFilter) {
-        texture.bind(unit);
-        texture.unsafeSetFilter(gameFilter ? TextureFilter.MipMapLinearNearest : TextureFilter.MipMapLinearLinear,
-                TextureFilter.Linear);
-        texture.unsafeSetAnisotropicFilter(gameFilter ? 1f : 16f);
+        GdxCardSampling.bind(texture, unit, gameFilter
+                ? GdxCardSmaaRenderer.RENDERING_SMOOTH : GdxCardSmaaRenderer.RENDERING_BALANCED);
     }
 
     @Override public void dispose() {

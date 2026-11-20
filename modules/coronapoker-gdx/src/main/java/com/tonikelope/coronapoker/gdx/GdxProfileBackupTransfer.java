@@ -20,7 +20,7 @@ final class GdxProfileBackupTransfer {
     private static final String CANCELLED = "gdx.backup.export_cancelled";
 
     record Request(boolean importing, Path archive,
-            Set<GdxProfileBackup.Category> categories, String language) {
+            Set<GdxProfileBackup.Category> categories, String language, int msaaSamples) {
 
         Request {
             categories = Set.copyOf(categories);

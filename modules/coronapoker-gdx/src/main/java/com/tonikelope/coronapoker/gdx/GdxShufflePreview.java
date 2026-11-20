@@ -59,20 +59,18 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     private final Rectangle deckControl = new Rectangle(40, 598, 282, 42);
     private final Rectangle backControl = new Rectangle(334, 598, 282, 42);
     private final Rectangle viewControl = new Rectangle(650, 598, 200, 42);
-    private final Rectangle compareControl = new Rectangle(862, 598, 378, 42);
     private final Vector2 pointer = new Vector2();
     private final Path captureDirectory;
     private SpriteBatch batch;
     private ShapeRenderer shapes;
-    private BitmapFont font;
-    private StreamingGifTextureAnimation reference;
+    private final java.util.Map<Integer, BitmapFont> fonts = new java.util.HashMap<>();
+    private com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator fontGenerator;
     private GdxRiffleShuffle riffle;
     private Texture back;
     private GdxShuffleArtwork faces;
     private final Path customDeck, customBack;
     private int deckIndex, backIndex;
     private GdxRiffleShuffle.View view = GdxRiffleShuffle.View.PERSPECTIVE;
-    private boolean compare = true;
     private int frontCard = 10, scaleIndex;
     private float elapsed;
     private int speedIndex;
@@ -91,7 +89,6 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                 case "--bridge" -> motion = GdxShuffleGeometry.Motion.BRIDGE;
                 case "--open-bridge" -> motion = GdxShuffleGeometry.Motion.OPEN_BRIDGE;
                 case "--classic" -> motion = GdxShuffleGeometry.Motion.ORIGINAL;
-                case "--gif" -> compare = false;
                 case "--deck" -> {
                     String deck = args[++i];
                     deckIndex = Arrays.asList(GdxShuffleArtwork.DECKS).indexOf(deck);
@@ -119,7 +116,8 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         config.setInitialVisible(viewer.captureDirectory == null);
         config.setResizable(true);
         config.setHdpiMode(HdpiMode.Pixels);
-        config.setBackBufferConfig(8, 8, 8, 8, 24, 0, 4);
+        config.setBackBufferConfig(8, 8, 8, 8, 24, 0,
+                GdxGamePresentationSettings.supportedMsaa(Integer.getInteger("coronapoker.lab.msaa", 4)));
         config.useVsync(true);
         config.setForegroundFPS(60);
         config.disableAudio(true);
@@ -130,8 +128,8 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     public void create() {
         batch = new SpriteBatch();
         shapes = new ShapeRenderer();
-        font = new BitmapFont();
-        font.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        fontGenerator = new com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator(
+                Gdx.files.internal("fonts/McLaren-Regular.ttf"));
         riffle = new GdxRiffleShuffle();
         loadDeck();
         loadBack();
@@ -149,7 +147,6 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                     case Input.Keys.NUM_3 -> selectMotion(GdxShuffleGeometry.Motion.BRIDGE);
                     case Input.Keys.NUM_4 -> selectMotion(GdxShuffleGeometry.Motion.OPEN_BRIDGE);
                     case Input.Keys.NUM_5 -> selectMotion(GdxShuffleGeometry.Motion.MID_BRIDGE);
-                    case Input.Keys.C -> toggleComparison();
                     case Input.Keys.LEFT -> navigate(-1);
                     case Input.Keys.RIGHT -> navigate(1);
                     default -> { return false; }
@@ -179,8 +176,6 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                     loadBack();
                 } else if (viewControl.contains(pointer)) {
                     view = view.next();
-                } else if (compareControl.contains(pointer)) {
-                    toggleComparison();
                 } else if (play.contains(pointer)) {
                     if (frontal()) navigate(-1);
                     else playing = !playing;
@@ -222,17 +217,6 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         GdxShuffleArtwork replacement = new GdxShuffleArtwork(hq);
         if (faces != null) faces.dispose();
         faces = replacement;
-        if (reference != null) reference.dispose();
-        reference = null;
-        FileHandle gif = dir.child("gif/shuffle.gif");
-        if (gif.exists()) {
-            try {
-                var prepared = StreamingGifTextureAnimation.prepareLoopingFully(gif.readBytes(), gif.path(), 590, () -> false);
-                reference = StreamingGifTextureAnimation.loadLooping(prepared);
-            } catch (IOException failure) {
-                throw new IllegalStateException("El GIF de referencia no se pudo abrir", failure);
-            }
-        }
     }
 
     private void loadBack() {
@@ -249,15 +233,6 @@ public final class GdxShufflePreview extends ApplicationAdapter {
 
     private boolean frontal() {
         return view == GdxRiffleShuffle.View.FRONT;
-    }
-
-    private void toggleComparison() {
-        if (frontal()) {
-            view = GdxRiffleShuffle.View.PERSPECTIVE;
-            compare = false;
-        } else {
-            compare = !compare;
-        }
     }
 
     private void selectMotion(GdxShuffleGeometry.Motion selected) {
@@ -283,6 +258,8 @@ public final class GdxShufflePreview extends ApplicationAdapter {
 
     @Override
     public void resize(int width, int height) {
+        fonts.values().forEach(BitmapFont::dispose);
+        fonts.clear();
         viewport.update(width, height, true);
     }
 
@@ -293,6 +270,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         } else if (playing && !frontal()) {
             elapsed = (elapsed + Gdx.graphics.getDeltaTime() * SPEEDS[speedIndex]) % motion.duration();
         }
+        GdxPixelText.beginFrame();
         ScreenUtils.clear(BACKGROUND, true);
         viewport.apply();
         shapes.setProjectionMatrix(viewport.getCamera().combined);
@@ -305,7 +283,6 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         fill(deckControl, PANEL);
         fill(backControl, PANEL);
         fill(viewControl, PANEL);
-        fill(compareControl, PANEL);
         if (!frontal()) {
             for (int i = 0; i < motionControls.length; i++) {
                 fill(motionControls[i], motion == MOTIONS[i] ? ACCENT : PANEL);
@@ -323,30 +300,21 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         int nativeHeight = Math.round(nativePanel.height * viewport.getScreenHeight() / 720f);
         int nativeX = viewport.getScreenX() + Math.round(nativePanel.x * viewport.getScreenWidth() / 1280f);
         int nativeY = viewport.getScreenY() + Math.round(nativePanel.y * viewport.getScreenHeight() / 720f);
-        boolean compareFilters = compare || frontal();
         riffle.prepare(elapsed, view, motion);
-        if (compareFilters) {
-            int left = viewport.getScreenX() + Math.round(referencePanel.x * viewport.getScreenWidth() / 1280f);
-            riffle.draw(left, nativeY, nativeWidth, nativeHeight, back, faces, view, true, frontCard, SCALES[scaleIndex]);
-        }
+        int left = viewport.getScreenX() + Math.round(referencePanel.x * viewport.getScreenWidth() / 1280f);
+        riffle.draw(left, nativeY, nativeWidth, nativeHeight, back, faces, view, true, frontCard, SCALES[scaleIndex]);
         riffle.draw(nativeX, nativeY, nativeWidth, nativeHeight, back, faces, view, false, frontCard, SCALES[scaleIndex]);
         viewport.apply();
 
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
-        Texture original = compareFilters || reference == null ? null : reference.frameAt(Math.min(motion.releaseTime(elapsed) + .00001f, GdxShuffleGeometry.CYCLE_SECONDS - .001f));
-        if (original != null) {
-            batch.draw(original, referencePanel.x, referencePanel.y,
-                    referencePanel.width, referencePanel.height);
-        }
         text("Visor de cartas", 40, 677, 1.9f, INK);
         if (!frontal()) text(String.format(SPANISH, "26 + 26 cartas    /    %.2f s", motion.duration()), 1024, 667, 1.1f, MUTED);
-        text(compareFilters ? "CoronaPoker · Suave 16X" : (reference == null ? "Sin GIF de referencia" : "GIF de Blender · mezcla original"), 40, 581, 1.25f, INK);
-        text("Visor · Anisotrópico 16X", 650, 581, 1.25f, INK);
+        text("CoronaPoker · Suave 16X", 40, 581, 1.25f, INK);
+        text("Equilibrado · Anisotrópico 16X", 650, 581, 1.25f, INK);
         button("Baraja · " + (deckIndex < 0 ? customDeck.getFileName() : GdxShuffleArtwork.DECKS[deckIndex]), deckControl, INK);
         button("Dorso · " + (backIndex < 0 ? customBack.getFileName() : GdxShuffleArtwork.DECKS[backIndex]), backControl, INK);
         button("Vista · " + view.label, viewControl, INK);
-        button(compareFilters ? "Comparar con el GIF de Blender" : "Comparar los dos filtros", compareControl, INK);
         if (frontal()) {
             text(GdxShuffleArtwork.label(frontCard), 48, 189, 1.13f, MUTED);
             button("Anterior", play, BACKGROUND);
@@ -372,16 +340,21 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         shapes.rect(bounds.x, bounds.y, bounds.width, bounds.height);
     }
 
+    private BitmapFont font(float scale) {
+        return fonts.computeIfAbsent(Math.round(15 * scale), size -> GdxAdaptiveFontQuality.generate(
+                fontGenerator, size, 0f, Color.WHITE, Color.CLEAR, "", GdxAdaptiveFontQuality.current(1280, 720)));
+    }
+
     private void text(String value, float x, float y, float scale, Color color) {
-        font.getData().setScale(scale);
+        BitmapFont font = font(scale);
         font.setColor(color);
-        font.draw(batch, value, x, y);
+        GdxPixelText.draw(font, batch, value, x, y, viewport);
     }
 
     private void button(String value, Rectangle bounds, Color color) {
-        font.getData().setScale(1.12f);
+        BitmapFont font = font(1.12f);
         font.setColor(color);
-        font.draw(batch, value, bounds.x, bounds.y + bounds.height * .5f + 6.5f, bounds.width, Align.center, false);
+        GdxPixelText.draw(font, batch, value, bounds.x, bounds.y + bounds.height * .5f + 6.5f, bounds.width, Align.center, false, viewport);
     }
 
     private void capture() {
@@ -402,11 +375,11 @@ public final class GdxShufflePreview extends ApplicationAdapter {
 
     @Override
     public void dispose() {
-        if (reference != null) reference.dispose();
         riffle.dispose();
         back.dispose();
         faces.dispose();
-        font.dispose();
+        fonts.values().forEach(BitmapFont::dispose);
+        fontGenerator.dispose();
         shapes.dispose();
         batch.dispose();
     }

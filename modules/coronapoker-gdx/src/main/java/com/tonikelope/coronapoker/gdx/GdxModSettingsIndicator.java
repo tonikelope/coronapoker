@@ -46,8 +46,7 @@ final class GdxModSettingsIndicator {
                 || settings.modAsset("cinematics/misc/game_over_zero.gif")
                         .isPresent();
             case "animacion_barajado" ->
-                settings.modAsset("decks/" + settings.deck()
-                        + "/gif/shuffle.gif").isPresent();
+                deck(settings, settings.deck()) || cardBack(settings, settings.cardBackDeck());
             default -> false;
         };
     }

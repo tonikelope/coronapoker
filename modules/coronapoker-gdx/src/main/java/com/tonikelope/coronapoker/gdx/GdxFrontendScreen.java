@@ -501,6 +501,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private Music customBotManagerMusic;
     private ShaderProgram avatarShader;
     private ShaderProgram roundedTextureShader;
+    private ShaderProgram handCardShader;
+    private int handCardMode = -1;
     private GdxModalBackdropBlur modalBackdropBlur;
     private GdxModalBackdropBlur nestedModalBackdropBlur;
     private boolean loadingBackdropCached;
@@ -982,6 +984,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             throw new IllegalStateException("Avatar shader: "
                     + avatarShader.getLog());
         }
+        String handFragment = ROUNDED_TEXTURE_FRAGMENT_SHADER.replace("void main()",
+                CoronaPokerGdxTable.CARD_ARTWORK_SAMPLING_GLSL + "void main()")
+                .replace("texture2D(u_texture, v_texCoords)", "sampleCardArtwork(u_texture, v_texCoords)");
+        handCardShader = new ShaderProgram(SPRITE_VERTEX_SHADER, handFragment);
+        if (!handCardShader.isCompiled()) throw new IllegalStateException(handCardShader.getLog());
         roundedTextureShader = new ShaderProgram(SPRITE_VERTEX_SHADER,
                 ROUNDED_TEXTURE_FRAGMENT_SHADER);
         if (!roundedTextureShader.isCompiled()) {
@@ -5977,9 +5984,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawHandGeneratorCards() {
         GdxHandGeneratorModel.Example example = handGenerator.current();
         batch.setColor(Color.WHITE);
-        batch.setShader(roundedTextureShader);
-        roundedTextureShader.setUniformf("u_cornerRadius", 0.045f);
-        roundedTextureShader.setUniformf("u_edgeSoftness", 0.004f);
+        int mode = presentationSettings.requestedCardRenderingMode();
+        if (handCardMode != mode) {
+            batch.flush();
+            for (Texture texture : handGeneratorCardTextures.values()) GdxCardSampling.bind(texture, 0, mode);
+            handCardMode = mode;
+        }
+        batch.setShader(handCardShader);
+        handCardShader.setUniformf("u_artworkSmooth", GdxCardSampling.shaderValue(mode));
+        handCardShader.setUniformf("u_artworkLodBias", CoronaPokerGdxTable.cardArtworkLodBias(mode));
+        handCardShader.setUniformf("u_projectedArtwork", 0f);
+        handCardShader.setUniformf("u_extraArtworkSampling", 0f);
+        handCardShader.setUniformf("u_cornerRadius", 0.045f);
+        handCardShader.setUniformf("u_edgeSoftness", 0.004f);
         for (int index = 0; index < example.cards().size(); index++) {
             Rectangle bounds = handGeneratorCardBounds(
                     example.cards().size(), index);
@@ -6014,8 +6031,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Texture texture = new Texture(source.external()
                     ? Gdx.files.absolute(source.externalPath().toString())
                     : Gdx.files.internal(source.internalPath()), true);
-            texture.setFilter(TextureFilter.MipMapLinearNearest,
-                    TextureFilter.Linear);
+            GdxCardSampling.bind(texture, 0, presentationSettings.requestedCardRenderingMode());
             return texture;
         });
     }
@@ -9485,7 +9501,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (shell == null || selection.selected().isEmpty() || settingsHavePendingChanges()) return;
         shell.exitForProfileBackup(new GdxProfileBackupTransfer.Request(
                 selection.importing(), selection.archive(), selection.selected(),
-                gameText.language()));
+                gameText.language(), presentationSettings.actualMsaaSamples()));
     }
 
     private List<String> profileBackupPathLines(String path, float width, int maxLines) {
@@ -18104,6 +18120,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         emojiAtlas.release();
         avatarShader.dispose();
         roundedTextureShader.dispose();
+        handCardShader.dispose();
         modalBackdropBlur.dispose();
         nestedModalBackdropBlur.dispose();
         titleFont.dispose();

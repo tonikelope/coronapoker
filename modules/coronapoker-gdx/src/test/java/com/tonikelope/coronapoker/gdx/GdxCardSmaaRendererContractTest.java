@@ -195,7 +195,7 @@ final class GdxCardSmaaRendererContractTest {
             throws IOException {
         String table = Files.readString(source("CoronaPokerGdxTable.java"));
         String artwork = method(table,
-                "private static final String CARD_ARTWORK_SAMPLING_GLSL",
+                "static final String CARD_ARTWORK_SAMPLING_GLSL",
                 "static final String CARD_FRAGMENT_SHADER");
         String regular = method(table,
                 "private void configureCardShader(Texture front, Texture cardBack,",
@@ -228,8 +228,9 @@ final class GdxCardSmaaRendererContractTest {
                 "setUniformf(\"u_extraArtworkSampling\""));
         assertTrue(rabbit.contains(
                 "setUniformf(\"u_artworkLodBias\""));
-        assertTrue(table.contains(
-                "mode == GdxCardSmaaRenderer.RENDERING_SMOOTH ? 1f : 0f"));
+        assertEquals(1f, GdxCardSampling.shaderValue(GdxCardSmaaRenderer.RENDERING_SMOOTH));
+        assertEquals(-1f, GdxCardSampling.shaderValue(GdxCardSmaaRenderer.RENDERING_BALANCED));
+        assertTrue(artwork.contains("if (u_artworkSmooth < -0.5) return texture2D(artwork, uv)"));
         assertEquals(0f, CoronaPokerGdxTable.cardArtworkLodBias(
                 GdxCardSmaaRenderer.RENDERING_NATIVE));
         assertEquals(-0.25f, CoronaPokerGdxTable.cardArtworkLodBias(

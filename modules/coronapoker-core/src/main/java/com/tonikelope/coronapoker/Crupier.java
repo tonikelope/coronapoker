@@ -2161,7 +2161,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ANTES_DESTAPE_ALLIN = 1000;
-    private static final long TABLE_PRESENTATION_TIMEOUT_MILLIS = 4_000L;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
     // The showdown pause (seconds the result is shown before the next hand) is
     // configurable per table: lives in GameFrame.SHOWDOWN_TIME (default 10, range 5-30).
@@ -3018,6 +3017,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // while the mandatory Zero Trust acknowledgement is pending.
             synchronized (protocol_state_lock) {
                 this.termination_pending = true;
+            presentationCancelled.complete(null);
                 protocol_state_lock.notifyAll();
             }
 
@@ -4376,6 +4376,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private volatile boolean canonical_seating_complete = false;
     private volatile boolean fin_de_la_transmision = false;
+    private volatile CompletableFuture<Void> presentationCancelled = new CompletableFuture<>();
+    private volatile CompletableFuture<Void> transmissionEnded = new CompletableFuture<>();
     private volatile int street = PREFLOP;
     // Zero-trust state machine: the client only answers REQ_SRA_UNLOCK_CHAIN if each item's length
     // matches the street/phase it's in. For POCKET the real guard is the client's anti-genesis
@@ -4390,7 +4392,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile long turno = System.currentTimeMillis();
     private volatile boolean fold_sound_playing = false;
     private volatile int tiempo_pausa = 0;
-    private volatile boolean barajando = false;
     private volatile ArrayList<String> cartas_locales_recibidas = null;
     private volatile GamePlayerController last_aggressor = null;
     private volatile GamePlayerController lastWagerAggressor;
@@ -6445,6 +6446,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             passive_hot_join_exit_requested = true;
             termination_pending = true;
+            presentationCancelled.complete(null);
             protocol_state_lock.notifyAll();
         }
         return true;
@@ -6719,6 +6721,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void setTerminationPending() {
         synchronized (protocol_state_lock) {
             this.termination_pending = true;
+            presentationCancelled.complete(null);
             protocol_state_lock.notifyAll();
         }
         synchronized (shuffle_proof_gate_lock) {
@@ -6924,9 +6927,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         };
         try {
-            table_display.animatePositionRotation(
-                    neutralTransfers, flight_dur, onLand)
-                    .toCompletableFuture().get(4, TimeUnit.SECONDS);
+            awaitPresentation(table_display.animatePositionRotation(
+                    neutralTransfers, flight_dur, onLand));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
@@ -6948,7 +6950,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         try {
-            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+            awaitPresentation(barrier.orElseThrow());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
@@ -7135,10 +7137,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         try {
-            table_display.animateShowdownPayout(payouts,
+            awaitPresentation(table_display.animateShowdownPayout(payouts,
                     POT_CHIP_SHRINK_MS,
-                    SHOWDOWN_PAYOUT_POST_ANIMATION_PAUSE_MS)
-                    .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                    SHOWDOWN_PAYOUT_POST_ANIMATION_PAUSE_MS));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
@@ -7431,9 +7432,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             game_audio.playWavResource("misc/bet.wav");
         }
 
-        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(contributors.size());
+        var flights = new java.util.ArrayList<CompletableFuture<Void>>(contributors.size());
 
         for (GamePlayerController p : contributors) {
+            var landed = new CompletableFuture<Void>();
+            flights.add(landed);
             table_display.launchChipToPot(p.getNickname(),
                     POT_CHIP_SHRINK_MS, () -> {
                 pot_chips_in_flight.decrementAndGet();
@@ -7441,22 +7444,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Roll this contributor's stack/bet counters to the model right as the pot
                 // rises and flashes — they were frozen since prepareForcedBetsToPot.
                 p.rollCountersToModel();
-                latch.countDown();
+                landed.complete(null);
             });
         }
 
         try {
-            latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
+            awaitPresentation(CompletableFuture.allOf(flights.toArray(CompletableFuture[]::new)));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+        } catch (java.util.concurrent.ExecutionException failure) {
+            LOGGER.log(Level.WARNING, "Forced bet flight failed", failure);
         }
 
         // Wait for the exact end of the pot's yellow flash (not an arbitrary delay):
         // onPotFlashDone fires when the flash timer ends, or immediately if none is running.
         if (!isFin_de_la_transmision()) {
             try {
-                table_display.potFlashCompletion().toCompletableFuture()
-                        .get(2, TimeUnit.SECONDS);
+                awaitPresentation(table_display.potFlashCompletion());
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (Exception ex) {
@@ -7490,7 +7494,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         try {
-            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+            awaitPresentation(barrier.orElseThrow());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
@@ -7505,9 +7509,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Publishes one edge of the shuffle lifecycle. START completes when the renderer has
-     * started its loop; FINISH completes only after image and audio have reached their real
-     * end. That makes FINISH the causal barrier immediately before dealing.
+     * FINISH waits for the renderer to present the first complete shuffle. Once
+     * that pass is complete the renderer may interrupt any subsequent pass.
      */
     boolean presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase phase) {
         java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
@@ -7517,33 +7520,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         try {
-            barrier.orElseThrow().toCompletableFuture().get(4, TimeUnit.SECONDS);
+            awaitPresentation(barrier.orElseThrow());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Shuffle presentation barrier failed at " + phase, ex);
         }
         return true;
-    }
-
-    private void finishShufflePresentation(boolean attachedPresentation,
-            Object shuffleLock, boolean[] workerDone, String waitContext) {
-        if (attachedPresentation) {
-            presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.FINISH);
-            return;
-        }
-        synchronized (shuffleLock) {
-            while (!workerDone[0]) {
-                try {
-                    shuffleLock.wait(1000);
-                } catch (InterruptedException ex) {
-                    GameCancellation.log(LOGGER, waitContext, ex);
-                    break;
-                }
-            }
-        }
-        // The Swing animation paths already stop it on exit; this covers any remaining edge.
-        game_audio.stopPreloadedWav("misc/shuffle.wav");
     }
 
     // Fixed-duration stack fill animation: all players finish together (STACK_FILL_MS)
@@ -7554,7 +7537,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Stack fill (initial + rebuy) is non-blocking for the game; publishes the latch + nicks
     // of the current batch for the per-player gate (awaitStackFillIfPending), which only
     // blocks that player's turn. null/released = nothing pending.
-    private volatile java.util.concurrent.CountDownLatch stack_fill_latch = null;
+    private volatile CompletableFuture<Void> stackFillCompletion;
     private volatile java.util.Set<String> stack_fill_nicks = null;
 
     // Single gate for the animated stack fill (initial + rebuy): honors the counters-animation
@@ -7607,10 +7590,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             nicks.add(player.getNickname());
         }
 
-        java.util.concurrent.CountDownLatch latch
-                = new java.util.concurrent.CountDownLatch(1);
+        var completion = new CompletableFuture<Void>();
         this.stack_fill_nicks = nicks;
-        this.stack_fill_latch = latch;
+        this.stackFillCompletion = completion;
         java.util.concurrent.atomic.AtomicBoolean completed
                 = new java.util.concurrent.atomic.AtomicBoolean();
         Runnable onComplete = () -> {
@@ -7618,7 +7600,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (startSound != null) {
                     game_audio.stopWavResource(startSound);
                 }
-                latch.countDown();
+                completion.complete(null);
             }
         };
         try {
@@ -7634,15 +7616,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // player's turn stalls, never the whole game. Returns immediately if nothing is pending
     // for this nick.
     public void awaitStackFillIfPending(String nick) {
-        java.util.concurrent.CountDownLatch l = this.stack_fill_latch;
+        var completion = stackFillCompletion;
         java.util.Set<String> nicks = this.stack_fill_nicks;
-        if (l == null || nicks == null || !nicks.contains(nick)) {
+        if (completion == null || nicks == null || !nicks.contains(nick)) {
             return;
         }
         try {
-            l.await(STACK_FILL_MS + 1500, java.util.concurrent.TimeUnit.MILLISECONDS);
+            awaitPresentation(completion);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+        } catch (java.util.concurrent.ExecutionException failure) {
+            LOGGER.log(Level.WARNING, "Stack fill presentation failed", failure);
         }
     }
 
@@ -7653,14 +7637,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * position-chip flight.
      */
     private void awaitInitialStackFill() {
-        java.util.concurrent.CountDownLatch l = this.stack_fill_latch;
-        if (l == null) {
+        var completion = stackFillCompletion;
+        if (completion == null) {
             return;
         }
         try {
-            l.await(STACK_FILL_MS + 1500, java.util.concurrent.TimeUnit.MILLISECONDS);
+            awaitPresentation(completion);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+        } catch (java.util.concurrent.ExecutionException failure) {
+            LOGGER.log(Level.WARNING, "Stack fill presentation failed", failure);
         }
     }
 
@@ -8571,30 +8557,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 terminationPending.getAsBoolean(), Thread.currentThread().isInterrupted());
     }
 
+    private void awaitPresentation(java.util.concurrent.CompletionStage<Void> stage)
+            throws InterruptedException, java.util.concurrent.ExecutionException {
+        awaitPresentationBarrier(stage.toCompletableFuture(), presentationCancelled);
+    }
+
     public void setFin_de_la_transmision(boolean fin) {
+        if (!fin && transmissionEnded.isDone()) {
+            transmissionEnded = new CompletableFuture<>();
+            if (!termination_pending) presentationCancelled = new CompletableFuture<>();
+        }
         fin_de_la_transmision = fin;
         if (fin) {
+            presentationCancelled.complete(null);
+            transmissionEnded.complete(null);
             remote_rebuy_barrier.signalStateChange();
         }
     }
 
     private void awaitCommittedTermination() {
-        boolean interrupted = false;
-        synchronized (lock_apuestas) {
-            while (termination_pending && !fin_de_la_transmision) {
-                try {
-                    lock_apuestas.wait(100);
-                } catch (InterruptedException ex) {
-                    // The finTransmision thread owns the teardown decision. Do not let an
-                    // interrupt send this dealer back through NUEVA_MANO before that decision
-                    // has been committed; restore the flag after the short hand-off wait.
-                    interrupted = true;
-                }
-            }
-        }
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-        }
+        var completion = transmissionEnded;
+        if (termination_pending && !fin_de_la_transmision) completion.join();
     }
 
     public boolean isSincronizando_mano() {
@@ -14756,8 +14739,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!recoveryRequestedForThisHand && !this.passive_recovery_observer && this.conta_mano > 0) {
             try {
-                awaitPresentationBarrier(table_events.collectCompletedHandCards().toCompletableFuture(),
-                        this::tableWaitCancelled, 4_000L);
+                awaitPresentation(table_events.collectCompletedHandCards());
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (Exception ex) {
@@ -14885,42 +14867,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // same as the position chip rotation.
             flyForcedBetsToPot();
 
-            Object shuffle_lock = new Object();
-            // barajando here means "SRA cascade still running, keep looping the shuffle
-            // animation". The thread polls it after each complete GIF cycle (and after
-            // each audio-only cycle in the fallback path).
-            barajando = true;
-
-            // GDX owns the audiovisual shuffle when a renderer is attached. START only
-            // acknowledges that the loop is running; FINISH below is the real barrier that
-            // stops it on a complete cycle before repartir(). Swing remains byte-for-byte on
-            // its established worker-loop path while the bridge is detached.
-            final boolean attached_shuffle_presentation
-                    = presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.START);
-
-            final boolean[] gif_thread_done = {false};
-
-            if (!attached_shuffle_presentation) {
-                table_display.playShuffleLoop(
-                        presentation_settings.shuffleAnimation(),
-                        presentation_settings.shuffleSound(),
-                        () -> barajando && !isFin_de_la_transmision(),
-                        () -> {
-                            synchronized (shuffle_lock) {
-                                gif_thread_done[0] = true;
-                                shuffle_lock.notifyAll();
-                            }
-                        });
-            }
+            final boolean shufflePresented =
+                    presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.START);
             if (gameSession().isHost() && this.game_recovered == 0) {
 
                 try {
                     // If the cascade fails (someone doesn't respond), abort initialization.
                     if (!withZeroTrustWait(game_text.translate("zero_trust.wait_deal"),
                             this::enviarCartasJugadoresRemotos)) {
-                        barajando = false;
-                        finishShufflePresentation(attached_shuffle_presentation,
-                                shuffle_lock, gif_thread_done, "shuffle wait (abort path)");
+                        if (shufflePresented) presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.FINISH);
                         completeHotJoinFirstDealGate();
                         return false;
                     }
@@ -14942,10 +14897,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this::recibirMisCartas);
             }
 
-            // Cascade done: signal the loop to exit at the next cycle boundary.
-            barajando = false;
-            finishShufflePresentation(attached_shuffle_presentation,
-                    shuffle_lock, gif_thread_done, "shuffle wait");
+            // The first pass completes before dealing; a repeat may end immediately.
+            if (shufflePresented) presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.FINISH);
 
             if (!gameSession().isHost()
                     && !localPlayer().isCalentando()
@@ -16126,21 +16079,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean awaitAttachedTableEvent(
             java.util.function.LongFunction<? extends TableVisualEvent> eventFactory,
             String failureMessage) {
-        return awaitAttachedTableEvent(eventFactory, failureMessage,
-                TABLE_PRESENTATION_TIMEOUT_MILLIS);
-    }
-
-    private boolean awaitAttachedTableEvent(
-            java.util.function.LongFunction<? extends TableVisualEvent> eventFactory,
-            String failureMessage, long timeoutMillis) {
         java.util.Optional<java.util.concurrent.CompletionStage<Void>> barrier
                 = table_events.publishIfAttached(eventFactory);
         if (barrier.isEmpty()) {
             return false;
         }
         try {
-            awaitPresentationBarrier(barrier.orElseThrow().toCompletableFuture(),
-                    this::tableWaitCancelled, timeoutMillis);
+            awaitPresentation(barrier.orElseThrow());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
@@ -16149,41 +16094,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    /**
-     * Waits for a renderer barrier without making table termination wait for
-     * the visual timeout. Presentation ordering remains strict during normal
-     * play, while an exit/stop can cancel the wait cooperatively.
-     */
-    static boolean awaitPresentationBarrier(
-            java.util.concurrent.CompletableFuture<Void> barrier,
-            BooleanSupplier cancelled, long timeoutMillis)
-            throws InterruptedException, java.util.concurrent.ExecutionException,
-            java.util.concurrent.TimeoutException {
-        java.util.Objects.requireNonNull(barrier, "barrier");
-        java.util.Objects.requireNonNull(cancelled, "cancelled");
-        if (timeoutMillis < 0L) {
-            throw new IllegalArgumentException("negative presentation timeout");
-        }
-        long deadline = System.nanoTime()
-                + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-        while (!cancelled.getAsBoolean()) {
-            long remaining = deadline - System.nanoTime();
-            if (remaining <= 0L) {
-                throw new java.util.concurrent.TimeoutException(
-                        "presentation barrier timed out");
-            }
-            try {
-                barrier.get(Math.min(remaining,
-                        TimeUnit.MILLISECONDS.toNanos(50L)),
-                        TimeUnit.NANOSECONDS);
-                return true;
-            } catch (java.util.concurrent.TimeoutException ex) {
-                if (System.nanoTime() >= deadline) {
-                    throw ex;
-                }
-            }
-        }
-        return false;
+    static boolean awaitPresentationBarrier(CompletableFuture<Void> barrier, CompletableFuture<Void> cancellation)
+            throws InterruptedException, java.util.concurrent.ExecutionException {
+        CompletableFuture.anyOf(barrier, cancellation).get();
+        return !cancellation.isDone();
     }
 
     private void presentAcceptedActionToAttachedRenderer(GamePlayerController player, int decision,
@@ -19918,9 +19832,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         };
         try {
-            table_display.animatePositionRotation(
-                    transfers, flight_dur, onLand)
-                    .toCompletableFuture().get(2, TimeUnit.SECONDS);
+            awaitPresentation(table_display.animatePositionRotation(
+                    transfers, flight_dur, onLand));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
@@ -27227,8 +27140,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // scheduling the full grace period after it.
         awaitAttachedTableEvent(sequence -> new TableVisualEvent.RevealCommunityCards(
                 sequence, firstSlot, snapshots, leadInMillis),
-                "Community-card reveal presentation barrier failed",
-                leadInMillis + TABLE_PRESENTATION_TIMEOUT_MILLIS);
+                "Community-card reveal presentation barrier failed");
         return true;
     }
 
@@ -29519,7 +29431,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 } else {
 
-                                    fin_de_la_transmision = true;
+                                    setFin_de_la_transmision(true);
                                 }
                             } else {
                                 // Test mode removes Swing dwell/animation time, but an attached
@@ -29547,7 +29459,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         waitRabbitProcessing();
                                     }
                                 }
-                                fin_de_la_transmision = this.isLast_hand();
+                                setFin_de_la_transmision(this.isLast_hand());
                             }
 
                             // (IWTSTH/RIT/Rabbit rules are no longer re-enabled here: they
@@ -29583,7 +29495,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 game_text.translate("player.la_timba_ha_terminado_no"),
                                 GameDialogSink.Icon.EXIT));
 
-                        fin_de_la_transmision = true;
+                        setFin_de_la_transmision(true);
 
                     }
                 } else {
@@ -29608,7 +29520,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             game_text.translate("player.la_timba_ha_terminado_no"),
                             GameDialogSink.Icon.EXIT));
 
-                    fin_de_la_transmision = true;
+                    setFin_de_la_transmision(true);
                 }
             } catch (Exception ex) {
                 if (!fin_de_la_transmision) {

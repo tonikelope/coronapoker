@@ -30,7 +30,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);
     private static final List<Integer> CARD_RENDERING_MODES = List.of(
             GdxCardSmaaRenderer.RENDERING_NATIVE,
-            GdxCardSmaaRenderer.RENDERING_SMOOTH);
+            GdxCardSmaaRenderer.RENDERING_SMOOTH, GdxCardSmaaRenderer.RENDERING_BALANCED);
     private static final List<Integer> FRAME_RATE_LIMITS = List.of(
             60, 120, 144, 240, 0);
     private final PreferencesService preferences;
@@ -84,7 +84,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private record AnimationFlags(boolean master, boolean halo,
             boolean allInCinematics, boolean gameOverCinematics,
             boolean blindDealer, boolean bets, boolean counters,
-            boolean seatEntry, boolean shuffle, boolean shufflePreload,
+            boolean seatEntry, boolean shuffle,
             boolean deal, boolean flip, boolean swap, boolean allInFire,
             boolean winnerEffect) {
     }
@@ -102,7 +102,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 master && bool("animacion_contadores", true),
                 master && bool("animacion_entrada_asientos", true),
                 shuffle,
-                shuffle && bool("animacion_barajado_precarga", true),
                 master && bool("animacion_reparto", true),
                 master && bool("animacion_destape", true),
                 master && bool("animacion_swap", true),
@@ -430,6 +429,10 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     int requestedMsaaSamples() {
         int configured = integer("gdx_msaa_samples", 4);
+        return supportedMsaa(configured);
+    }
+
+    static int supportedMsaa(int configured) {
         return MSAA_LEVELS.contains(configured) ? configured : 4;
     }
     List<Integer> msaaLevels() {
@@ -586,9 +589,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     @Override public boolean shuffleAnimation() {
         return animationFlags.shuffle();
-    }
-    boolean shufflePreload() {
-        return animationFlags.shufflePreload();
     }
     @Override public boolean dealAnimation() {
         return animationFlags.deal();

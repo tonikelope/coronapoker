@@ -48,6 +48,7 @@ final class GdxPerspectiveTable implements Disposable {
     // the long dimension separately keeps angled ink from smearing sideways.
     static final String CARD_PROJECTION_SAMPLER = """
             vec4 sampleProjectedCard(sampler2D image, vec2 uv, float aspect, float smoothArtwork) {
+                if (smoothArtwork < -0.5) return texture2D(image, uv);
                 vec2 dx = dFdx(uv);
                 vec2 dy = dFdy(uv);
                 vec2 scale = vec2(1.0, aspect);
@@ -291,7 +292,7 @@ final class GdxPerspectiveTable implements Disposable {
     private float peek;
     private float peekVelocity;
     private final GdxPlasticCard.PeekShape pocketShape = new GdxPlasticCard.PeekShape();
-    private boolean smoothArtwork;
+    private float artworkSampling;
     private float cameraProgress = Float.NaN;
 
     private final GdxCardShell chipShell;
@@ -374,6 +375,11 @@ final class GdxPerspectiveTable implements Disposable {
         backdropFelt = null;
     }
 
+    void shuffleProjection(Matrix4 result, float x, float y, float length) {
+        result.set(view).translate(x - width * .5f, CARD_REST_HEIGHT, boardCenterY - y)
+                .rotate(Vector3.Y, -28f).scale(length, length, length);
+    }
+
     Vector3 boardToScreen(float x, float y) {
         projectedPoint.set(x, y, 0f).prj(board);
         return projectedPoint.set((projectedPoint.x + 1f) * width * 0.5f,
@@ -416,8 +422,8 @@ final class GdxPerspectiveTable implements Disposable {
         return near.lerp(far, (level - near.y) / (far.y - near.y));
     }
 
-    void setSmoothArtwork(boolean smooth) {
-        smoothArtwork = smooth;
+    void setArtworkMode(int mode) {
+        artworkSampling = GdxCardSampling.shaderValue(mode);
     }
 
     float peekAmount() { return peek; }
@@ -476,7 +482,7 @@ final class GdxPerspectiveTable implements Disposable {
             if (backdrop == null || backdrop.getWidth() != pixelWidth
                     || backdrop.getHeight() != pixelHeight) {
                 if (backdrop != null) backdrop.dispose();
-                backdrop = new FrameBuffer(Pixmap.Format.RGBA8888, pixelWidth, pixelHeight, true);
+                backdrop = new GdxSceneFrameBuffer(Pixmap.Format.RGBA8888, pixelWidth, pixelHeight, true);
                 backdrop.getColorBufferTexture().setFilter(
                         Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
             }
@@ -487,6 +493,7 @@ final class GdxPerspectiveTable implements Disposable {
             gl.glEnable(GL20.GL_DEPTH_TEST);
             gl.glDepthFunc(GL20.GL_LEQUAL);
             drawGeometry(felt, stretch, tileSpan);
+            backdrop.end();
             backdropFelt = felt;
             backdropStretch = stretch;
             backdropTileSpan = tileSpan;
@@ -1695,7 +1702,7 @@ final class GdxPerspectiveTable implements Disposable {
         shader.setUniformf("u_showdownTint", 0f);
         shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
         shader.setUniformf("u_opacity", opacity);
-        shader.setUniformf("u_artworkSmooth", smoothArtwork ? 1f : 0f);
+        shader.setUniformf("u_artworkSmooth", artworkSampling);
     }
 
     private static Mesh mesh(boolean fixed, FloatArray vertices) {

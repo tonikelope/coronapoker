@@ -19,32 +19,40 @@ import org.junit.jupiter.api.Test;
 final class GdxShuffleAudioSynchronizationTest {
 
     @Test
-    void wavMayStartOnlyAtAnOnTimeVisualCycleEdge() {
-        assertTrue(CoronaPokerGdxTable.shuffleAudioCycleStartInSync(0f));
-        assertTrue(CoronaPokerGdxTable.shuffleAudioCycleStartInSync(0.049f));
-        assertFalse(CoronaPokerGdxTable.shuffleAudioCycleStartInSync(0.051f));
-        assertFalse(CoronaPokerGdxTable.shuffleAudioCycleStartInSync(-0.001f));
+    void bothReleasesStartAtSampleZeroOfTheSameRecording() {
+        var format = new javax.sound.sampled.AudioFormat(1000f, 16, 1, true, false);
+        byte[] recording = new byte[4000];
+        new java.util.Random(17).nextBytes(recording);
+        byte[] wave = GdxShuffleAudio.arrange(recording, format);
+        org.junit.jupiter.api.Assertions.assertEquals(4460 * 2, wave.length);
+        for (int frame = 0; frame < 4460; frame++) {
+            int sample = frame >= 920 && frame < 1960 ? frame - 920
+                    : frame >= 2600 && frame < 3960 ? frame - 2600 : -1;
+            for (int b = 0; b < 2; b++) {
+                org.junit.jupiter.api.Assertions.assertEquals(sample < 0 ? 0 : recording[sample*2+b], wave[frame*2+b]);
+            }
+        }
     }
 
     @Test
-    void firstFrameUploadArmsTheSharedPresentationClockBeforeAudio()
+    void readyArtworkArmsTheSharedClockForBothRecordedReleases()
             throws Exception {
         String table = source();
         String update = method(table, "private void updateLiveShuffle()",
-                "private void startLiveShuffleSound(");
-        int upload = update.indexOf("active.animation.frameAt(0f)");
-        int clock = update.indexOf("active.startPresentation(renderFrameNanos)");
-        int audio = update.indexOf("startLiveShuffleSound(active, 0)");
+                "private static float wavDurationSeconds(");
+        int upload = update.indexOf("active.faces(0)");
+        int clock = update.indexOf("active.startPresentation(System.nanoTime())");
+        int audio = update.indexOf("startShuffleSound(active.animationEnabled ? riffleTrack : shuffleSound, phase)");
         assertTrue(upload >= 0 && clock > upload && audio > clock,
                 "frame zero, shared epoch and WAV must arm in that order");
         assertTrue(update.contains("active.elapsedSeconds(renderFrameNanos)"));
         assertTrue(method(table, "private void drawLiveShuffleOverlay()",
                 "private void drawTextOnlyShuffleOverlay(").contains(
-                        "frameAt(active.elapsedSeconds(renderFrameNanos))"));
+                        "active.elapsedSeconds(renderFrameNanos)"));
         assertFalse(method(table, "private void acceptLiveShuffle(",
                 "private void updateLiveShuffle()").contains(
-                        "startLiveShuffleSound("),
-                "accepting START must not race audio against GIF decoding");
+                        "startShuffleSound("),
+                "accepting START must not race audio against resource preparation");
     }
 
     @Test

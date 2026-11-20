@@ -102,7 +102,6 @@ final class GdxGamePresentationSettingsTest {
         assertFalse(settings.betAnimation());
         assertFalse(settings.counterAnimation());
         assertFalse(settings.shuffleAnimation());
-        assertFalse(settings.shufflePreload());
         assertFalse(settings.dealAnimation());
         assertFalse(settings.flipAnimation());
         assertFalse(settings.swapAnimation());
@@ -132,12 +131,7 @@ final class GdxGamePresentationSettingsTest {
 
         preferences.properties().setProperty("animacion_barajado", "true");
         settings.refreshRuntimePreferences();
-        assertTrue(settings.shufflePreload(),
-                "full preload must default on when shuffle animation is on");
-        preferences.properties().setProperty(
-                "animacion_barajado_precarga", "false");
-        settings.refreshRuntimePreferences();
-        assertFalse(settings.shufflePreload());
+        assertTrue(settings.shuffleAnimation());
 
         preferences.properties().setProperty("animaciones", "false");
         settings.refreshRuntimePreferences();
@@ -400,7 +394,7 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void cardRenderingAppliesLiveAndCyclesBetweenNativeAndSmooth(
+    void cardRenderingAppliesLiveAndCyclesThroughAllThreeModes(
             @TempDir Path temporary) throws Exception {
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
@@ -409,7 +403,7 @@ final class GdxGamePresentationSettingsTest {
             GdxGamePresentationSettings settings =
                     new GdxGamePresentationSettings(preferences);
 
-            assertEquals(GdxCardSmaaRenderer.RENDERING_SMOOTH,
+            assertEquals(GdxCardSmaaRenderer.RENDERING_BALANCED,
                     settings.requestedCardRenderingMode());
             assertEquals(GdxCardSmaaRenderer.RENDERING_NATIVE,
                     settings.selectNextCardRenderingMode(false));
@@ -419,7 +413,7 @@ final class GdxGamePresentationSettingsTest {
                     settings.selectPreviousCardRenderingMode(false));
             preferences.properties().setProperty(
                     "gdx_card_smaa_quality", "8");
-            assertEquals(GdxCardSmaaRenderer.RENDERING_SMOOTH,
+            assertEquals(GdxCardSmaaRenderer.RENDERING_BALANCED,
                     settings.requestedCardRenderingMode());
         } finally {
             preferences.close();
@@ -484,7 +478,7 @@ final class GdxGamePresentationSettingsTest {
         assertEquals("goliat", settings.selectNextCardBack(false));
         assertEquals("azul", settings.selectNextFelt(false));
         assertEquals(8, settings.selectNextMsaaSamples(false));
-        assertEquals(0, settings.selectNextCardRenderingMode(false));
+        assertEquals(GdxCardSmaaRenderer.RENDERING_BALANCED, settings.selectNextCardRenderingMode(false));
         assertEquals("coronapoker", preferences.properties()
                 .getProperty("baraja"));
         preferences.close();

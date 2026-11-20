@@ -40,7 +40,7 @@ import java.util.logging.Logger;
  *
  * <p>
  * Crypto analogue of {@code GameFrame.warmShuffleAnimCache()} (which pre-decodes
- * the shuffle GIF). Exercising the SAME path as a real deal also spares the
+ * the shuffle animation). Exercising the SAME path as a real deal also spares the
  * first hand an uncommon-trap deoptimization from taking a branch the warm-up
  * never walked.
  *

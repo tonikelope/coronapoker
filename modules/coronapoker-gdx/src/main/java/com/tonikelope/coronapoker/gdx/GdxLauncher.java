@@ -123,9 +123,8 @@ public final class GdxLauncher {
         config.setForegroundFPS(presentationSettings.effectiveFrameRateLimit(
                 display.refreshRate));
         config.setIdleFPS(30);
-        // The frontend is entirely 2D and never enables depth or stencil.
-        // Omitting those attachments saves bandwidth on every presented frame.
-        config.setBackBufferConfig(8, 8, 8, 8, 0, 0,
+        // The live shuffle draws solid cards against the table camera.
+        config.setBackBufferConfig(8, 8, 8, 8, 24, 0,
                 presentationSettings.requestedMsaaSamples());
         if (!wayland) config.setWindowIcon("images/corona_poker_16.png");
         if (windowMode == GdxWindowMode.WINDOWED) {

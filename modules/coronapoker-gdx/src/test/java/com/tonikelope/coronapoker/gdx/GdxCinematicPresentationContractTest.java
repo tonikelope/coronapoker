@@ -53,7 +53,7 @@ final class GdxCinematicPresentationContractTest {
     }
 
     @Test
-    void transparentShuffleStaysOnTheUnmaskedFastPath() throws Exception {
+    void shuffleUsesTheNativeMeshAndSelectedArtwork() throws Exception {
         String source = Files.readString(Path.of("src", "main", "java",
                 "com", "tonikelope", "coronapoker", "gdx",
                 "CoronaPokerGdxTable.java"), StandardCharsets.UTF_8);
@@ -63,7 +63,7 @@ final class GdxCinematicPresentationContractTest {
         assertTrue(start >= 0 && end > start);
         String method = source.substring(start, end);
 
-        assertTrue(method.contains("batch.draw(frame,"));
+        assertTrue(method.contains("riffle.drawOnTable(shuffleProjection, activeCardBack(), faces, requestedCardRenderingMode())"));
         assertFalse(method.contains("drawRoundedCinematicFrame("),
                 "transparent shuffle artwork must not pay for a redundant mask");
     }

@@ -60,8 +60,11 @@ final class GdxSettingsTooltips {
             case "FPS_LIMIT" -> presentation.frameRateLimits().get(option) == 0
                     ? "monitor" : "fixed";
             case "MSAA" -> presentation.msaaLevels().get(option).toString();
-            case "CARD_RENDERING" -> presentation.cardRenderingModes().get(option)
-                    == GdxCardSmaaRenderer.RENDERING_SMOOTH ? "smooth" : "native";
+            case "CARD_RENDERING" -> switch (presentation.cardRenderingModes().get(option)) {
+                case GdxCardSmaaRenderer.RENDERING_BALANCED -> "balanced";
+                case GdxCardSmaaRenderer.RENDERING_SMOOTH -> "smooth";
+                default -> "native";
+            };
             default -> null;
         };
         return value == null ? null : "gdx.settings.option_help."
@@ -305,8 +308,6 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_shuffle";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
-            case "animacion_barajado_precarga" ->
-                "gdx.settings.tooltip.shuffle_preload";
             case "animacion_reparto" ->
                 "gdx.settings.tooltip.animation_deal";
             case "reparto_velocidad" ->

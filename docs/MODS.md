@@ -71,11 +71,9 @@ mod/
 ├─ mod.png
 ├─ decks/
 │  └─ mydeck/
-│     ├─ hq/
-│     │  ├─ 2_C.jpg ... A_T.jpg
-│     │  └─ trasera.jpg
-│     └─ gif/
-│        └─ shuffle.gif
+│     └─ hq/
+│        ├─ 2_C.jpg ... A_T.jpg
+│        └─ trasera.jpg
 ├─ sounds/
 │  ├─ misc/
 │  │  ├─ call.wav
@@ -320,8 +318,7 @@ mod/decks/mydeck/hq/trasera.jpg
 ```
 
 The renderer also accepts the same images directly in the deck directory as a
-fallback. `gif/shuffle.gif` supplies the deck shuffle animation. If it is
-absent, the official Goliat shuffle is used. Optional card-specific sounds use
+fallback. The 2D and 3D tables animate the selected card backs directly. The 3D shuffle also uses the selected faces in a fresh cosmetic order. Optional card-specific sounds use
 the exact code under `mod/sounds/decks/<deck>/`, for example `A_C.wav`.
 
 The table and hand generator use the same selected deck and the same `hq`

@@ -56,6 +56,8 @@ final class GdxCardShell implements Disposable {
     private int multisampleTarget;
     private int multisampleColour;
     private int multisampleDepth;
+    private int multisampleSamples;
+    private int reportedSamples = -1;
     private boolean previousMultisample;
     private boolean grouping;
     private boolean groupHasCards;
@@ -75,7 +77,7 @@ final class GdxCardShell implements Disposable {
     }
 
     GdxCardShell(int requestedSamples, int cropBlockSize) {
-        this.requestedSamples = Math.max(0, Math.min(8, requestedSamples));
+        this.requestedSamples = Math.max(0, requestedSamples);
         this.cropBlockSize = cropBlockSize;
     }
 
@@ -343,6 +345,11 @@ final class GdxCardShell implements Disposable {
             }
             layer = buildLayer(width, height);
         }
+        if (multisampleSamples != reportedSamples && multisampleSamples != requestedSamples) {
+            Gdx.app.log("3D rendering", "Offscreen MSAA requested " + requestedSamples
+                    + "x, driver granted " + multisampleSamples + " sample(s)");
+        }
+        reportedSamples = multisampleSamples;
         nativeWidth = w;
         nativeHeight = h;
     }
@@ -422,7 +429,8 @@ final class GdxCardShell implements Disposable {
                 GL30C.GL_RENDERBUFFER, multisampleDepth);
         if (GL30C.glCheckFramebufferStatus(GL30C.GL_FRAMEBUFFER) != GL30C.GL_FRAMEBUFFER_COMPLETE) {
             disposeMultisample();
-            Gdx.app.log("3D cards", "MSAA unavailable, using supersampled geometry");
+        } else {
+            multisampleSamples = Math.max(0, GL11C.glGetInteger(GL13C.GL_SAMPLES));
         }
         GL30C.glBindRenderbuffer(GL30C.GL_RENDERBUFFER, 0);
     }
@@ -432,6 +440,7 @@ final class GdxCardShell implements Disposable {
         if (multisampleColour != 0) GL30C.glDeleteRenderbuffers(multisampleColour);
         if (multisampleDepth != 0) GL30C.glDeleteRenderbuffers(multisampleDepth);
         multisampleTarget = multisampleColour = multisampleDepth = 0;
+        multisampleSamples = 0;
     }
 
     private void captureSurface(FloatArray source) {

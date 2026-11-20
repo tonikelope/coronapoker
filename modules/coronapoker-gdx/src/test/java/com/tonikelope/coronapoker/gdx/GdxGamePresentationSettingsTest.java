@@ -350,9 +350,16 @@ final class GdxGamePresentationSettingsTest {
                 new PreferencesService(temporary.resolve("coronapoker.properties")));
 
         assertEquals(0, settings.actualMsaaSamples());
+        settings.selectMsaaSamples(8, false);
         settings.setActualMsaaSamples(4);
+        assertEquals(8, settings.windowMsaaRequest());
+        assertEquals(4, settings.actualMsaaSamples());
+        settings.selectMsaaSamples(2, false);
+        assertEquals(2, settings.requestedMsaaSamples());
+        assertEquals(8, settings.windowMsaaRequest());
         assertEquals(4, settings.actualMsaaSamples());
         settings.setActualMsaaSamples(-1);
+        assertEquals(2, settings.windowMsaaRequest());
         assertEquals(0, settings.actualMsaaSamples());
     }
 

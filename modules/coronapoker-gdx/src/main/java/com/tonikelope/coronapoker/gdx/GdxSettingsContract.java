@@ -29,6 +29,8 @@ final class GdxSettingsContract {
     static final float MASTER_VOLUME_STEP = 0.01f;
     static final boolean DEFAULT_VSYNC = true;
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
+    static final String MSAA_KEY = "gdx_msaa_samples";
+    static final int DEFAULT_MSAA_SAMPLES = 4;
     /** Persisted under its legacy SMAA key to preserve existing preferences. */
     static final String CARD_RENDERING_KEY = "gdx_card_smaa_quality";
     static final String HALO_EFFECT_KEY = "efecto_halos";
@@ -720,7 +722,7 @@ final class GdxSettingsContract {
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
             "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
             "gdx_fps_limit",
-            "gdx_msaa_samples", CARD_RENDERING_KEY,
+            MSAA_KEY, CARD_RENDERING_KEY,
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max",
@@ -768,7 +770,7 @@ final class GdxSettingsContract {
                     FINAL_SUMMARY_CARDS_ANIMATION_KEY, STACK_BET_PREVIEW_KEY,
                     "animacion_contador_final", "animacion_downgrade" ->
                 PerformanceImpact.LOW;
-            case "gdx_msaa_samples" -> switch (integer(values, key, 4)) {
+            case MSAA_KEY -> switch (integer(values, key, DEFAULT_MSAA_SAMPLES)) {
                 case 0 -> PerformanceImpact.NONE;
                 case 2 -> PerformanceImpact.LOW;
                 case 8 -> PerformanceImpact.HIGH;
@@ -1080,8 +1082,7 @@ final class GdxSettingsContract {
     }
 
     /** Clean selected MSAA value shared by every GDX settings entry point. */
-    static String msaaStatusLabel(int requested, int actual,
-            GdxGameText text) {
+    static String msaaSelectedLabel(int requested, GdxGameText text) {
         return antialiasingValue("MSAA", requested, text);
     }
 
@@ -1092,24 +1093,23 @@ final class GdxSettingsContract {
                 : limit + " FPS";
     }
 
-    /**
-     * Separate restart notice for the wide label lane of the MSAA row.
-     * Keeping it out of the narrow value lane prevents illegible fitting.
-     */
-    static String msaaRestartStatus(int requested, int actual,
+    /** The actual format can differ from the format requested at startup. */
+    static String msaaStatusDetail(int selected, int windowRequest, int actual,
             GdxGameText text) {
-        if (actual == requested) return "";
-        return translatedUpper(text,
-                "gdx.settings.value.restart_current",
-                "REINICIAR (ACTUAL "
-                + antialiasingValue("MSAA", actual, text) + ")",
-                antialiasingValue("MSAA", actual, text));
+        if (actual == selected) return "";
+        String current = antialiasingValue("MSAA", actual, text);
+        return selected != windowRequest
+                ? translatedUpper(text, "gdx.settings.value.restart_current",
+                        "REINICIAR (ACTUAL " + current + ")", current)
+                : translatedUpper(text, "gdx.settings.value.driver_msaa",
+                        "[!] CONTROLADOR (" + current + ")", current);
     }
 
-    /** Whether this edit selected an MSAA back buffer that needs a restart. */
+    /** Whether this edit changed the MSAA request to a format not yet in use. */
     static boolean requiresMsaaRestart(int openedRequested, int requested,
-            int actual) {
-        return openedRequested != requested && requested != actual;
+            int windowRequest, int actual) {
+        return openedRequested != requested && requested != windowRequest
+                && requested != actual;
     }
 
     static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
@@ -1476,7 +1476,7 @@ final class GdxSettingsContract {
             if (includeStartupGraphics) {
                 properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
                         GdxWindowMode.BORDERLESS.persistedValue());
-                properties.setProperty("gdx_msaa_samples", "4");
+                properties.setProperty(MSAA_KEY, Integer.toString(DEFAULT_MSAA_SAMPLES));
             }
             return;
         }
@@ -1526,7 +1526,8 @@ final class GdxSettingsContract {
                     || stringAtDefault(properties,
                             GdxWindowMode.PREFERENCE_KEY,
                             GdxWindowMode.BORDERLESS.persistedValue())
-                    && stringAtDefault(properties, "gdx_msaa_samples", "4"));
+                    && stringAtDefault(properties, MSAA_KEY,
+                            Integer.toString(DEFAULT_MSAA_SAMPLES)));
         }
         TogglePage page = appearanceTogglePage(index);
         for (ToggleOption option : page.options()) {

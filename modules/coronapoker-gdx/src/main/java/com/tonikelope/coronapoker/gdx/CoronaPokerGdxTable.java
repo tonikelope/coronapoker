@@ -3388,6 +3388,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && GdxSettingsContract.requiresMsaaRestart(
                         settingsOpenedMsaaSamples,
                         presentationSettings.requestedMsaaSamples(),
+                        presentationSettings.windowMsaaRequest(),
                         presentationSettings.actualMsaaSamples());
         shortcutCaptureId = null;
         if (save) {
@@ -11924,15 +11925,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return uppercase(gameText.translate(
                     "gdx.settings.value.unavailable"));
         }
-        return GdxSettingsContract.msaaStatusLabel(
-                presentationSettings.requestedMsaaSamples(),
-                presentationSettings.actualMsaaSamples(), gameText);
+        return GdxSettingsContract.msaaSelectedLabel(
+                presentationSettings.requestedMsaaSamples(), gameText);
     }
 
-    private String tableMsaaRestartStatus() {
+    private String tableMsaaStatusDetail() {
         if (presentationSettings == null) return "";
-        return GdxSettingsContract.msaaRestartStatus(
+        return GdxSettingsContract.msaaStatusDetail(
                 presentationSettings.requestedMsaaSamples(),
+                presentationSettings.windowMsaaRequest(),
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
@@ -11982,7 +11983,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // Use the active window's granted setting, including OFF.
             // A pending MSAA change is applied on restart, like the HUD.
             int samples = presentationSettings == null
-                    ? Gdx.graphics.getBufferFormat().samples : presentationSettings.actualMsaaSamples();
+                    ? GdxApplicationShell.defaultFramebufferSamples()
+                    : presentationSettings.actualMsaaSamples();
             perspectiveTable = new GdxPerspectiveTable(samples);
         }
         return perspectiveTable;
@@ -27636,7 +27638,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsAppearanceGraphicsRows(content, firstY,
                             settingsAppearanceScroll);
             String[] keys = {"gdx_window_mode", "auto_fullscreen",
-                "gdx_vsync", "gdx_fps_limit", "gdx_msaa_samples",
+                "gdx_vsync", "gdx_fps_limit", GdxSettingsContract.MSAA_KEY,
                 GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
                 "gpu_renderer"};
             for (int row = rows.firstIndex();
@@ -29247,11 +29249,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         "gdx.settings.row.antialiasing_scene")),
                                 GdxSettingsContract.markDefault(
                                         tableMsaaSettingLabel(),
-                                        "4".equals(tableSettingsProperties()
-                                                .getProperty(
-                                                        "gdx_msaa_samples",
-                                                        "4"))),
-                                tableMsaaRestartStatus(),
+                                        presentationSettings != null
+                                                && presentationSettings.requestedMsaaSamples()
+                                                == GdxSettingsContract.DEFAULT_MSAA_SAMPLES),
+                                tableMsaaStatusDetail(),
                                 presentationSettings != null, alpha);
                     } else if (row == 5) {
                         boolean isDefault = Integer.toString(
@@ -30272,7 +30273,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case MSAA -> presentationSettings == null ? List.of()
                     : presentationSettings.msaaLevels().stream()
                             .map(samples -> GdxSettingsContract
-                                    .msaaStatusLabel(samples, samples,
+                                    .msaaSelectedLabel(samples,
                                             gameText))
                             .toList();
             case CARD_RENDERING -> presentationSettings == null ? List.of()

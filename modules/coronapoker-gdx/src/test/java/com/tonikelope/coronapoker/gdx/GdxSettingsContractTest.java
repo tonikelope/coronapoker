@@ -34,11 +34,13 @@ final class GdxSettingsContractTest {
 
     @Test
     void msaaRestartNoticeRequiresARealPendingBackBufferChange() {
-        assertTrue(GdxSettingsContract.requiresMsaaRestart(4, 8, 4));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 0));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 8));
-        assertFalse(GdxSettingsContract.requiresMsaaRestart(8, 4, 4));
+        assertTrue(GdxSettingsContract.requiresMsaaRestart(4, 8, 4, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 4, 4, 0));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 8, 4));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(4, 8, 4, 8));
+        assertFalse(GdxSettingsContract.requiresMsaaRestart(8, 4, 8, 4));
+        assertTrue(GdxSettingsContract.requiresMsaaRestart(8, 2, 8, 4));
     }
 
     @Test
@@ -59,24 +61,27 @@ final class GdxSettingsContractTest {
 
     @Test
     void msaaSummaryIsSharedAndFollowsTheLiveLanguage() {
-        assertEquals("MSAA 4X", GdxSettingsContract.msaaStatusLabel(
-                4, 4, new GdxGameText("es")));
-        assertEquals("MSAA 4X", GdxSettingsContract.msaaStatusLabel(
-                4, 4, new GdxGameText("en")));
-        assertEquals("MSAA 4X",
-                GdxSettingsContract.msaaStatusLabel(4, 0,
-                        new GdxGameText("en")));
+        assertEquals("MSAA 4X", GdxSettingsContract.msaaSelectedLabel(
+                4, new GdxGameText("es")));
+        assertEquals("MSAA 4X", GdxSettingsContract.msaaSelectedLabel(
+                4, new GdxGameText("en")));
         assertEquals("SUAVE",
                 GdxSettingsContract.cardRenderingStatusLabel(1,
                         new GdxGameText("es")));
         assertEquals("NATIVE",
                 GdxSettingsContract.cardRenderingStatusLabel(0,
                         new GdxGameText("en")));
-        assertEquals("", GdxSettingsContract.msaaRestartStatus(
-                4, 4, new GdxGameText("es")));
+        assertEquals("", GdxSettingsContract.msaaStatusDetail(
+                4, 4, 4, new GdxGameText("es")));
         assertEquals("[!] RESTART PENDING (CURRENT MSAA DISABLED)",
-                GdxSettingsContract.msaaRestartStatus(4, 0,
+                GdxSettingsContract.msaaStatusDetail(4, 0, 0,
                         new GdxGameText("en")));
+        assertEquals("[!] DRIVER (CURRENT MSAA 4X)",
+                GdxSettingsContract.msaaStatusDetail(8, 8, 4,
+                        new GdxGameText("en")));
+        assertEquals("[!] CONTROLADOR (ACTUAL MSAA 4X)",
+                GdxSettingsContract.msaaStatusDetail(8, 8, 4,
+                        new GdxGameText("es")));
     }
 
     @Test

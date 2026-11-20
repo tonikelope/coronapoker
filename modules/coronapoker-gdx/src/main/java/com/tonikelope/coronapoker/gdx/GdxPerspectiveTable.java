@@ -296,12 +296,15 @@ final class GdxPerspectiveTable implements Disposable {
     private float cameraProgress = Float.NaN;
 
     private final GdxCardShell chipShell;
+    private final GdxCardShell flightShadowShell;
 
     GdxPerspectiveTable(int msaaSamples) {
         shell = new GdxCardShell(msaaSamples);
         pocketShell = new GdxCardShell(msaaSamples);
         boardShell = new GdxCardShell(msaaSamples);
         chipShell = new GdxCardShell(msaaSamples, CHIP_CROP_BLOCK_SIZE);
+        // Keep airborne shadows on their own single-sample, native-resolution target.
+        flightShadowShell = new GdxCardShell(0, CHIP_CROP_BLOCK_SIZE, false);
     }
 
     private final GdxPlasticCard.UncoverShape uncoverShape = new GdxPlasticCard.UncoverShape();
@@ -1230,11 +1233,12 @@ final class GdxPerspectiveTable implements Disposable {
                     cardBoundsMax.x, cardBoundsMax.y, cardBoundsMax.z));
             return;
         }
-        beginCroppedCardLayer(chipShell);
+        beginCroppedCardLayer(flightShadowShell);
         try {
-            chipShell.renderLayer(() -> flyingShadows.draw(shader, view, chipShell.targetWidth(), chipShell.targetHeight()), width, height);
+            flightShadowShell.renderLayer(() -> flyingShadows.draw(shader, view,
+                    flightShadowShell.targetWidth(), flightShadowShell.targetHeight()), width, height);
         } finally {
-            chipShell.endPair();
+            flightShadowShell.endPair();
         }
     }
 
@@ -1729,6 +1733,7 @@ final class GdxPerspectiveTable implements Disposable {
         pocketShell.dispose();
         boardShell.dispose();
         chipShell.dispose();
+        flightShadowShell.dispose();
         flyingChips.dispose();
         flyingShadows.dispose();
         for (StandingChipPile pile : potPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();

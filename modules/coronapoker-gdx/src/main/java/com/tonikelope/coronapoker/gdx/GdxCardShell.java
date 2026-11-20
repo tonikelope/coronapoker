@@ -65,6 +65,7 @@ final class GdxCardShell implements Disposable {
     private float groupHeight;
     private final int requestedSamples;
     private final int cropBlockSize;
+    private final boolean supersampleCrop;
     private boolean cropReserveRejected;
     private int nativeWidth;
     private int nativeHeight;
@@ -77,8 +78,13 @@ final class GdxCardShell implements Disposable {
     }
 
     GdxCardShell(int requestedSamples, int cropBlockSize) {
+        this(requestedSamples, cropBlockSize, true);
+    }
+
+    GdxCardShell(int requestedSamples, int cropBlockSize, boolean supersampleCrop) {
         this.requestedSamples = Math.max(0, requestedSamples);
         this.cropBlockSize = cropBlockSize;
+        this.supersampleCrop = supersampleCrop;
     }
 
     void prepare(int cols, int strips, float aspect) {
@@ -315,7 +321,7 @@ final class GdxCardShell implements Disposable {
             layer = null;
         }
         resolutionScale = 1;
-        if (cropped && width <= maximum / 2 && height <= maximum / 2) {
+        if (supersampleCrop && cropped && width <= maximum / 2 && height <= maximum / 2) {
             var limits = BufferUtils.newIntBuffer(2);
             GL11C.glGetIntegerv(GL20.GL_MAX_VIEWPORT_DIMS, limits);
             if (w <= limits.get(0) / 2 && h <= limits.get(1) / 2) resolutionScale = 2;

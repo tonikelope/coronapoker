@@ -5,6 +5,7 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.graphics.Color;
@@ -15,7 +16,6 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.HdpiMode;
-import com.badlogic.gdx.graphics.glutils.HdpiUtils;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
@@ -25,13 +25,13 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Locale;
 
 /** Standalone side-by-side viewer. It does not open a game or a player profile. */
 public final class GdxShufflePreview extends ApplicationAdapter {
 
-    private static final String ART = "images/decks/goliat/";
-    private static final float DURATION = GdxRiffleShuffle.CYCLE_SECONDS;
+    private static final float DURATION = GdxShuffleGeometry.CYCLE_SECONDS;
     private static final Color BACKGROUND = Color.valueOf("101917");
     private static final Color TABLE = Color.valueOf("184137");
     private static final Color PANEL = Color.valueOf("23342f");
@@ -41,7 +41,6 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     private static final Locale SPANISH = Locale.forLanguageTag("es-ES");
     private static final float[] SPEEDS = {1f, .5f, .25f};
     private static final String[] SPEED_LABELS = {"Velocidad 1x", "Velocidad 1/2", "Velocidad 1/4"};
-    private static final float[] CAPTURE_TIMES = {0f, .48f, .94f, 1.22f, 1.56f, 1.719f};
 
     private final FitViewport viewport = new FitViewport(1280, 720);
     private final Rectangle referencePanel = new Rectangle(40, 223, 590, 332);
@@ -50,6 +49,9 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     private final Rectangle play = new Rectangle(48, 63, 146, 47);
     private final Rectangle restart = new Rectangle(207, 63, 122, 47);
     private final Rectangle speed = new Rectangle(342, 63, 140, 47);
+    private final Rectangle deckControl = new Rectangle(40, 598, 282, 42);
+    private final Rectangle backControl = new Rectangle(334, 598, 282, 42);
+    private final Rectangle viewControl = new Rectangle(650, 598, 200, 42);
     private final Vector2 pointer = new Vector2();
     private final Path captureDirectory;
     private SpriteBatch batch;
@@ -57,31 +59,54 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     private BitmapFont font;
     private StreamingGifTextureAnimation reference;
     private GdxRiffleShuffle riffle;
-    private Texture back, faceOne, faceTwo;
+    private Texture back, faces;
+    private final Path customDeck, customBack;
+    private int deckIndex, backIndex;
+    private boolean fromAbove;
     private float elapsed;
     private int speedIndex;
     private int captureIndex;
     private boolean playing = true;
     private boolean scrubbing;
 
-    private GdxShufflePreview(Path captureDirectory) {
-        this.captureDirectory = captureDirectory;
+    private GdxShufflePreview(String[] args) {
+        Path captures = null, deckPath = null, backPath = null;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--capture" -> captures = Path.of(args[++i]);
+                case "--overhead" -> fromAbove = true;
+                case "--deck" -> {
+                    String deck = args[++i];
+                    deckIndex = Arrays.asList(GdxShuffleArtwork.DECKS).indexOf(deck);
+                    if (deckIndex < 0) deckPath = Path.of(deck).toAbsolutePath();
+                }
+                case "--back" -> {
+                    String deck = args[++i];
+                    backIndex = Arrays.asList(GdxShuffleArtwork.DECKS).indexOf(deck);
+                    if (backIndex < 0) backPath = Path.of(deck).toAbsolutePath();
+                }
+                default -> throw new IllegalArgumentException(args[i]);
+            }
+        }
+        captureDirectory = captures;
+        customDeck = deckPath;
+        customBack = backPath;
     }
 
     public static void main(String[] args) {
-        Path captures = args.length == 2 && args[0].equals("--capture") ? Path.of(args[1]) : null;
+        var viewer = new GdxShufflePreview(args);
         var config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("CoronaPoker · Visor de barajado");
         config.setWindowedMode(1280, 720);
         config.setWindowSizeLimits(840, 480, -1, -1);
-        config.setInitialVisible(captures == null);
+        config.setInitialVisible(viewer.captureDirectory == null);
         config.setResizable(true);
         config.setHdpiMode(HdpiMode.Pixels);
         config.setBackBufferConfig(8, 8, 8, 8, 24, 0, 4);
         config.useVsync(true);
         config.setForegroundFPS(60);
         config.disableAudio(true);
-        new Lwjgl3Application(new GdxShufflePreview(captures), config);
+        new Lwjgl3Application(viewer, config);
     }
 
     @Override
@@ -91,21 +116,15 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         font = new BitmapFont();
         font.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         riffle = new GdxRiffleShuffle();
-        back = artwork("trasera.jpg");
-        faceOne = artwork("2_P.jpg");
-        faceTwo = artwork("K_T.jpg");
-        try {
-            reference = StreamingGifTextureAnimation.loadLooping(
-                    StreamingGifTextureAnimation.prepareLoopingFully(ART + "gif/shuffle.gif", 590));
-        } catch (IOException failure) {
-            throw new IllegalStateException("El GIF de referencia no se pudo abrir", failure);
-        }
+        loadDeck();
+        loadBack();
         playing = captureDirectory == null;
         Gdx.input.setInputProcessor(new InputAdapter() {
             @Override public boolean keyDown(int key) {
                 switch (key) {
                     case Input.Keys.SPACE -> playing = !playing;
                     case Input.Keys.R -> elapsed = 0f;
+                    case Input.Keys.V -> fromAbove = !fromAbove;
                     case Input.Keys.LEFT -> step(-.02f);
                     case Input.Keys.RIGHT -> step(.02f);
                     default -> { return false; }
@@ -119,6 +138,14 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                 if (timeline.contains(pointer)) {
                     scrubbing = true;
                     seek();
+                } else if (deckControl.contains(pointer)) {
+                    deckIndex = next(deckIndex, customDeck);
+                    loadDeck();
+                } else if (backControl.contains(pointer)) {
+                    backIndex = next(backIndex, customBack);
+                    loadBack();
+                } else if (viewControl.contains(pointer)) {
+                    fromAbove = !fromAbove;
                 } else if (play.contains(pointer)) {
                     playing = !playing;
                 } else if (restart.contains(pointer)) {
@@ -146,10 +173,36 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         });
     }
 
-    private Texture artwork(String name) {
-        Texture texture = new Texture(Gdx.files.internal(ART + "hq/" + name), true);
-        texture.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
-        return texture;
+    private static int next(int index, Path custom) {
+        return index + 1 == GdxShuffleArtwork.DECKS.length ? (custom == null ? 0 : -1) : index + 1;
+    }
+
+    private void loadDeck() {
+        FileHandle dir = deckIndex < 0 ? Gdx.files.absolute(customDeck.toString())
+                : GdxShuffleArtwork.directory(GdxShuffleArtwork.DECKS[deckIndex]);
+        FileHandle hq = deckIndex >= 0 || dir.child("hq/2_P.jpg").exists() ? dir.child("hq") : dir;
+        Texture replacement = GdxShuffleArtwork.faces(hq);
+        if (faces != null) faces.dispose();
+        faces = replacement;
+        if (reference != null) reference.dispose();
+        reference = null;
+        FileHandle gif = dir.child("gif/shuffle.gif");
+        if (gif.exists()) {
+            try {
+                var prepared = StreamingGifTextureAnimation.prepareLoopingFully(gif.readBytes(), gif.path(), 590, () -> false);
+                reference = StreamingGifTextureAnimation.loadLooping(prepared);
+            } catch (IOException failure) {
+                throw new IllegalStateException("El GIF de referencia no se pudo abrir", failure);
+            }
+        }
+    }
+
+    private void loadBack() {
+        FileHandle file = backIndex < 0 ? Gdx.files.absolute(customBack.toString())
+                : GdxShuffleArtwork.directory(GdxShuffleArtwork.DECKS[backIndex]).child("hq/trasera.jpg");
+        Texture replacement = GdxShuffleArtwork.back(file);
+        if (back != null) back.dispose();
+        back = replacement;
     }
 
     private void toWorld(int x, int y) {
@@ -174,9 +227,9 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     @Override
     public void render() {
         if (captureDirectory != null) {
-            elapsed = CAPTURE_TIMES[captureIndex];
+            elapsed = captureIndex * GdxShuffleGeometry.FRAME_SECONDS;
         } else if (playing) {
-            elapsed = (elapsed + Math.min(Gdx.graphics.getDeltaTime(), .05f) * SPEEDS[speedIndex]) % DURATION;
+            elapsed = (elapsed + Gdx.graphics.getDeltaTime() * SPEEDS[speedIndex]) % DURATION;
         }
         ScreenUtils.clear(BACKGROUND, true);
         viewport.apply();
@@ -187,6 +240,9 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         fill(play, ACCENT);
         fill(restart, PANEL);
         fill(speed, PANEL);
+        fill(deckControl, PANEL);
+        fill(backControl, PANEL);
+        fill(viewControl, PANEL);
         shapes.setColor(PANEL);
         shapes.rect(timeline.x, timeline.y + 10f, timeline.width, 4f);
         float progressWidth = timeline.width * elapsed / DURATION;
@@ -199,21 +255,23 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         int nativeHeight = Math.round(nativePanel.height * viewport.getScreenHeight() / 720f);
         int nativeX = viewport.getScreenX() + Math.round(nativePanel.x * viewport.getScreenWidth() / 1280f);
         int nativeY = viewport.getScreenY() + Math.round(nativePanel.y * viewport.getScreenHeight() / 720f);
-        HdpiUtils.glViewport(nativeX, nativeY, nativeWidth, nativeHeight);
-        riffle.draw(elapsed, nativeWidth, nativeHeight, back, faceOne, faceTwo);
+        riffle.draw(elapsed, nativeX, nativeY, nativeWidth, nativeHeight, back, faces, fromAbove);
         viewport.apply();
 
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
-        Texture original = reference.frameAt(Math.min(elapsed, DURATION - .001f));
+        Texture original = reference == null ? null : reference.frameAt(Math.min(elapsed + .00001f, DURATION - .001f));
         if (original != null) {
             batch.draw(original, referencePanel.x, referencePanel.y,
                     referencePanel.width, referencePanel.height);
         }
         text("Barajado", 40, 677, 1.9f, INK);
         text("26 + 26 cartas    /    1,72 s", 1024, 667, 1.1f, MUTED);
-        text("GIF original", 40, 581, 1.25f, INK);
-        text("Réplica en GDX", 650, 581, 1.25f, INK);
+        text(reference == null ? "Sin GIF de referencia" : "GIF original de la baraja", 40, 581, 1.25f, INK);
+        text("Barajado GDX", 650, 581, 1.25f, INK);
+        button("Baraja · " + (deckIndex < 0 ? customDeck.getFileName() : GdxShuffleArtwork.DECKS[deckIndex]), deckControl, INK);
+        button("Dorso · " + (backIndex < 0 ? customBack.getFileName() : GdxShuffleArtwork.DECKS[backIndex]), backControl, INK);
+        button(fromAbove ? "Vista cenital 2D" : "Vista en perspectiva 3D", viewControl, INK);
         text(String.format(SPANISH, "%.3f s", elapsed), 1148, 189, 1.13f, MUTED);
         button(playing ? "Pausar" : "Reproducir", play, BACKGROUND);
         button("Reiniciar", restart, INK);
@@ -253,16 +311,15 @@ public final class GdxShufflePreview extends ApplicationAdapter {
             png.dispose();
             pixels.dispose();
         }
-        if (++captureIndex == CAPTURE_TIMES.length) Gdx.app.exit();
+        if (++captureIndex == GdxShuffleGeometry.FRAME_COUNT) Gdx.app.exit();
     }
 
     @Override
     public void dispose() {
-        reference.dispose();
+        if (reference != null) reference.dispose();
         riffle.dispose();
         back.dispose();
-        faceOne.dispose();
-        faceTwo.dispose();
+        faces.dispose();
         font.dispose();
         shapes.dispose();
         batch.dispose();

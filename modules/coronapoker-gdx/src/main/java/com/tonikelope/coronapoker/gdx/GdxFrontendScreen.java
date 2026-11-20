@@ -14292,7 +14292,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 bounds.width, bounds.height);
         if (visible == null) return;
         GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
-                settingKey, initialProperties, gameText, modOverride,
+                settingKey, gameText, modOverride,
                 jokeBankMode);
         if (content.text().isBlank()) return;
         tooltipHits.add(new TooltipHit(visible,
@@ -14926,6 +14926,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 if (dropdownAppearanceChoice != null) {
                     GdxAppearanceOptions.select(dropdownAppearanceChoice,
                             initialProperties, option);
+                    presentationSettings.refreshRuntimePreferences();
                 }
             }
             case ANTE_MODE -> {
@@ -15113,8 +15114,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     selectDropdownOption(dropdown, selectedOption);
                 });
                 if (over) {
-                    String key = GdxSettingsTooltips.optionKey(dropdown.name(),
-                            option, presentationSettings);
+                    String key = GdxSettingsTooltips.optionKey(dropdown.name(), option);
                     if (key != null) {
                         dropdownOptionTooltip = new TooltipHit(
                                 new Rectangle(x + 6f, rowY + 3f,

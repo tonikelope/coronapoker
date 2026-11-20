@@ -78,6 +78,21 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
+    void flyingChipShadowQualityDefaultsHighAndRefreshesAtRuntime(@TempDir Path temporary) {
+        PreferencesService preferences = new PreferencesService(
+                temporary.resolve("coronapoker.properties"));
+        GdxGamePresentationSettings settings = new GdxGamePresentationSettings(preferences);
+        String key = GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY;
+        assertFalse(settings.normalFlyingChipShadows());
+        preferences.properties().setProperty(key, "normal");
+        settings.refreshRuntimePreferences();
+        assertTrue(settings.normalFlyingChipShadows());
+        preferences.properties().setProperty(key, "invalid");
+        settings.refreshRuntimePreferences();
+        assertFalse(settings.normalFlyingChipShadows());
+    }
+
+    @Test
     void gameplayAnimationsHonorTheGlobalMasterAndSpecificSwitches(
             @TempDir Path temporary) {
         PreferencesService preferences = new PreferencesService(

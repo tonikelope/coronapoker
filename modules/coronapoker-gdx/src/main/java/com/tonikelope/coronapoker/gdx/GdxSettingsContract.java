@@ -98,6 +98,7 @@ final class GdxSettingsContract {
     static final String POT_PLAYER_COUNT_KEY = "mostrar_jugadores_bote";
     static final String DIM_FOLDED_OPPONENTS_KEY = "atenuar_jugadores_foldeados";
     static final String TABLE_VIEW_KEY = "gdx_table_view";
+    static final String FLYING_CHIP_SHADOW_QUALITY_KEY = "gdx_flying_chip_shadow_quality";
     static final String TABLE_CHAT_FEED_KEY = "gdx_table_chat_feed";
     static final String TABLE_SPEAKING_EMOJI_KEY = "gdx_table_speaking_emoji";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
@@ -651,6 +652,7 @@ final class GdxSettingsContract {
                     animationToggle("animacion_fuego_allin"),
                     animationToggle("animacion_efecto_ganador"),
                     animationToggle("animacion_apuestas"),
+                    animationChoice(FLYING_CHIP_SHADOW_QUALITY_KEY),
                     animationToggle(STACK_BET_PREVIEW_KEY));
 
     /**
@@ -710,7 +712,7 @@ final class GdxSettingsContract {
             "animacion_barajado", "animacion_barajado_precarga",
             "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
-            "animacion_apuestas", STACK_BET_PREVIEW_KEY,
+            "animacion_apuestas", FLYING_CHIP_SHADOW_QUALITY_KEY, STACK_BET_PREVIEW_KEY,
             "animacion_contadores",
             "animacion_entrada_asientos", "animacion_cascada_overlay",
             "animacion_swap",
@@ -746,47 +748,27 @@ final class GdxSettingsContract {
     }
 
     /**
-     * Estimates the cost of an active feature or the selected graphics value.
-     * Low is brief or local work, medium is additional animation or decoding,
-     * and high is sustained or expensive rendering. Monitor refresh varies
-     * by display. Shuffle preloading describes its RAM trade-off separately.
+     * Rates what a setting can cost on supported hardware. The rating and
+     * its tooltip color are independent of the currently selected value.
      */
-    static PerformanceImpact performanceImpact(String key,
-            Properties properties) {
+    static PerformanceImpact performanceImpact(String key) {
         if (key == null || key.isBlank()) return PerformanceImpact.NONE;
-        Properties values = properties == null ? new Properties() : properties;
         return switch (key) {
             case "animaciones", POKER_VIDEOS_KEY, "animacion_barajado",
-                    "animacion_fuego_allin", MODAL_BLUR_KEY ->
-                PerformanceImpact.HIGH;
+                    MODAL_BLUR_KEY, "animacion_apuestas",
+                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY, CARD_RENDERING_KEY,
+                    "gdx_fps_limit" -> PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_accion", "cinematicas_allin",
                     "cinematicas_gameover", "animacion_reparto",
-                    "animacion_destape", "animacion_apuestas", COLLECT_HAND_CARDS_KEY,
-                    "animacion_efecto_ganador", HALO_EFFECT_KEY,
-                    GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
+                    "animacion_destape", COLLECT_HAND_CARDS_KEY,
+                    "animacion_fuego_allin", "animacion_efecto_ganador",
+                    HALO_EFFECT_KEY, GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
             case POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
                     "animacion_ciegas_dealer", "animacion_contadores",
                     "animacion_entrada_asientos", "animacion_swap",
                     FINAL_SUMMARY_CARDS_ANIMATION_KEY, STACK_BET_PREVIEW_KEY,
                     "animacion_contador_final", "animacion_downgrade" ->
                 PerformanceImpact.LOW;
-            case MSAA_KEY -> switch (integer(values, key, DEFAULT_MSAA_SAMPLES)) {
-                case 0 -> PerformanceImpact.NONE;
-                case 2 -> PerformanceImpact.LOW;
-                case 8 -> PerformanceImpact.HIGH;
-                default -> PerformanceImpact.MEDIUM;
-            };
-            case CARD_RENDERING_KEY ->
-                integer(values, key, DEFAULT_CARD_RENDERING_MODE)
-                        == GdxCardSmaaRenderer.RENDERING_NATIVE
-                        ? PerformanceImpact.NONE : PerformanceImpact.HIGH;
-            case "gdx_fps_limit" -> switch (
-                    integer(values, key, DEFAULT_FRAME_RATE_LIMIT)) {
-                case 0 -> PerformanceImpact.NONE;
-                case 60 -> PerformanceImpact.LOW;
-                case 240 -> PerformanceImpact.HIGH;
-                default -> PerformanceImpact.MEDIUM;
-            };
             default -> PerformanceImpact.NONE;
         };
     }

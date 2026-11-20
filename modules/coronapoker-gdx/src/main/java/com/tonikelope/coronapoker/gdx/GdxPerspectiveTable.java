@@ -1217,7 +1217,7 @@ final class GdxPerspectiveTable implements Disposable {
         vertices.add(z * normalRadial);
     }
 
-    void drawChipRack(Texture[] faces, float opacity, boolean airborne) {
+    void drawChipRack(Texture[] faces, float opacity, boolean airborne, boolean normalShadows) {
         if (airborne ? flyingChips.isEmpty() : !Float.isFinite(cardBoundsMin.x)) return;
         begin(8, faces[0], faces[0], opacity);
         if (airborne) {
@@ -1233,12 +1233,13 @@ final class GdxPerspectiveTable implements Disposable {
                     cardBoundsMax.x, cardBoundsMax.y, cardBoundsMax.z));
             return;
         }
-        beginCroppedCardLayer(flightShadowShell);
+        GdxCardShell target = normalShadows ? flightShadowShell : chipShell;
+        beginCroppedCardLayer(target);
         try {
-            flightShadowShell.renderLayer(() -> flyingShadows.draw(shader, view,
-                    flightShadowShell.targetWidth(), flightShadowShell.targetHeight()), width, height);
+            target.renderLayer(() -> flyingShadows.draw(shader, view,
+                    target.targetWidth(), target.targetHeight()), width, height);
         } finally {
-            flightShadowShell.endPair();
+            target.endPair();
         }
     }
 

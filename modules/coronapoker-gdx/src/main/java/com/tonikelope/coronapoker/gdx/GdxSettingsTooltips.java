@@ -10,7 +10,6 @@ import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.game.GamePresentationSettings;
 import java.util.List;
 import java.util.Locale;
-import java.util.Properties;
 
 /** Shared explanatory text for every settings surface. */
 final class GdxSettingsTooltips {
@@ -42,9 +41,8 @@ final class GdxSettingsTooltips {
         return GAME_ROW_KEYS.get(gamePage);
     }
 
-    /** Looks up help for an option index from the selector's displayed list. */
-    static String optionKey(String selector, int option,
-            GdxGamePresentationSettings presentation) {
+    /** Explains options whose behavior needs more detail than the setting row. */
+    static String optionKey(String selector, int option) {
         String group = selector.equals("CUSTOM_BOT_DIFFICULTY")
                 ? "BOT_DIFFICULTY" : selector;
         String value = switch (group) {
@@ -53,15 +51,13 @@ final class GdxSettingsTooltips {
             case "CUSTOM_BOT_PERSONALITY" ->
                 CustomBotProfile.Personality.values()[option].name();
             case "ANTE_MODE" -> AnteMode.values()[option].name();
-            case "BLIND_UNIT" -> option == 0 ? "minutes" : "hands";
             case "REBUY_CAP" -> option == 0 ? "buy_in" : "highest_stack";
             case "RABBIT" -> NewGameTableDraft.RabbitHunting.values()[option].name();
-            case "WINDOW_MODE" -> GdxWindowMode.values()[option].persistedValue();
-            case "FPS_LIMIT" -> presentation.frameRateLimits().get(option) == 0
-                    ? "monitor" : "fixed";
-            case "MSAA" -> presentation.msaaLevels().get(option).toString();
-            case "CARD_RENDERING" -> presentation.cardRenderingModes().get(option)
-                    == GdxCardSmaaRenderer.RENDERING_SMOOTH ? "smooth" : "native";
+            case "WINDOW_MODE" -> switch (GdxWindowMode.values()[option]) {
+                case EXCLUSIVE -> "exclusive";
+                case BORDERLESS -> "borderless";
+                case WINDOWED -> null;
+            };
             default -> null;
         };
         return value == null ? null : "gdx.settings.option_help."
@@ -103,15 +99,13 @@ final class GdxSettingsTooltips {
         return description.isEmpty() ? lock : description + "\n" + lock;
     }
 
-    static Content content(String settingKey, Properties properties,
-            GdxGameText text) {
-        return content(settingKey, properties, text, false,
+    static Content content(String settingKey, GdxGameText text) {
+        return content(settingKey, text, false,
                 GdxGameAudioResources.JokeBankMode.OFFICIAL);
     }
 
-    static Content content(String settingKey, Properties properties,
-            GdxGameText text, boolean modOverride) {
-        return content(settingKey, properties, text, modOverride,
+    static Content content(String settingKey, GdxGameText text, boolean modOverride) {
+        return content(settingKey, text, modOverride,
                 modOverride
                         && GdxGameAudioResources.jokeCategory(settingKey)
                                 != null
@@ -119,8 +113,7 @@ final class GdxSettingsTooltips {
                         : GdxGameAudioResources.JokeBankMode.OFFICIAL);
     }
 
-    static Content content(String settingKey, Properties properties,
-            GdxGameText text, boolean modOverride,
+    static Content content(String settingKey, GdxGameText text, boolean modOverride,
             GdxGameAudioResources.JokeBankMode jokeBankMode) {
         String jokeResource = GamePresentationSettings.jokeSoundResource(
                 settingKey);
@@ -170,8 +163,7 @@ final class GdxSettingsTooltips {
             }
         }
         GdxSettingsContract.PerformanceImpact impact =
-                GdxSettingsContract.performanceImpact(settingKey,
-                        properties);
+                GdxSettingsContract.performanceImpact(settingKey);
         String complete = impact == GdxSettingsContract.PerformanceImpact.NONE
                 ? description
                 : text.translate("gdx.settings.tooltip.with_impact",
@@ -333,6 +325,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_final_summary_cards";
             case "animacion_contador_final" ->
                 "gdx.settings.tooltip.animation_final_count";
+            case GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY ->
+                "gdx.settings.tooltip.flying_chip_shadows";
             case GdxSettingsContract.STACK_BET_PREVIEW_KEY ->
                 "gdx.settings.tooltip.stack_bet_preview";
             case "animacion_fuego_allin" ->

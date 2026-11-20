@@ -22299,7 +22299,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 perspectiveTable.addFlyingTableChip(move.color, move.pose, tableChipDiameter, thickness);
             }
         }
-        perspectiveTable.drawChipRack(tableChipFaces, 1f, !shadows);
+        boolean normalShadows = shadows && presentationSettings != null
+                && presentationSettings.normalFlyingChipShadows();
+        perspectiveTable.drawChipRack(tableChipFaces, 1f, !shadows, normalShadows);
     }
 
     private void drawLiveFlyingChip(float fromX, float fromY, float toX,
@@ -27535,7 +27537,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : settingsRowsViewport(content, firstY);
         if ((contentPage != 9 && !viewportBounds.contains(pointer))
                 || settingsLockHover(x, firstY, width) != null) return null;
-        Properties properties = tableSettingsProperties();
         if (contentPage == 0) {
             GdxSettingsContract.TogglePage page = settingsAudioPage();
             int totalRows = GdxSettingsContract.audioRowCount(page);
@@ -27548,7 +27549,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsContract.masterVolumeRow(page));
                 SettingsTooltipHover volume = settingsTooltipHover(
                         GdxSettingsLayout.volumeRow(x, volumeY, width).bounds(),
-                        "master_volume", viewportBounds, properties);
+                        "master_volume", viewportBounds);
                 if (volume != null) return volume;
             }
             if (GdxSettingsContract.hasAudioDevices(page)) {
@@ -27556,14 +27557,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         settingsAudioRowBounds(x, width, rows, page,
                                 GdxSettingsContract.audioOutputDeviceRow(
                                         page)),
-                        "gdx_audio_output_device", viewportBounds,
-                        properties);
+                        "gdx_audio_output_device", viewportBounds);
                 if (output != null) return output;
                 SettingsTooltipHover capture = settingsTooltipHover(
                         settingsAudioRowBounds(x, width, rows, page,
                                 GdxSettingsContract.audioCaptureDeviceRow(
                                         page)),
-                        "audio_capture_device", viewportBounds, properties);
+                        "audio_capture_device", viewportBounds);
                 if (capture != null) return capture;
             }
             for (int optionIndex = 0;
@@ -27586,7 +27586,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     GdxSettingsContract.PerformanceImpact.NONE));
                 }
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        option.key(), viewportBounds, properties,
+                        option.key(), viewportBounds,
                         GdxGameAudioResources.modOverridesSetting(
                                 presentationSettings, option,
                                 gameText.language()),
@@ -27599,8 +27599,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 SettingsTooltipHover retention = settingsTooltipHover(
                         settingsAudioRowBounds(x, width, rows, page,
                                 GdxSettingsContract.voiceRetentionRow(page)),
-                        "audio_voice_note_retention_days", viewportBounds,
-                        properties);
+                        "audio_voice_note_retention_days", viewportBounds);
                 if (retention != null) return retention;
                 Rectangle actionBounds = settingsAudioRowBounds(x, width,
                         rows, page,
@@ -27609,11 +27608,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsLayout.splitActionRow(actionBounds.x,
                                 actionBounds.y, actionBounds.width);
                 SettingsTooltipHover view = settingsTooltipHover(
-                        actions.left(), "voice_notes_view", viewportBounds,
-                        properties);
+                        actions.left(), "voice_notes_view", viewportBounds);
                 if (view != null) return view;
                 return settingsTooltipHover(actions.right(),
-                        "voice_notes_purge", viewportBounds, properties);
+                        "voice_notes_purge", viewportBounds);
             }
             return null;
         }
@@ -27626,7 +27624,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 SettingsTooltipHover hovered = settingsTooltipHover(
                         settingsAppearanceTableRowBounds(x, width, rows, row),
                         GdxSettingsContract.appearanceTableSettingKey(row),
-                        viewportBounds, properties);
+                        viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27646,7 +27644,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle bounds = settingsAppearanceGraphicsRowBounds(x,
                         width, rows, row);
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        keys[row], viewportBounds, properties);
+                        keys[row], viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27668,7 +27666,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle bounds = GdxSettingsLayout.groupedRow(x,
                         rows.rowY(row), width, row, groups, rowCount);
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        animationRow.key(), viewportBounds, properties);
+                        animationRow.key(), viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27687,7 +27685,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         width, row, totalRows);
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
                         GdxSettingsContract.controlSettingKey(row),
-                        viewportBounds, properties);
+                        viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27708,7 +27706,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 SettingsTooltipHover hovered = settingsTooltipHover(
                         settingsGameRowBounds(x, width, rows, gamePage,
                                 keys.size(), row), keys.get(row),
-                        viewportBounds, properties);
+                        viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27718,36 +27716,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     content);
             if (performance.contains(pointer)) {
                 return new SettingsTooltipHover("gdx_show_cpu_memory",
-                        GdxSettingsTooltips.content("gdx_show_cpu_memory",
-                                properties, gameText));
+                        GdxSettingsTooltips.content("gdx_show_cpu_memory", gameText));
             }
         }
         return null;
     }
 
     private SettingsTooltipHover settingsTooltipHover(
-            Rectangle bounds, String key, Rectangle viewportBounds,
-            Properties properties) {
-        return settingsTooltipHover(bounds, key, viewportBounds, properties,
+            Rectangle bounds, String key, Rectangle viewportBounds) {
+        return settingsTooltipHover(bounds, key, viewportBounds,
                 false);
     }
 
     private SettingsTooltipHover settingsTooltipHover(
-            Rectangle bounds, String key, Rectangle viewportBounds,
-            Properties properties, boolean modOverride) {
-        return settingsTooltipHover(bounds, key, viewportBounds, properties,
+            Rectangle bounds, String key, Rectangle viewportBounds, boolean modOverride) {
+        return settingsTooltipHover(bounds, key, viewportBounds,
                 modOverride, GdxGameAudioResources.JokeBankMode.OFFICIAL);
     }
 
     private SettingsTooltipHover settingsTooltipHover(
-            Rectangle bounds, String key, Rectangle viewportBounds,
-            Properties properties, boolean modOverride,
+            Rectangle bounds, String key, Rectangle viewportBounds, boolean modOverride,
             GdxGameAudioResources.JokeBankMode jokeBankMode) {
         if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) {
             return null;
         }
-        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(key,
-                properties, gameText, modOverride, jokeBankMode);
+        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(key, gameText, modOverride, jokeBankMode);
         return content.text().isBlank() ? null : new SettingsTooltipHover(key, content);
     }
 
@@ -30614,8 +30607,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
         String optionKey = hoveredOption < 0 || voiceNotesOpen
                 || nestedModalParentCaptureActive ? null
-                : GdxSettingsTooltips.optionKey(settingsSelectionList.name(),
-                        hoveredOption, presentationSettings);
+                : GdxSettingsTooltips.optionKey(settingsSelectionList.name(), hoveredOption);
         if (optionKey == null) {
             settingsPerformanceTooltipDelay.clear();
         } else if (settingsPerformanceTooltipDelay.ready(
@@ -30726,6 +30718,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxAppearanceOptions.select(
                             settingsSelectionAppearanceChoice,
                             tableSettingsProperties(), option);
+                    if (presentationSettings != null) {
+                        presentationSettings.refreshRuntimePreferences();
+                    }
                 }
             }
             case ANTE_MODE -> {

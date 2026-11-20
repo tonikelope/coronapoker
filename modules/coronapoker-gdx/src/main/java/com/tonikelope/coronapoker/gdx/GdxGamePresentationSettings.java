@@ -84,7 +84,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
 
     private record AnimationFlags(boolean master, boolean halo,
             boolean allInCinematics, boolean gameOverCinematics,
-            boolean blindDealer, boolean bets, boolean counters,
+            boolean blindDealer, boolean bets, boolean normalFlyingChipShadows,
+            boolean counters,
             boolean seatEntry, boolean shuffle, boolean shufflePreload,
             boolean deal, boolean flip, boolean swap, boolean allInFire,
             boolean winnerEffect) {
@@ -100,6 +101,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 master && bool("cinematicas_gameover", true),
                 master && bool("animacion_ciegas_dealer", true),
                 master && bool("animacion_apuestas", true),
+                !GdxAppearanceOptions.isDefault(
+                        GdxAppearanceOptions.FLYING_CHIP_SHADOW_QUALITY, properties),
                 master && bool("animacion_contadores", true),
                 master && bool("animacion_entrada_asientos", true),
                 shuffle,
@@ -585,6 +588,9 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     @Override public boolean betAnimation() {
         return animationFlags.bets();
+    }
+    boolean normalFlyingChipShadows() {
+        return animationFlags.normalFlyingChipShadows();
     }
     @Override public boolean counterAnimation() {
         return animationFlags.counters();

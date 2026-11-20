@@ -73,7 +73,7 @@ final class GdxShuffleGeometryTest {
     void fullDeckSeparatesIntoTwoFlatPacketsBeforeTheyBend() {
         var motion = Motion.FULL_DECK;
         double gauge = .27 / 88;
-        for (int tick = 0; tick <= 108; tick++) {
+        for (int tick = 0; tick <= 88; tick++) {
             float frame = tick * .25f;
             mesh.update(frame * FRAME_SECONDS, motion);
             for (int order = 0; order < CARDS; order++) {
@@ -90,6 +90,28 @@ final class GdxShuffleGeometryTest {
             }
             if (frame >= 20) assertTrue(mesh.vertices[vertex(0, STRIPS, 0)]
                     - mesh.vertices[vertex(1, STRIPS, 0)] > .039f);
+        }
+    }
+
+    @Test
+    void extendedCutsEnterTheOriginalGripAndReuseEveryRifflePose() {
+        var original = new GdxShuffleGeometry();
+        for (Motion motion : new Motion[]{Motion.FULL_DECK, Motion.BRIDGE}) {
+            for (int tick = 0; tick < motion.leadFrames * 4; tick++) {
+                mesh.update(tick * .25f * FRAME_SECONDS, motion);
+                assertEquals(0f, mesh.vertices[vertex(0, 0, 2) + 1], .000001f);
+                assertEquals(14.04, mesh.vertices[vertex(51, 0, 0) + 1] * 88, .00002);
+            }
+            original.update(0f);
+            mesh.update(Math.nextDown(motion.leadFrames * FRAME_SECONDS), motion);
+            assertArrayEquals(original.vertices, mesh.vertices, .000002f);
+            int sharedFrames = motion == Motion.FULL_DECK ? FRAME_COUNT - 1 : CARDS - 1 + 5;
+            for (int tick = 0; tick <= sharedFrames * 4; tick++) {
+                float frame = tick * .25f;
+                original.update(frame * FRAME_SECONDS);
+                mesh.update((motion.leadFrames + frame) * FRAME_SECONDS, motion);
+                assertArrayEquals(original.vertices, mesh.vertices, .000006f);
+            }
         }
     }
 
@@ -127,9 +149,14 @@ final class GdxShuffleGeometryTest {
                     assertTrue(rise > .20f);
                     held[order] = rise;
                 }
-                if (frame == 96) {
-                    if (order < 8) assertEquals(0f, rise, .000001f);
-                    if (order >= 32) assertEquals(held[order], rise, .000001f);
+                if (frame >= 84 && frame <= 152) {
+                    float sinceRelease = frame - (84f + 1.25f * order);
+                    if (sinceRelease <= 0f) assertEquals(held[order], rise, .000002f);
+                    else if (sinceRelease >= 4.25f) assertEquals(0f, rise, .000002f);
+                    else assertTrue(rise > 0f && rise < held[order]);
+                    if (order == 0 && frame >= 89) {
+                        assertEquals(.63f, Math.abs(mesh.vertices[root]), .000001f);
+                    }
                 }
                 double length = 0, lastX = 0, lastY = 0;
                 for (int strip = 0; strip <= STRIPS; strip++) {
@@ -145,12 +172,23 @@ final class GdxShuffleGeometryTest {
                     lastY = y;
                 }
                 assertEquals(88, 88 * length, .02);
-                if (frame == 113) assertEquals(.63f, Math.abs(mesh.vertices[root]), .000001f);
             }
         }
         float[] finished = mesh.vertices.clone();
         mesh.update(CYCLE_SECONDS, Motion.ORIGINAL);
         assertArrayEquals(finished, mesh.vertices, .000001f);
+
+        // The last sheet touches down 152 frames after the riffle begins.
+        // Inspect both sides of that instant, inside a single display frame.
+        float landing = motion.leadFrames + 152f;
+        mesh.update((landing - .125f) * FRAME_SECONDS, motion);
+        assertTrue(mesh.vertices[vertex(51, STRIPS / 2, 0) + 1] > mesh.vertices[vertex(51, 0, 0) + 1]);
+        assertEquals(.63f, mesh.vertices[vertex(0, 0, 0)], .000001f);
+        mesh.update(landing * FRAME_SECONDS, motion);
+        assertEquals(mesh.vertices[vertex(51, 0, 0) + 1], mesh.vertices[vertex(51, STRIPS / 2, 0) + 1], .000001f);
+        assertEquals(.63f, mesh.vertices[vertex(0, 0, 0)], .000001f);
+        mesh.update((landing + .125f) * FRAME_SECONDS, motion);
+        assertTrue(mesh.vertices[vertex(0, 0, 0)] < .629f);
     }
 
     private static int vertex(int card, int strip, int corner) {

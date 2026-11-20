@@ -11,10 +11,19 @@ final class GdxShuffleGeometry {
     static final float FRAME_SECONDS = .02f;
     static final int FRAME_COUNT = 86;
     static final float CYCLE_SECONDS = FRAME_COUNT * FRAME_SECONDS;
+    private static final int FALL_FRAMES = 5;
+    private static final int RIFFLE_LANDED = CARDS - 1 + FALL_FRAMES;
+    private static final int BRIDGE_RELEASE_START = 84;
+    private static final float BRIDGE_CARD_INTERVAL = 1.25f;
+    private static final float BRIDGE_CARD_FALL = 4.25f;
+    private static final float BRIDGE_LAST_LANDING =
+            BRIDGE_RELEASE_START + (CARDS - 1) * BRIDGE_CARD_INTERVAL + BRIDGE_CARD_FALL;
+    private static final int BRIDGE_PUSH_FRAMES = 18;
+
     enum Motion {
         ORIGINAL("Mezcla original", 0, FRAME_COUNT),
         FULL_DECK("Mazo entero", 46, FRAME_COUNT),
-        BRIDGE("Mazo entero + puente", 46, 132);
+        BRIDGE("Mazo entero + puente", 46, (int) Math.ceil(BRIDGE_LAST_LANDING) + BRIDGE_PUSH_FRAMES + 1);
 
         final String label;
         final int leadFrames;
@@ -38,7 +47,6 @@ final class GdxShuffleGeometry {
 
     private static final int PUSH_START = 65;
     private static final int PUSH_END = FRAME_COUNT - 1;
-    private static final int FALL_FRAMES = 5;
     private static final float WIDTH = 63f / 88f;
     private static final float THICKNESS = .27f / 88f;
     private static final float CORNER = 3.2f / 88f;
@@ -97,64 +105,54 @@ final class GdxShuffleGeometry {
             return;
         }
         float frame = MathUtils.clamp(motion.releaseTime(elapsed) / FRAME_SECONDS, 0f, motion.releaseFrames - 1f);
-        if (motion == Motion.BRIDGE && frame > 56f) {
+        if (motion == Motion.BRIDGE && frame > RIFFLE_LANDED) {
             writeBridge(frame);
             return;
         }
         float push = smooth((frame - PUSH_START) / (PUSH_END - PUSH_START));
         writeOffset = 0;
-        for (int order = 0; order < CARDS; order++) {
-            if (motion != Motion.ORIGINAL) writeReleasedCard(frame, push, order);
-            else writeCard(frame, push, order);
-        }
+        for (int order = 0; order < CARDS; order++) writeCard(frame, push, order);
     }
 
     private void writeOpening(float frame) {
-        // Both packets stay compact while sliding. Lower the top packet only
-        // after their inner edges have cleared one another.
+        // Cut two contiguous packets. Once their ends clear, curl them into
+        // the original riffle grip. The bottom of the lower packet and the
+        // top heel of the upper packet stay at their squared stack heights.
         float split = smooth((frame - 3f) / 17f);
-        float lower = smooth((frame - 20f) / 8f);
-        float curl = smooth((frame - 27f) / 16f);
+        float curl = smooth((frame - 22f) / 21f);
         float approach = smooth((frame - 33f) / 13f);
         writeOffset = 0;
         for (int order = 0; order < CARDS; order++) {
             boolean upper = (order & 1) != 0;
             int layer = order / 2;
-            float packed = layer + .5f + (upper ? CARDS_PER_PACKET * (1f - lower) : 0f);
-            float base = packed * THICKNESS;
+            float packed = (layer + .5f + (upper ? CARDS_PER_PACKET : 0)) * THICKNESS;
+            float base = MathUtils.lerp(packed, riffleHeight(order), curl);
             float outer = MathUtils.lerp(.5f + .52f * split, .5f + spread(0), approach)
                     + (spread(layer) - spread(0)) * curl;
             writeBentCard(order, base, outer, HELD_BEND * curl);
         }
     }
 
-    private void writeReleasedCard(float frame, float push, int order) {
-        int layer = order / 2;
-        float oppositeSheets = 0f;
-        // A flat sheet from the other packet opens exactly one slot. The
-        // remaining held sheets stay together instead of doubling in height.
-        for (int other = 1 - (order & 1); other < order; other += 2) {
-            oppositeSheets += smooth((frame - other) / FALL_FRAMES);
-        }
-        float base = (layer + .5f + oppositeSheets) * THICKNESS;
-        float bend = HELD_BEND * (1f - smooth((frame - order) / FALL_FRAMES));
-        float outer = .5f + spread(layer) * (1f - push);
-        writeBentCard(order, base, outer, bend);
+    private static float riffleHeight(int order) {
+        return (order + .5f) * THICKNESS;
     }
 
     private void writeBridge(float frame) {
-        float gather = smooth((frame - 56f) / 13f);
+        float gather = smooth((frame - RIFFLE_LANDED) / (69f - RIFFLE_LANDED));
         float bow = smooth((frame - 69f) / 14f);
-        float square = smooth((frame - 113f) / 16f);
+        // Contact of the last sheet starts the push, even between display frames.
+        float pushTime = MathUtils.clamp((frame - BRIDGE_LAST_LANDING) / BRIDGE_PUSH_FRAMES, 0f, 1f);
+        float square = pushTime * (2f - pushTime);
         writeOffset = 0;
         for (int order = 0; order < CARDS; order++) {
             // The underside lands first. Adjacent cards have overlapping
             // release windows, leaving a moving fan underneath the crown.
-            float flatten = smooth((frame - 84f - order * .42f) / 2.8f);
-            float curvature = 1.65f * bow * (1f - flatten);
+            float release = BRIDGE_RELEASE_START + order * BRIDGE_CARD_INTERVAL;
+            float remaining = smooth((release + BRIDGE_CARD_FALL - frame) / BRIDGE_CARD_FALL);
+            float curvature = 1.85f * bow * remaining;
             float spread = MathUtils.lerp(spread(order / 2), .13f, gather) * (1f - square);
-            float base = (order + .5f) * THICKNESS;
-            if (curvature < .0001f) writeBentCard(order, base, .5f + spread, 0f);
+            float base = riffleHeight(order);
+            if (curvature == 0f) writeBentCard(order, base, .5f + spread, 0f);
             else writeArchedCard(order, base, spread, curvature);
         }
     }
@@ -185,7 +183,7 @@ final class GdxShuffleGeometry {
         float fall = smooth((frame - order) / FALL_FRAMES);
         float bend = HELD_BEND * (1f - fall);
         // Each outer end stays in its own interleaved slot throughout the release.
-        float base = (order + .5f) * THICKNESS;
+        float base = riffleHeight(order);
         float outer = .5f + spread(layer) * (1f - push);
         writeBentCard(order, base, outer, bend);
     }

@@ -96,7 +96,7 @@ final class GdxShuffleGeometryTest {
     @Test
     void extendedCutsEnterTheOriginalGripAndReuseEveryRifflePose() {
         var original = new GdxShuffleGeometry();
-        for (Motion motion : new Motion[]{Motion.FULL_DECK, Motion.BRIDGE}) {
+        for (Motion motion : new Motion[]{Motion.FULL_DECK, Motion.BRIDGE, Motion.OPEN_BRIDGE}) {
             for (int tick = 0; tick < motion.leadFrames * 4; tick++) {
                 mesh.update(tick * .25f * FRAME_SECONDS, motion);
                 assertEquals(0f, mesh.vertices[vertex(0, 0, 2) + 1], .000001f);
@@ -189,6 +189,56 @@ final class GdxShuffleGeometryTest {
         assertEquals(.63f, mesh.vertices[vertex(0, 0, 0)], .000001f);
         mesh.update((landing + .125f) * FRAME_SECONDS, motion);
         assertTrue(mesh.vertices[vertex(0, 0, 0)] < .629f);
+    }
+
+    @Test
+    void openBridgeStartsAtTheRiffleLandingAndLetsEachSheetSettleBeforeThePush() {
+        Motion motion = Motion.OPEN_BRIDGE;
+        assertEquals(Motion.BRIDGE.duration(), motion.duration());
+        mesh.update((motion.leadFrames + 56) * FRAME_SECONDS, motion);
+        float[] flat = mesh.vertices.clone();
+        mesh.update((motion.leadFrames + 57) * FRAME_SECONDS, motion);
+        int centre = vertex(0, STRIPS / 2, 0);
+        assertTrue(mesh.vertices[centre + 1] > flat[centre + 1] + .0005f);
+        assertEquals(flat[vertex(0, 0, 0)], mesh.vertices[vertex(0, 0, 0)], .00002f);
+
+        mesh.update((motion.leadFrames + 84) * FRAME_SECONDS, motion);
+        float[] arch = mesh.vertices.clone();
+        for (int tick = 0; tick <= (152 - 84) * 4; tick++) {
+            float frame = 84 + tick * .25f;
+            mesh.update((motion.leadFrames + frame) * FRAME_SECONDS, motion);
+            for (int card = 0; card < CARDS; card++) {
+                int root = vertex(card, 0, 0), middle = vertex(card, STRIPS / 2, 0);
+                float age = frame - (84f + 1.25f * card);
+                if (age <= 0f) {
+                    assertEquals(arch[root], mesh.vertices[root], .000002f);
+                    assertEquals(arch[middle + 1], mesh.vertices[middle + 1], .000002f);
+                } else if (age >= 4.25f) {
+                    assertEquals(22, (Math.abs(mesh.vertices[root]) - .5f) * 88, .05);
+                    assertEquals(mesh.vertices[root + 1], mesh.vertices[middle + 1], .000002f);
+                }
+                double length = 0, lastX = 0, lastY = 0;
+                for (int strip = 0; strip <= STRIPS; strip++) {
+                    int t = vertex(card, strip, 0), b = vertex(card, strip, 2);
+                    double x = (mesh.vertices[t] + mesh.vertices[b]) * .5;
+                    double y = (mesh.vertices[t + 1] + mesh.vertices[b + 1]) * .5;
+                    if (strip > 0) length += Math.hypot(x - lastX, y - lastY);
+                    assertTrue(mesh.vertices[b + 1] >= -.000001f);
+                    assertEquals(.27, 88 * Math.hypot(mesh.vertices[t] - mesh.vertices[b],
+                            mesh.vertices[t + 1] - mesh.vertices[b + 1]), .00003);
+                    lastX = x;
+                    lastY = y;
+                }
+                assertEquals(88, 88 * length, .02);
+            }
+        }
+        float beforePush = mesh.vertices[vertex(0, 0, 0)];
+        mesh.update((motion.leadFrames + 152.125f) * FRAME_SECONDS, motion);
+        assertTrue(mesh.vertices[vertex(0, 0, 0)] < beforePush - .001f);
+        mesh.update(motion.duration(), motion);
+        float[] finished = mesh.vertices.clone();
+        mesh.update(CYCLE_SECONDS, Motion.ORIGINAL);
+        assertArrayEquals(finished, mesh.vertices, .000001f);
     }
 
     private static int vertex(int card, int strip, int corner) {

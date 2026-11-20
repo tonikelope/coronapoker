@@ -19,11 +19,18 @@ final class GdxShuffleGeometry {
     private static final float BRIDGE_LAST_LANDING =
             BRIDGE_RELEASE_START + (CARDS - 1) * BRIDGE_CARD_INTERVAL + BRIDGE_CARD_FALL;
     private static final int BRIDGE_PUSH_FRAMES = 18;
+    private static final int BRIDGE_FRAMES = (int) Math.ceil(BRIDGE_LAST_LANDING) + BRIDGE_PUSH_FRAMES + 1;
+    private static final float OPEN_BRIDGE_SUPPORT = .5f + spread(0);
+    // At 43 degrees the lowest card lands with about 22 mm left to push.
+    private static final float OPEN_BRIDGE_TURN = (float) Math.toRadians(43);
+    private static final float OPEN_BRIDGE_CURVATURE = OPEN_BRIDGE_TURN / OPEN_BRIDGE_SUPPORT;
+    private static final float OPEN_BRIDGE_HALF_CHORD = (float) Math.sin(OPEN_BRIDGE_TURN) / OPEN_BRIDGE_CURVATURE;
 
     enum Motion {
         ORIGINAL("Mezcla original", 0, FRAME_COUNT),
         FULL_DECK("Mazo entero", 46, FRAME_COUNT),
-        BRIDGE("Mazo entero + puente", 46, (int) Math.ceil(BRIDGE_LAST_LANDING) + BRIDGE_PUSH_FRAMES + 1);
+        BRIDGE("Mazo entero + puente", 46, BRIDGE_FRAMES),
+        OPEN_BRIDGE("Puente abierto", 46, BRIDGE_FRAMES);
 
         final String label;
         final int leadFrames;
@@ -42,6 +49,10 @@ final class GdxShuffleGeometry {
 
         float releaseTime(float elapsed) {
             return Math.max(0f, elapsed - leadFrames * FRAME_SECONDS);
+        }
+
+        boolean hasBridge() {
+            return this == BRIDGE || this == OPEN_BRIDGE;
         }
     }
 
@@ -105,8 +116,8 @@ final class GdxShuffleGeometry {
             return;
         }
         float frame = MathUtils.clamp(motion.releaseTime(elapsed) / FRAME_SECONDS, 0f, motion.releaseFrames - 1f);
-        if (motion == Motion.BRIDGE && frame > RIFFLE_LANDED) {
-            writeBridge(frame);
+        if (motion.hasBridge() && frame > RIFFLE_LANDED) {
+            writeBridge(frame, motion == Motion.OPEN_BRIDGE);
             return;
         }
         float push = smooth((frame - PUSH_START) / (PUSH_END - PUSH_START));
@@ -137,9 +148,11 @@ final class GdxShuffleGeometry {
         return (order + .5f) * THICKNESS;
     }
 
-    private void writeBridge(float frame) {
+    private void writeBridge(float frame, boolean open) {
         float gather = smooth((frame - RIFFLE_LANDED) / (69f - RIFFLE_LANDED));
-        float bow = smooth((frame - 69f) / 14f);
+        float archStart = open ? RIFFLE_LANDED : 69f;
+        float bow = smooth((frame - archStart) / (83f - archStart));
+        float fullCurvature = open ? OPEN_BRIDGE_CURVATURE : 1.85f;
         // Contact of the last sheet starts the push, even between display frames.
         float pushTime = MathUtils.clamp((frame - BRIDGE_LAST_LANDING) / BRIDGE_PUSH_FRAMES, 0f, 1f);
         float square = pushTime * (2f - pushTime);
@@ -149,20 +162,36 @@ final class GdxShuffleGeometry {
             // release windows, leaving a moving fan underneath the crown.
             float release = BRIDGE_RELEASE_START + order * BRIDGE_CARD_INTERVAL;
             float remaining = smooth((release + BRIDGE_CARD_FALL - frame) / BRIDGE_CARD_FALL);
-            float curvature = 1.85f * bow * remaining;
-            float spread = MathUtils.lerp(spread(order / 2), .13f, gather) * (1f - square);
+            float curvature = fullCurvature * bow * remaining;
+            float initialOffset = spread(order / 2);
+            float offset, support;
+            if (open) {
+                // Bend in place. During release the support point stays on
+                // the felt: arc length to the foot is asin(k * chord) / k.
+                // Each falling sheet slides in as it uncurls around that foot.
+                support = OPEN_BRIDGE_SUPPORT;
+                if (remaining < 1f) {
+                    support = curvature == 0f ? OPEN_BRIDGE_HALF_CHORD
+                            : (float) Math.asin(curvature * OPEN_BRIDGE_HALF_CHORD) / curvature;
+                }
+                offset = support - .5f + (initialOffset - spread(0)) * remaining;
+            } else {
+                offset = MathUtils.lerp(initialOffset, .13f, gather);
+                support = .5f + offset;
+            }
+            offset *= 1f - square;
             float base = riffleHeight(order);
-            if (curvature == 0f) writeBentCard(order, base, .5f + spread, 0f);
-            else writeArchedCard(order, base, spread, curvature);
+            if (curvature == 0f) writeBentCard(order, base, .5f + offset, 0f);
+            else writeArchedCard(order, base, offset, support, curvature);
         }
     }
 
-    private void writeArchedCard(int order, float base, float spread, float curvature) {
+    private void writeArchedCard(int order, float base, float spread, float support, float curvature) {
         float direction = (order & 1) != 0 ? -1f : 1f;
         // Concentric sheets with their own radii slide over each other while
         // bending. Using arc length as the coordinate keeps every sheet 88 mm.
         float radius = 1f / curvature + base;
-        float halfAngle = (.5f + spread) * curvature * .5f;
+        float halfAngle = support * curvature * .5f;
         float rise = 2f / curvature * (float) Math.pow(Math.sin(halfAngle), 2);
         for (int s = 0; s <= STRIPS; s++) {
             float angle = direction * (.5f + spread - alongCard[s]) / radius;

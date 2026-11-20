@@ -6,6 +6,8 @@ import com.badlogic.gdx.graphics.Texture.TextureFilter;
 
 /** Hardware state shared by flat cards, projected artwork and the shuffle viewer. */
 final class GdxCardSampling {
+    static final int GAME_MODE = GdxCardSmaaRenderer.RENDERING_BALANCED;
+
     private GdxCardSampling() {}
 
     static float shaderValue(int mode) {

@@ -126,7 +126,7 @@ final class GdxPerspectiveTable implements Disposable {
             varying float v_light;
             varying vec3 v_normal;
             varying vec3 v_position;
-            """ + CARD_PROJECTION_SAMPLER + "\n#define CARD_CORNER_RADIUS " + GdxPlasticCard.CORNER_WIDTH_RATIO + "\n" + """
+            """ + CARD_PROJECTION_SAMPLER + "\n#define CARD_CORNER_RADIUS " + GdxPlasticCard.CORNER_FRACTION + "\n" + """
             float cardDistance(vec2 uv) {
                 float radius = CARD_CORNER_RADIUS;
                 vec2 side = (abs(uv - 0.5) - 0.5) * vec2(1.0, u_aspect) + radius;

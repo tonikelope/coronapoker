@@ -318,7 +318,9 @@ mod/decks/mydeck/hq/trasera.jpg
 ```
 
 The renderer also accepts the same images directly in the deck directory as a
-fallback. The 2D and 3D tables animate the selected card backs directly. The 3D shuffle also uses the selected faces in a fresh cosmetic order. Optional card-specific sounds use
+fallback. The shuffle takes its proportions from the selected face deck, even when
+the back comes from another deck. Both table views can show the 3D shuffle,
+which displays the selected faces in a fresh cosmetic order. Optional card-specific sounds use
 the exact code under `mod/sounds/decks/<deck>/`, for example `A_C.wav`.
 
 The table and hand generator use the same selected deck and the same `hq`

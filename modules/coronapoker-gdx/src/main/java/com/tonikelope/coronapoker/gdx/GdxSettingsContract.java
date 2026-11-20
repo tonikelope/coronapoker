@@ -32,7 +32,6 @@ final class GdxSettingsContract {
     static final String MSAA_KEY = "gdx_msaa_samples";
     static final int DEFAULT_MSAA_SAMPLES = 4;
     /** Persisted under its legacy SMAA key to preserve existing preferences. */
-    static final String CARD_RENDERING_KEY = "gdx_card_smaa_quality";
     static final String HALO_EFFECT_KEY = "efecto_halos";
     static final String MODAL_BLUR_KEY = "efecto_desenfoque";
     static final String GLASS_EFFECT_KEY = "efecto_relieve";
@@ -48,16 +47,13 @@ final class GdxSettingsContract {
     static final String STACK_BET_PREVIEW_KEY = "gdx_stack_bet_preview";
     static final String FINAL_SUMMARY_CARDS_ANIMATION_KEY =
             "animacion_tarjetas_fin_timba";
-    static final int DEFAULT_CARD_RENDERING_MODE =
-            GdxCardSmaaRenderer.RENDERING_BALANCED;
     static final int APPEARANCE_TABLE_VIEW_ROW = 0;
     static final int APPEARANCE_DECK_ROW = 1;
     static final int APPEARANCE_CARD_BACK_ROW = 2;
     static final int APPEARANCE_FELT_ROW = 3;
     static final int APPEARANCE_LIGHT_ROW = 4;
     static final int APPEARANCE_AMOUNT_ZEROS_ROW = 5;
-    static final int APPEARANCE_HAND_ZOOM_ROW = 6;
-    static final int APPEARANCE_PRIMARY_ROW_COUNT = 7;
+    static final int APPEARANCE_PRIMARY_ROW_COUNT = 6;
 
     static GdxAppearanceOptions.Choice appearanceTableChoice(int row) {
         return switch (row) {
@@ -66,7 +62,7 @@ final class GdxSettingsContract {
             default -> null;
         };
     }
-    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
+    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 7;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
     static final int BLIND_STRUCTURE_ROW = 0;
@@ -640,6 +636,7 @@ final class GdxSettingsContract {
                     animationToggle("cinematicas_allin"),
                     animationToggle("cinematicas_gameover"),
                     animationToggle("animacion_barajado"),
+                    animationChoice("vista_barajado"),
                     new AppearanceAnimationRow(null, null, GdxShuffleAngle.KEY),
                     new AppearanceAnimationRow(null, null, GdxCardZoom.SHUFFLE_LABEL),
                     animationToggle("animacion_reparto"),
@@ -662,6 +659,9 @@ final class GdxSettingsContract {
                     animationToggle("animacion_apuestas"),
                     animationChoice(FLYING_CHIP_SHADOW_QUALITY_KEY),
                     animationToggle(STACK_BET_PREVIEW_KEY));
+    private static final List<AppearanceAnimationRow> PERSPECTIVE_ANIMATION_ROWS = APPEARANCE_ANIMATION_ROWS.stream()
+            .filter(row -> row.choice() != GdxAppearanceOptions.SHUFFLE_VIEW).toList();
+
 
     /**
      * Persisted values owned by the shared Swing/GDX settings transaction.
@@ -718,8 +718,8 @@ final class GdxSettingsContract {
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado",
-            GdxShuffleAngle.KEY, GdxCardZoom.LEGACY_SHUFFLE_KEY,
-            GdxCardZoom.HAND_2D.key, GdxCardZoom.HAND_3D.key, GdxCardZoom.SHUFFLE_2D.key, GdxCardZoom.SHUFFLE_3D.key,
+            GdxShuffleAngle.KEY, "vista_barajado", GdxCardZoom.LEGACY_SHUFFLE_KEY,
+            GdxCardZoom.SHUFFLE_2D.key, GdxCardZoom.SHUFFLE_3D.key,
             "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
             "animacion_apuestas", FLYING_CHIP_SHADOW_QUALITY_KEY, STACK_BET_PREVIEW_KEY,
@@ -734,7 +734,7 @@ final class GdxSettingsContract {
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
             "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
             "gdx_fps_limit",
-            MSAA_KEY, CARD_RENDERING_KEY,
+            MSAA_KEY,
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max",
@@ -766,7 +766,7 @@ final class GdxSettingsContract {
         return switch (key) {
             case "animaciones", POKER_VIDEOS_KEY, "animacion_barajado",
                     MODAL_BLUR_KEY, "animacion_apuestas",
-                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY, CARD_RENDERING_KEY,
+                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY,
                     "gdx_fps_limit" -> PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_accion", "cinematicas_allin",
                     "cinematicas_gameover", "animacion_reparto",
@@ -1103,15 +1103,6 @@ final class GdxSettingsContract {
                 && requested != actual;
     }
 
-    static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
-        if (rendering == GdxCardSmaaRenderer.RENDERING_BALANCED) {
-            return translatedUpper(text, "gdx.settings.value.balanced", "EQUILIBRADO");
-        }
-        return rendering == GdxCardSmaaRenderer.RENDERING_SMOOTH
-                ? translatedUpper(text, "gdx.settings.value.smooth", "SUAVE")
-                : translatedUpper(text, "gdx.settings.value.native", "NATIVO");
-    }
-
     private static String antialiasingValue(String technique, int samples,
             GdxGameText text) {
         String value = samples == 0 ? translatedUpper(text,
@@ -1131,8 +1122,12 @@ final class GdxSettingsContract {
     }
 
     static List<AppearanceAnimationRow> appearanceRows(TogglePage page) {
+        return appearanceRows(page, true);
+    }
+
+    static List<AppearanceAnimationRow> appearanceRows(TogglePage page, boolean perspective) {
         if (hasAppearanceAnimationOptions(page)) {
-            return APPEARANCE_ANIMATION_ROWS;
+            return perspective ? PERSPECTIVE_ANIMATION_ROWS : APPEARANCE_ANIMATION_ROWS;
         }
         return page.options().stream()
                 .map(option -> new AppearanceAnimationRow(option, null))
@@ -1140,11 +1135,19 @@ final class GdxSettingsContract {
     }
 
     static int appearanceRowCount(TogglePage page) {
-        return appearanceRows(page).size();
+        return appearanceRowCount(page, true);
+    }
+
+    static int appearanceRowCount(TogglePage page, boolean perspective) {
+        return appearanceRows(page, perspective).size();
     }
 
     static List<RowGroup> appearanceGroups(TogglePage page) {
-        List<AppearanceAnimationRow> rows = appearanceRows(page);
+        return appearanceGroups(page, true);
+    }
+
+    static List<RowGroup> appearanceGroups(TogglePage page, boolean perspective) {
+        List<AppearanceAnimationRow> rows = appearanceRows(page, perspective);
         ArrayList<ToggleOption> visualOptions = new ArrayList<>(rows.size());
         for (AppearanceAnimationRow row : rows) {
             if (row.toggle() != null) {
@@ -1236,7 +1239,6 @@ final class GdxSettingsContract {
             case APPEARANCE_DECK_ROW -> "baraja";
             case APPEARANCE_CARD_BACK_ROW -> "trasera";
             case APPEARANCE_FELT_ROW -> "color_tapete";
-            case APPEARANCE_HAND_ZOOM_ROW -> GdxCardZoom.HAND_LABEL;
             case APPEARANCE_LIGHT_ROW -> "nivel_luz";
             case APPEARANCE_AMOUNT_ZEROS_ROW -> GdxChipAmountText.ZEROS_KEY;
             default -> APPEARANCE_TABLE_PAGE.options()
@@ -1451,8 +1453,6 @@ final class GdxSettingsContract {
             properties.setProperty("baraja", "goliat");
             properties.setProperty("trasera", "default");
             properties.setProperty("color_tapete", "verde");
-            properties.remove(GdxCardZoom.HAND_2D.key);
-            properties.remove(GdxCardZoom.HAND_3D.key);
             properties.setProperty("nivel_luz", Integer.toString(
                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
             var view = GdxAppearanceOptions.TABLE_VIEW;
@@ -1471,8 +1471,6 @@ final class GdxSettingsContract {
             properties.setProperty("gdx_fps_limit",
                     Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
             properties.setProperty("gdx_show_fps", "false");
-            properties.setProperty(CARD_RENDERING_KEY,
-                    Integer.toString(DEFAULT_CARD_RENDERING_MODE));
             if (includeStartupGraphics) {
                 properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
                         GdxWindowMode.BORDERLESS.persistedValue());
@@ -1502,8 +1500,6 @@ final class GdxSettingsContract {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
         if (index == 0) {
-            if (GdxCardZoom.HAND_2D.percent(properties) != GdxCardZoom.HAND_2D.normal
-                    || GdxCardZoom.HAND_3D.percent(properties) != GdxCardZoom.HAND_3D.normal) return false;
             boolean visualDefaults = stringAtDefault(properties, "baraja",
                     "goliat")
                     && stringAtDefault(properties, "trasera", "default")
@@ -1525,9 +1521,7 @@ final class GdxSettingsContract {
                     DEFAULT_VSYNC)
                     && stringAtDefault(properties, "gdx_fps_limit",
                             Integer.toString(DEFAULT_FRAME_RATE_LIMIT))
-                    && booleanAtDefault(properties, "gdx_show_fps", false)
-                    && stringAtDefault(properties, CARD_RENDERING_KEY,
-                            Integer.toString(DEFAULT_CARD_RENDERING_MODE));
+                    && booleanAtDefault(properties, "gdx_show_fps", false);
             return runtime && (!includeStartupGraphics
                     || stringAtDefault(properties,
                             GdxWindowMode.PREFERENCE_KEY,

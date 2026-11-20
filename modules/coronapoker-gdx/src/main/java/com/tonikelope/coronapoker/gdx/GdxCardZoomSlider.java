@@ -21,10 +21,6 @@ final class GdxCardZoomSlider {
         pressed = null;
     }
 
-    void cancelShuffle() {
-        if ((pressed != null && pressed.isShuffle()) || (visible != null && visible.isShuffle())) cancel();
-    }
-
     void draw(ShapeRenderer shapes, Rectangle row, GdxSettingsLayout.PixelRows rows,
             GdxCardZoom zoom, int value, boolean enabled, float alpha) {
         float mid = row.y + row.height * .5f;
@@ -64,8 +60,7 @@ final class GdxCardZoomSlider {
     private boolean current(Properties settings) {
         if (visible == null) return false;
         boolean perspective = GdxAppearanceOptions.perspectiveTable(settings);
-        return visible.isShuffle() ? visible == GdxCardZoom.shuffle(perspective) && GdxShuffleAngle.enabled(settings)
-                : visible == GdxCardZoom.hand(perspective);
+        return visible == GdxCardZoom.shuffle(perspective) && GdxShuffleAngle.enabled(settings);
     }
 
     boolean drag(float x, int id, Properties settings) {

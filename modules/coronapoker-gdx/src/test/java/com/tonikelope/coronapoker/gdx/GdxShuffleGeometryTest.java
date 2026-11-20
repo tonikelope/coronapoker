@@ -8,6 +8,42 @@ import org.junit.jupiter.api.Test;
 final class GdxShuffleGeometryTest {
     private final GdxShuffleGeometry mesh = new GdxShuffleGeometry();
 
+    @Test void selectedArtworkKeepsTheSameGaugeAsACommunityCard() {
+        for (float aspect : new float[]{.60f, STANDARD_ASPECT, .80f}) {
+            float millimetresPerMeshUnit = 63f / aspect;
+            for (float time : new float[]{0f, .8f, 1.5f, 2.8f, 3.5f, Motion.MID_BRIDGE.duration()}) {
+                mesh.update(time, Motion.MID_BRIDGE, aspect, true);
+                for (int card = 0; card < CARDS; card++) {
+                    for (int strip = 0; strip <= STRIPS; strip++) {
+                        int top = vertex(card, strip, 0), bottom = vertex(card, strip, 2);
+                        double thickness = Math.hypot(mesh.vertices[top] - mesh.vertices[bottom],
+                                mesh.vertices[top + 1] - mesh.vertices[bottom + 1]);
+                        assertEquals(.32, millimetresPerMeshUnit * thickness, .00003);
+                    }
+                }
+            }
+            assertEquals(52 * .32, millimetresPerMeshUnit * mesh.vertices[vertex(51, 0, 0) + 1], .00003);
+        }
+    }
+
+    @Test void shuffleCornersMatchTheRestingCardsInEachView() {
+        var mesh = new GdxShuffleGeometry();
+        for (float aspect : new float[]{.60f, STANDARD_ASPECT, .80f}) {
+            for (boolean perspective : new boolean[]{true, false, true}) {
+                mesh.update(0f, Motion.MID_BRIDGE, aspect, perspective);
+                int tip = vertex(0, 0, 0);
+                assertEquals(.075f, .5f - Math.abs(mesh.vertices[tip + 2]) / aspect, .00001f);
+                int shoulder = 1;
+                while (shoulder < STRIPS / 2
+                        && Math.abs(mesh.vertices[vertex(0, shoulder, 0) + 2]) < aspect * .5f - .000001f) {
+                    shoulder++;
+                }
+                float longitudinalRadius = Math.abs(mesh.vertices[vertex(0, shoulder, 0)] - mesh.vertices[tip]);
+                assertEquals(perspective ? .075f * aspect : .075f, longitudinalRadius, .00001f);
+            }
+        }
+    }
+
     @Test
     void everyCardKeepsItsGaugeAndLengthThroughoutTheLoop() {
         for (int tick = 0; tick <= 340; tick++) {
@@ -212,10 +248,18 @@ final class GdxShuffleGeometryTest {
             mesh.update((landing + tick * .25f) * FRAME_SECONDS, Motion.MID_BRIDGE);
             assertArrayEquals(open.vertices, mesh.vertices, .000001f);
         }
+        float[] landed = open.vertices.clone();
+        open.update(Motion.OPEN_BRIDGE.duration(), Motion.OPEN_BRIDGE);
         for (int tick = 0; tick <= 72; tick++) {
-            open.update((landing + tick * .25f) * FRAME_SECONDS, Motion.OPEN_BRIDGE);
             mesh.update((landing + 6 + tick * .25f) * FRAME_SECONDS, Motion.MID_BRIDGE);
-            assertArrayEquals(open.vertices, mesh.vertices, .000002f);
+            float t = tick / 72f;
+            float fraction = t * t * (3f - 2f * t);
+            for (int i = 0; i < landed.length; i += FLOATS_PER_VERTEX) {
+                float expectedX = landed[i] + fraction * (open.vertices[i] - landed[i]);
+                assertEquals(expectedX, mesh.vertices[i], .000002f);
+                assertEquals(landed[i + 1], mesh.vertices[i + 1], .000002f);
+                assertEquals(landed[i + 2], mesh.vertices[i + 2], .000002f);
+            }
         }
     }
 
@@ -269,7 +313,16 @@ final class GdxShuffleGeometryTest {
         }
         float beforePush = mesh.vertices[vertex(0, 0, 0)];
         mesh.update((motion.leadFrames + 152.125f + pauseFrames) * FRAME_SECONDS, motion);
-        assertTrue(mesh.vertices[vertex(0, 0, 0)] < beforePush - .001f);
+        float firstMovement = beforePush - mesh.vertices[vertex(0, 0, 0)];
+        assertTrue(firstMovement > 0f);
+        if (motion == Motion.MID_BRIDGE) {
+            assertTrue(firstMovement < .0001f, "The squared deck starts sliding from rest");
+            mesh.update((motion.leadFrames + 152.25f + pauseFrames) * FRAME_SECONDS, motion);
+            float nextMovement = beforePush - mesh.vertices[vertex(0, 0, 0)] - firstMovement;
+            assertTrue(nextMovement > 2f * firstMovement, "The push accelerates after the pause");
+        } else {
+            assertTrue(firstMovement > .001f);
+        }
         mesh.update(motion.duration(), motion);
         float[] finished = mesh.vertices.clone();
         mesh.update(CYCLE_SECONDS, Motion.ORIGINAL);

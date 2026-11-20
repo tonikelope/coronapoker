@@ -22,10 +22,11 @@ final class GdxShuffleMarkerPlacement {
 
     void project(Matrix4 model, float aspect, float width, float height) {
         // Outer packets lie flat at full spread. Only the inner tips rise as the cards bend.
+        float stackHeight = GdxShuffleGeometry.stackHeight(aspect);
         for (int i = 0; i < 12; i++) {
             int level = i / 4;
             float reach = level < 2 ? GdxShuffleGeometry.MAX_HALF_SPAN : .5f;
-            float elevation = level == 0 ? 0f : level == 1 ? GdxShuffleGeometry.STACK_HEIGHT : 1f;
+            float elevation = level == 0 ? 0f : level == 1 ? stackHeight : 1f;
             point.set((i & 1) == 0 ? -reach : reach, elevation,
                     ((i & 2) == 0 ? -.5f : .5f) * aspect).prj(model);
             corners[2*i] = (1f + point.x) * width * .5f;

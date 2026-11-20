@@ -478,7 +478,7 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(frontend.contains("Dropdown.WINDOW_MODE"));
         assertTrue(frontend.contains("Dropdown.FPS_LIMIT"));
         assertTrue(frontend.contains("Dropdown.MSAA"));
-        assertTrue(frontend.contains("Dropdown.CARD_RENDERING"));
+        assertFalse(frontend.contains("Dropdown.CARD_RENDERING"));
         assertTrue(frontend.contains("Dropdown.APPEARANCE_CHOICE"));
         assertTrue(frontend.contains("Dropdown.BLIND_UNIT"));
         assertTrue(frontend.contains("Dropdown.REBUY_CAP"));
@@ -502,7 +502,7 @@ final class GdxFrontendSettingsWiringTest {
         assertTrue(table.contains("SettingsSelectionList.WINDOW_MODE"));
         assertTrue(table.contains("SettingsSelectionList.FPS_LIMIT"));
         assertTrue(table.contains("SettingsSelectionList.MSAA"));
-        assertTrue(table.contains("SettingsSelectionList.CARD_RENDERING"));
+        assertFalse(table.contains("SettingsSelectionList.CARD_RENDERING"));
         assertTrue(table.contains("SettingsSelectionList.APPEARANCE_CHOICE"));
         assertTrue(table.contains("SettingsSelectionList.BLIND_UNIT"));
         assertTrue(table.contains("SettingsSelectionList.BOT_DIFFICULTY"));

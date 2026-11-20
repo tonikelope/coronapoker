@@ -183,10 +183,10 @@ final class GdxFrontendSettingsGpuTest {
         var saved = (java.util.Properties) properties.clone();
         try {
             for (var zoom : GdxCardZoom.values()) {
-                boolean perspective = zoom == GdxCardZoom.HAND_3D || zoom == GdxCardZoom.SHUFFLE_3D;
+                boolean perspective = zoom == GdxCardZoom.SHUFFLE_3D;
                 properties.setProperty(GdxSettingsContract.TABLE_VIEW_KEY, perspective ? "3d" : "2d");
-                invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, zoom.isShuffle() ? 1 : 0);
-                var other = zoom.isShuffle() ? GdxCardZoom.shuffle(!perspective) : GdxCardZoom.hand(!perspective);
+                invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, 1);
+                var other = GdxCardZoom.shuffle(!perspective);
                 int initial = zoom.percent(properties), otherValue = other.percent(properties);
                 Rectangle plus = (Rectangle) field(slider, "plus"), minus = (Rectangle) field(slider, "minus");
                 for (int offset = 0; offset < 1100; offset += 48) {
@@ -253,7 +253,7 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(180, GdxShuffleAngle.value(properties));
         assertTrue(((GdxSettingsSession) field(owner, "settingsSession")).propertiesChanged(properties));
         GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
-        assertEquals(30, GdxShuffleAngle.value(properties));
+        assertEquals(45, GdxShuffleAngle.value(properties));
     }
 
     private static void verifyDeckPreview(GdxFrontendScreen screen,
@@ -336,11 +336,17 @@ final class GdxFrontendSettingsGpuTest {
         assertTrue(initialAngle > 60 && initialAngle < 80);
         properties.setProperty(GdxCardZoom.SHUFFLE_2D.key, "115");
         properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, "175");
+        var view = GdxAppearanceOptions.SHUFFLE_VIEW;
+        properties.setProperty(view.key(), "3d");
         var started = new CompletableFuture<Void>();
         table.acceptEvent(new TableVisualEvent.Shuffle(3, "goliat", TableVisualEvent.Shuffle.Phase.START), started);
         assertTrue(started.isDone());
         var shuffle = field(table, "liveShuffle");
         assertEquals(initialAngle, field(shuffle, "angle"));
+        assertEquals(true, field(shuffle, "tiltedOnFlatTable"));
+        invoke(table, "selectTableAppearanceChoice",
+                new Class<?>[]{GdxAppearanceOptions.Choice.class, int.class}, view, 0);
+        assertEquals("3d", properties.getProperty(view.key()));
         assertEquals(115, field(shuffle, "zoom2D"));
         assertEquals(175, field(shuffle, "zoom3D"));
         properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, "250");
@@ -353,6 +359,7 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));
         invoke(table, "restoreTableAppearanceDefaults", new Class<?>[0]);
         assertEquals(HEIGHT, Gdx.graphics.getHeight(), "Resetting animations must preserve the window size");
+        assertEquals("3d", properties.getProperty(view.key()));
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));
         // Cancelling uncommitted settings may restore the next hand's preference.
         properties.setProperty(GdxShuffleAngle.KEY, "15");

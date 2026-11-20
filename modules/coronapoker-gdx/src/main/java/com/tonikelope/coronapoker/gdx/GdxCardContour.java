@@ -8,7 +8,7 @@ import java.util.Arrays;
 /** Closed rounded sheet topology, split at every triangle of the bending grid. */
 final class GdxCardContour {
     static final float MARGIN = 1.065f;
-    static final float RADIUS = GdxPlasticCard.CORNER_WIDTH_RATIO;
+    static final float RADIUS = GdxPlasticCard.CORNER_FRACTION;
     private static final int CORNER_STEPS = 24;
     final FloatArray faces = new FloatArray();
     final FloatArray rim = new FloatArray();

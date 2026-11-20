@@ -28,9 +28,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     static final List<String> FELTS = List.of(
             "verde", "azul", "rojo", "negro", "madera");
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);
-    private static final List<Integer> CARD_RENDERING_MODES = List.of(
-            GdxCardSmaaRenderer.RENDERING_NATIVE,
-            GdxCardSmaaRenderer.RENDERING_SMOOTH, GdxCardSmaaRenderer.RENDERING_BALANCED);
     private static final List<Integer> FRAME_RATE_LIMITS = List.of(
             60, 120, 144, 240, 0);
     private final PreferencesService preferences;
@@ -473,43 +470,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int selected = MSAA_LEVELS.get(Math.floorMod(current
                 + Integer.signum(direction), MSAA_LEVELS.size()));
         return selectMsaaSamples(selected, persist);
-    }
-    int requestedCardRenderingMode() {
-        int configured = integer(GdxSettingsContract.CARD_RENDERING_KEY,
-                GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE);
-        return CARD_RENDERING_MODES.contains(configured) ? configured
-                : GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE;
-    }
-
-    List<Integer> cardRenderingModes() {
-        return CARD_RENDERING_MODES;
-    }
-
-    int selectCardRenderingMode(int mode, boolean persist) {
-        int selected = CARD_RENDERING_MODES.contains(mode) ? mode
-                : requestedCardRenderingMode();
-        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY,
-                Integer.toString(selected));
-        if (persist) preferences.saveDeferred();
-        return selected;
-    }
-    int selectNextCardRenderingMode() {
-        return selectNextCardRenderingMode(true);
-    }
-    int selectNextCardRenderingMode(boolean persist) {
-        return adjustCardRenderingMode(1, persist);
-    }
-    int selectPreviousCardRenderingMode() {
-        return selectPreviousCardRenderingMode(true);
-    }
-    int selectPreviousCardRenderingMode(boolean persist) {
-        return adjustCardRenderingMode(-1, persist);
-    }
-    private int adjustCardRenderingMode(int direction, boolean persist) {
-        int current = CARD_RENDERING_MODES.indexOf(requestedCardRenderingMode());
-        int selected = CARD_RENDERING_MODES.get(Math.floorMod(current
-                + Integer.signum(direction), CARD_RENDERING_MODES.size()));
-        return selectCardRenderingMode(selected, persist);
     }
     int requestedFrameRateLimit() {
         int configured = integer("gdx_fps_limit",

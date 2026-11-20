@@ -505,7 +505,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShaderProgram avatarShader;
     private ShaderProgram roundedTextureShader;
     private ShaderProgram handCardShader;
-    private int handCardMode = -1;
     private GdxModalBackdropBlur modalBackdropBlur;
     private GdxModalBackdropBlur nestedModalBackdropBlur;
     private boolean loadingBackdropCached;
@@ -5973,12 +5972,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawHandGeneratorCards() {
         GdxHandGeneratorModel.Example example = handGenerator.current();
         batch.setColor(Color.WHITE);
-        int mode = presentationSettings.requestedCardRenderingMode();
-        if (handCardMode != mode) {
-            batch.flush();
-            for (Texture texture : handGeneratorCardTextures.values()) GdxCardSampling.bind(texture, 0, mode);
-            handCardMode = mode;
-        }
+        int mode = GdxCardSampling.GAME_MODE;
         batch.setShader(handCardShader);
         handCardShader.setUniformf("u_artworkSmooth", GdxCardSampling.shaderValue(mode));
         handCardShader.setUniformf("u_artworkLodBias", CoronaPokerGdxTable.cardArtworkLodBias(mode));
@@ -6027,7 +6021,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Texture texture = new Texture(source.external()
                     ? Gdx.files.absolute(source.externalPath().toString())
                     : Gdx.files.internal(source.internalPath()), true);
-            GdxCardSampling.bind(texture, 0, presentationSettings.requestedCardRenderingMode());
+            GdxCardSampling.bind(texture, 0, GdxCardSampling.GAME_MODE);
             return texture;
         });
     }
@@ -9885,8 +9879,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "verde".equalsIgnoreCase(
                                             configuredFelt())),
                             Dropdown.FELT, true);
-                } else if (row == GdxSettingsContract.APPEARANCE_HAND_ZOOM_ROW) {
-                    drawCardZoomRow(bounds, rows, false);
                 } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
                     settingsStepper(baseX, currentY, baseWidth,
                             GdxSettingsLayout.ROW_HEIGHT,
@@ -9954,7 +9946,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     groups, 1f);
             String[] keys = {"gdx_window_mode", "auto_fullscreen",
                 "gdx_vsync", "gdx_fps_limit", GdxSettingsContract.MSAA_KEY,
-                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
+                "gdx_show_fps",
                 "gpu_renderer"};
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
@@ -10011,23 +10003,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                     Integer.toString(GdxSettingsContract.DEFAULT_MSAA_SAMPLES)))),
                             msaaStatusDetail(), Dropdown.MSAA, true);
                 } else if (row == 5) {
-                    settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
-                            bounds.height,
-                            uppercase(gameText.translate(
-                                    "gdx.settings.row.antialiasing_cards")),
-                            GdxSettingsContract.markDefault(
-                                    cardRenderingSettingLabel(),
-                                    Integer.toString(GdxSettingsContract
-                                            .DEFAULT_CARD_RENDERING_MODE)
-                                            .equals(initialProperties
-                                                    .getProperty(
-                                                            GdxSettingsContract
-                                                                    .CARD_RENDERING_KEY,
-                                                            Integer.toString(
-                                                                    GdxSettingsContract
-                                                                            .DEFAULT_CARD_RENDERING_MODE)))),
-                            Dropdown.CARD_RENDERING, true);
-                } else if (row == 6) {
                     settingsBooleanToggle(bounds.x, bounds.y, bounds.width,
                             uppercase(gameText.translate(
                                     "gdx.settings.option.gdx_show_fps")),
@@ -10050,9 +10025,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsContract.TogglePage page =
                 GdxSettingsContract.appearanceTogglePage(
                         settingsAppearancePage);
-        int rowCount = GdxSettingsContract.appearanceRowCount(page);
+        int rowCount = GdxSettingsContract.appearanceRowCount(page, GdxAppearanceOptions.perspectiveTable(initialProperties));
         List<GdxSettingsContract.RowGroup> groups =
-                GdxSettingsContract.appearanceGroups(page);
+                GdxSettingsContract.appearanceGroups(page, GdxAppearanceOptions.perspectiveTable(initialProperties));
         GdxSettingsLayout.PixelRows rows = GdxSettingsLayout.pixelRows(
                 rowY, y + GdxSettingsLayout.CONTENT_VERTICAL_INSET,
                 rowY + GdxSettingsLayout.ROW_HEIGHT,
@@ -10064,14 +10039,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth, rows, groups,
                 1f);
         List<GdxSettingsContract.AppearanceAnimationRow> animationRows =
-                GdxSettingsContract.appearanceRows(page);
+                GdxSettingsContract.appearanceRows(page, GdxAppearanceOptions.perspectiveTable(initialProperties));
         for (int row = rows.firstIndex(); row < rows.lastExclusive(); row++) {
             float currentY = rows.rowY(row);
             GdxSettingsContract.AppearanceAnimationRow animationRow =
                     animationRows.get(row);
             if (animationRow.shuffleZoom()) {
                 var bounds = GdxSettingsLayout.groupedRow(baseX, currentY, baseWidth, row, groups, rowCount);
-                drawCardZoomRow(bounds, rows, true);
+                drawCardZoomRow(bounds, rows);
                 settingsTooltip(bounds, GdxCardZoom.SHUFFLE_LABEL);
             } else if (animationRow.shuffleAngle()) {
                 Rectangle bounds = GdxSettingsLayout.groupedRow(baseX, currentY, baseWidth, row, groups, rowCount);
@@ -10132,15 +10107,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
     }
 
-    private void drawCardZoomRow(Rectangle row, GdxSettingsLayout.PixelRows rows, boolean shuffle) {
+    private void drawCardZoomRow(Rectangle row, GdxSettingsLayout.PixelRows rows) {
         boolean perspective = GdxAppearanceOptions.perspectiveTable(initialProperties);
-        var zoom = shuffle ? GdxCardZoom.shuffle(perspective) : GdxCardZoom.hand(perspective);
-        boolean enabled = !shuffle || GdxShuffleAngle.enabled(initialProperties);
+        var zoom = GdxCardZoom.shuffle(perspective);
+        boolean enabled = GdxShuffleAngle.enabled(initialProperties);
         int value = zoom.percent(initialProperties);
         cardZoomSlider.draw(shapes, row, rows, zoom, value, enabled, 1f);
         float baseline = row.y + row.height * .5f + 9f;
-        String label = gameText.translate(shuffle ? GdxCardZoom.SHUFFLE_LABEL : GdxCardZoom.HAND_LABEL);
-        textFit(smallFont, uppercase(label) + (perspective ? " · 3D" : " · 2D"), row.x + 18f, baseline,
+        String label = gameText.translate(GdxCardZoom.SHUFFLE_LABEL);
+        textFit(smallFont, uppercase(label) + (perspective ? " (3D)" : " (2D)"), row.x + 18f, baseline,
                 enabled ? Color.WHITE : DISABLED, false, row.width * .42f - 30f);
         textFit(smallFont, zoom.display(value), row.x + row.width - 53f, baseline, enabled ? GOLD : DISABLED, true, 96f);
     }
@@ -11397,10 +11372,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
-    private String cardRenderingSettingLabel() {
-        return GdxSettingsContract.cardRenderingStatusLabel(
-                presentationSettings.requestedCardRenderingMode(), gameText);
-    }
 
     private String frameRateLimitSettingLabel() {
         return GdxSettingsContract.frameRateLimitLabel(
@@ -14746,8 +14717,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     presentationSettings.requestedFrameRateLimit());
             case MSAA -> presentationSettings.msaaLevels().indexOf(
                     presentationSettings.requestedMsaaSamples());
-            case CARD_RENDERING -> presentationSettings.cardRenderingModes()
-                    .indexOf(presentationSettings.requestedCardRenderingMode());
             case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null ? -1
                     : GdxAppearanceOptions.selectedIndex(
                             dropdownAppearanceChoice, initialProperties);
@@ -14861,9 +14830,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case MSAA -> presentationSettings.msaaLevels().stream()
                     .map(samples -> GdxSettingsContract.msaaSelectedLabel(
                             samples, gameText)).toList();
-            case CARD_RENDERING -> presentationSettings.cardRenderingModes()
-                    .stream().map(mode -> GdxSettingsContract
-                            .cardRenderingStatusLabel(mode, gameText)).toList();
             case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null
                     ? List.of() : java.util.stream.IntStream.range(0,
                             dropdownAppearanceChoice.values().size())
@@ -14960,13 +14926,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 List<Integer> values = presentationSettings.msaaLevels();
                 if (option >= 0 && option < values.size()) {
                     presentationSettings.selectMsaaSamples(
-                            values.get(option), false);
-                }
-            }
-            case CARD_RENDERING -> {
-                List<Integer> values = presentationSettings.cardRenderingModes();
-                if (option >= 0 && option < values.size()) {
-                    presentationSettings.selectCardRenderingMode(
                             values.get(option), false);
                 }
             }
@@ -18461,8 +18420,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxSettingsContract.TogglePage page =
                         GdxSettingsContract.appearanceTogglePage(
                                 settingsAppearancePage);
-                totalRows = GdxSettingsContract.appearanceRowCount(page);
-                groups = GdxSettingsContract.appearanceGroups(page);
+                totalRows = GdxSettingsContract.appearanceRowCount(page, GdxAppearanceOptions.perspectiveTable(initialProperties));
+                groups = GdxSettingsContract.appearanceGroups(page, GdxAppearanceOptions.perspectiveTable(initialProperties));
             }
             offset = settingsAppearanceScroll;
         } else if (section == GdxSettingsContract.Section.GAME) {
@@ -18732,7 +18691,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         NONE, PROFILE, BLIND_STRUCTURE, BLIND_LEVEL, BLIND_STRUCTURE_EDITOR,
         DECK, CARD_BACK, FELT, HOST_ADDRESS, SERVER_HISTORY, LANGUAGE,
         AUDIO_OUTPUT, AUDIO_CAPTURE, VOICE_RETENTION, WINDOW_MODE, FPS_LIMIT,
-        MSAA, CARD_RENDERING,
+        MSAA,
         APPEARANCE_CHOICE, BLIND_UNIT, ANTE_MODE, REBUY_CAP, BOT_DIFFICULTY, RABBIT,
         CUSTOM_BOT_DIFFICULTY, CUSTOM_BOT_PERSONALITY
     }

@@ -174,7 +174,7 @@ final class GdxSettingsTooltipsTest {
         List<String> keys = List.of(
                 "gdx_window_mode", "auto_fullscreen", "gdx_vsync",
                 "gdx_fps_limit", "gdx_msaa_samples",
-                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
+                "gdx_show_fps",
                 "gdx_show_cpu_memory", "gpu_renderer", "auto_action_buttons",
                 "auto_call_enabled", "auto_action_persist",
                 "modo_auto_confirm", "confirmar_todo", "auto_rebuy",

@@ -29,6 +29,7 @@ final class GdxRiffleShuffle implements Disposable {
     }
 
     static final float PREVIEW_EYE_X = 1.597f;
+    static final float PREVIEW_EYE_Y = 1.212f;
     static final float PREVIEW_EYE_Z = 2.735f;
     private static final int SHADOW_SIZE = 1024;
     private static final String SHADOW_VERTEX = """
@@ -132,6 +133,7 @@ final class GdxRiffleShuffle implements Disposable {
     private final OrthographicCamera front = new OrthographicCamera();
     private float meshTime = Float.NaN;
     private float meshAspect;
+    private boolean meshPerspective;
     private boolean shadowReady;
     private GdxShuffleGeometry.Motion meshMotion;
 
@@ -160,7 +162,7 @@ final class GdxRiffleShuffle implements Disposable {
                  1.7f, 0, -1.2f, 0, 0, -4, 1, -1.7f, 0, -1.2f, 0, 0, -4, 1});
         felt.setIndices(new short[]{0, 1, 2, 0, 2, 3});
         perspective.fieldOfView = 20.25f;
-        perspective.position.set(PREVIEW_EYE_X, 1.212f, PREVIEW_EYE_Z);
+        perspective.position.set(PREVIEW_EYE_X, PREVIEW_EYE_Y, PREVIEW_EYE_Z);
         perspective.lookAt(.030f, .240f, 0f);
         perspective.near = .5f;
         perspective.far = 6f;
@@ -182,10 +184,12 @@ final class GdxRiffleShuffle implements Disposable {
 
     void prepare(float elapsed, View view, GdxShuffleGeometry.Motion motion, float aspect) {
         float time = view == View.FRONT ? motion.duration() : elapsed;
-        if (meshTime != time || meshMotion != motion || meshAspect != aspect) {
+        boolean perspectiveCorners = view == View.PERSPECTIVE;
+        if (meshTime != time || meshMotion != motion || meshAspect != aspect || meshPerspective != perspectiveCorners) {
+            meshPerspective = perspectiveCorners;
             meshAspect = aspect;
             meshMotion = motion;
-            geometry.update(time, motion, aspect);
+            geometry.update(time, motion, aspect, perspectiveCorners);
             mesh.setVertices(geometry.vertices);
             meshTime = time;
             shadowReady = false;

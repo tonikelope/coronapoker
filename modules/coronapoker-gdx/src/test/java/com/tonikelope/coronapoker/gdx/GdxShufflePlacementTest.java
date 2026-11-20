@@ -2,29 +2,52 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.GdxNativesLoader;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class GdxShufflePlacementTest {
+    @Test void tiltedShuffleOnFlatTableStaysCenteredAndShowsDepth() {
+        GdxNativesLoader.load();
+        var camera = new GdxShuffleOverlayCamera();
+        var projection = new Matrix4();
+        var bounds = new Rectangle();
+        var point = new Vector3();
+        for (int angle : new int[]{0, 45, -90, 180}) {
+            for (float aspect : new float[]{.60f, .74f}) {
+                camera.project(projection, 1920f, 1080f, 960f, 560f, 140f / aspect, aspect, angle);
+                GdxShuffleGeometry.projectRestBounds(projection, 1920f, 1080f, aspect, bounds, point);
+                assertEquals(960f, bounds.x + bounds.width * .5f, .002f);
+                assertEquals(560f, bounds.y + bounds.height * .5f, .002f);
+                float y = point.set(0, 0, 0).prj(projection).y;
+                assertTrue(point.set(0, GdxShuffleGeometry.stackHeight(aspect), 0).prj(projection).y > y);
+            }
+        }
+    }
+
     @Test
-    void theDeckAspectChangesOnlyTheShortEdgeDuringEveryPhase() {
+    void selectedDeckKeepsTheCommunityWidthAndPhysicalStackHeight() {
         var reference = new GdxShuffleGeometry();
         var modded = new GdxShuffleGeometry();
         int stride = GdxShuffleGeometry.FLOATS_PER_VERTEX;
         for (float time : new float[] {0f, .46f, .92f, 1.6f, 2.6f, 3.2f, 4.46f}) {
             reference.update(time, GdxShuffleGeometry.Motion.MID_BRIDGE, .75f);
             modded.update(time, GdxShuffleGeometry.Motion.MID_BRIDGE, .60f);
+            float refLengthMm = 63f / .75f, modLengthMm = 63f / .60f;
+            boolean squared = time == 0f || time == GdxShuffleGeometry.Motion.MID_BRIDGE.duration();
             float low = Float.POSITIVE_INFINITY, high = Float.NEGATIVE_INFINITY;
             for (int i = 0; i < reference.vertices.length; i += stride) {
-                assertEquals(reference.vertices[i], modded.vertices[i]);
-                assertEquals(reference.vertices[i+1], modded.vertices[i+1]);
-                assertEquals(reference.vertices[i+2] * .8f, modded.vertices[i+2], .000001f);
-                low = Math.min(low, modded.vertices[i+1]);
-                high = Math.max(high, modded.vertices[i+1]);
+                assertEquals(reference.vertices[i + 2] * refLengthMm, modded.vertices[i + 2] * modLengthMm, .00001f);
+                if (squared) {
+                    assertEquals(reference.vertices[i], modded.vertices[i], .000001f);
+                    assertEquals(reference.vertices[i + 1] * refLengthMm, modded.vertices[i + 1] * modLengthMm, .00001f);
+                }
+                low = Math.min(low, modded.vertices[i + 1]);
+                high = Math.max(high, modded.vertices[i + 1]);
             }
-            if (time == 0f || time == 4.46f) assertEquals(52f * .32f, (high - low) * 88f, .0001f);
+            if (squared) assertEquals(52f * .32f, (high - low) * modLengthMm, .0001f);
         }
     }
 
@@ -34,7 +57,7 @@ final class GdxShufflePlacementTest {
         var table = new GdxPerspectiveTable(4);
         var mesh = new GdxShuffleGeometry();
         float aspect = 874f / 1176f;
-        mesh.update(0f, GdxShuffleGeometry.Motion.MID_BRIDGE, aspect);
+        mesh.update(0f, GdxShuffleGeometry.Motion.MID_BRIDGE, aspect, true);
         var projection = new Matrix4();
         var point = new Vector3();
         for (int[] size : new int[][] {{1280, 720}, {1024, 768}, {1920, 1080}, {3840, 2160}}) {

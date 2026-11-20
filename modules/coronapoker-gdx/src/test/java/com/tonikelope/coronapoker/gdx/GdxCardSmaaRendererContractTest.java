@@ -174,7 +174,7 @@ final class GdxCardSmaaRendererContractTest {
     }
 
     @Test
-    void everyCardPassReadsTheCurrentLiveSettingAndPhysicalBackbuffer()
+    void everyCardPassUsesBalancedArtworkAndThePhysicalBackbuffer()
             throws IOException {
         String table = Files.readString(source("CoronaPokerGdxTable.java"));
         String begin = method(table,
@@ -182,7 +182,7 @@ final class GdxCardSmaaRendererContractTest {
                 "private void finishCardSmaaLayer()");
 
         assertTrue(begin.contains(
-                "presentationSettings.requestedCardRenderingMode()"));
+                "GdxCardSampling.GAME_MODE"));
         assertTrue(begin.contains("Gdx.graphics.getBackBufferWidth()"));
         assertTrue(begin.contains("Gdx.graphics.getBackBufferHeight()"));
         assertTrue(begin.contains("cardSmaaEnabled(quality)"));

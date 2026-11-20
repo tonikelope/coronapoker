@@ -6,7 +6,7 @@ import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 
-/** Finite-thickness shuffle mesh. One world unit is the 88 mm length of a card. */
+/** Finite-thickness shuffle mesh. One mesh unit is the long edge of the selected deck. */
 final class GdxShuffleGeometry {
 
     static final int CARDS_PER_PACKET = 26;
@@ -79,47 +79,62 @@ final class GdxShuffleGeometry {
     private static final int PUSH_START = 65;
     private static final int PUSH_END = FRAME_COUNT - 1;
     static final float STANDARD_ASPECT = 63f / 88f;
-    private static final float THICKNESS = GdxPlasticCard.THICKNESS_MM / 88f;
-    static final float STACK_HEIGHT = CARDS * THICKNESS;
-    private static final float CORNER = GdxPlasticCard.CORNER_RADIUS_MM / 88f;
     private static final float OPENING_TRAVEL = .52f;
     // The opening and layer stagger bound every card's outer edge across the full shuffle.
     static final float MAX_HALF_SPAN = .5f + OPENING_TRAVEL + spread(CARDS_PER_PACKET - 1) - spread(0);
     private static final float HELD_BEND = 1.39f;
-    private static final int ROUND_STRIPS = 6;
-    static final int STRIPS = 42;
+    private static final int ROUND_STRIPS = 12;
+    static final int STRIPS = 54;
     static final int VERTICES_PER_STRIP = 8;
     static final int VERTICES_PER_CARD = (STRIPS + 1) * VERTICES_PER_STRIP;
     static final int INDICES_PER_CARD = (STRIPS * 4 + 2) * 6;
     static final int FLOATS_PER_VERTEX = 7;
 
     final float[] vertices = new float[CARDS * VERTICES_PER_CARD * FLOATS_PER_VERTEX];
-    private static final float[] alongCard = new float[STRIPS + 1];
+    private final float[] alongCard = new float[STRIPS + 1];
     private static final float[] halfWidths = new float[STRIPS + 1];
+    private float cornerLength = Float.NaN;
     private int writeOffset;
     private float widthScale = 1f;
+    private float thickness;
 
     static {
         for (int s = 0; s <= STRIPS; s++) {
             int end = Math.min(s, STRIPS - s);
             float arc = end * MathUtils.HALF_PI / ROUND_STRIPS;
-            float u = end < ROUND_STRIPS ? CORNER * (1f - MathUtils.cos(arc))
-                    : MathUtils.lerp(CORNER, .5f, (end - ROUND_STRIPS) / (STRIPS * .5f - ROUND_STRIPS));
-            alongCard[s] = s <= STRIPS / 2 ? u : 1f - u;
-            halfWidths[s] = end < ROUND_STRIPS ? STANDARD_ASPECT * .5f - CORNER * (1f - MathUtils.sin(arc)) : STANDARD_ASPECT * .5f;
+            float inset = end < ROUND_STRIPS ? GdxPlasticCard.CORNER_FRACTION * (1f - MathUtils.sin(arc)) : 0f;
+            halfWidths[s] = STANDARD_ASPECT * (.5f - inset);
         }
+    }
+
+    private static float stripPosition(int strip, float radius) {
+        int end = Math.min(strip, STRIPS - strip);
+        float u = end < ROUND_STRIPS ? radius * (1f - MathUtils.cos(end * MathUtils.HALF_PI / ROUND_STRIPS))
+                : MathUtils.lerp(radius, .5f, (end - ROUND_STRIPS) / (STRIPS * .5f - ROUND_STRIPS));
+        return strip <= STRIPS / 2 ? u : 1f - u;
+    }
+
+    private static float perspectiveCornerLength(float aspect) {
+        return Math.min(.5f, GdxPlasticCard.CORNER_FRACTION * aspect);
+    }
+
+    static float stackHeight(float aspect) {
+        return CARDS * GdxPlasticCard.thickness(aspect);
     }
 
     /** Screen bounds of the two outer rims of the squared deck in a given table projection. */
     static void projectRestBounds(Matrix4 projection, float width, float height, float aspect,
             Rectangle bounds, Vector3 point) {
         float widthScale = aspect / STANDARD_ASPECT;
+        float stackHeight = stackHeight(aspect);
         float left = Float.POSITIVE_INFINITY, bottom = Float.POSITIVE_INFINITY;
         float right = Float.NEGATIVE_INFINITY, top = Float.NEGATIVE_INFINITY;
+        float radius = perspectiveCornerLength(aspect);
         for (int s = 0; s <= STRIPS; s++) {
+            float x = .5f - stripPosition(s, radius);
             for (int side = -1; side <= 1; side += 2) {
                 for (int rim = 0; rim < 2; rim++) {
-                    point.set(.5f - alongCard[s], rim * STACK_HEIGHT, side * halfWidths[s] * widthScale).prj(projection);
+                    point.set(x, rim * stackHeight, side * halfWidths[s] * widthScale).prj(projection);
                     left = Math.min(left, point.x);
                     right = Math.max(right, point.x);
                     bottom = Math.min(bottom, point.y);
@@ -160,8 +175,18 @@ final class GdxShuffleGeometry {
     }
 
     void update(float elapsed, Motion motion, float aspect) {
-        // Only the transverse dimension follows the artwork. Both the bend
-        // along the 88 mm edge and each sheet's 0.32 mm thickness stay physical.
+        update(elapsed, motion, aspect, false);
+    }
+
+    void update(float elapsed, Motion motion, float aspect, boolean perspective) {
+        float radius = perspective ? perspectiveCornerLength(aspect) : GdxPlasticCard.CORNER_FRACTION;
+        if (radius != cornerLength) {
+            for (int s = 0; s <= STRIPS; s++) alongCard[s] = stripPosition(s, radius);
+            cornerLength = radius;
+        }
+        // Community cards set the width on the felt. Express the gauge in the
+        // same long-edge units as the mesh so a different aspect cannot thicken the stack.
+        thickness = GdxPlasticCard.thickness(aspect);
         widthScale = aspect / STANDARD_ASPECT;
         float leadFrame = elapsed / FRAME_SECONDS;
         if (leadFrame < motion.leadFrames) {
@@ -189,7 +214,7 @@ final class GdxShuffleGeometry {
         for (int order = 0; order < CARDS; order++) {
             boolean upper = (order & 1) != 0;
             int layer = order / 2;
-            float packed = (layer + .5f + (upper ? CARDS_PER_PACKET : 0)) * THICKNESS;
+            float packed = (layer + .5f + (upper ? CARDS_PER_PACKET : 0)) * thickness;
             float base = MathUtils.lerp(packed, riffleHeight(order), curl);
             float outer = MathUtils.lerp(.5f + OPENING_TRAVEL * split, .5f + spread(0), approach)
                     + (spread(layer) - spread(0)) * curl;
@@ -197,8 +222,8 @@ final class GdxShuffleGeometry {
         }
     }
 
-    private static float riffleHeight(int order) {
-        return (order + .5f) * THICKNESS;
+    private float riffleHeight(int order) {
+        return (order + .5f) * thickness;
     }
 
     private void writeBridge(float frame, Motion motion) {
@@ -213,7 +238,7 @@ final class GdxShuffleGeometry {
             pushStart += MID_BRIDGE_PAUSE_FRAMES;
         }
         float pushTime = MathUtils.clamp((frame - pushStart) / BRIDGE_PUSH_FRAMES, 0f, 1f);
-        float square = pushTime * (2f - pushTime);
+        float square = motion == Motion.MID_BRIDGE ? smooth(pushTime) : pushTime * (2f - pushTime);
         writeOffset = 0;
         for (int order = 0; order < CARDS; order++) {
             // The underside lands first. Adjacent cards have overlapping
@@ -249,7 +274,7 @@ final class GdxShuffleGeometry {
     private void writeArchedCard(int order, float base, float spread, float support, float curvature) {
         float direction = (order & 1) != 0 ? -1f : 1f;
         // Concentric sheets with their own radii slide over each other while
-        // bending. Using arc length as the coordinate keeps every sheet 88 mm.
+        // bending. Using arc length as the coordinate preserves the length of every sheet.
         float radius = 1f / curvature + base;
         float halfAngle = support * curvature * .5f;
         float rise = 2f / curvature * (float) Math.pow(Math.sin(halfAngle), 2);
@@ -300,7 +325,7 @@ final class GdxShuffleGeometry {
         int face = faceIndex(order);
         boolean left = direction < 0f;
         float u = alongCard[s];
-        float half = THICKNESS * .5f;
+        float half = thickness * .5f;
         float nx = direction * sin * half;
         float ny = cos * half;
         float z = direction * halfWidths[s] * widthScale;

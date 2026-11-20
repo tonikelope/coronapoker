@@ -297,7 +297,7 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_shuffle";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
-            case GdxCardZoom.HAND_LABEL, "zoom_mano_2d", "zoom_mano_3d" -> "gdx.settings.tooltip.hand_zoom";
+            case "vista_barajado" -> "gdx.settings.tooltip.shuffle_view";
             case GdxCardZoom.SHUFFLE_LABEL, "zoom_barajado_2d", "zoom_barajado_3d" -> "gdx.settings.tooltip.shuffle_zoom";
             case GdxShuffleAngle.KEY -> "gdx.settings.tooltip.shuffle_angle";
             case "animacion_reparto" ->
@@ -349,8 +349,6 @@ final class GdxSettingsTooltips {
             case "gdx_vsync" -> "gdx.settings.tooltip.vsync";
             case "gdx_fps_limit" -> "gdx.settings.tooltip.fps_limit";
             case "gdx_msaa_samples" -> "gdx.settings.tooltip.msaa";
-            case GdxSettingsContract.CARD_RENDERING_KEY ->
-                "gdx.settings.tooltip.card_rendering";
             case "gdx_show_fps" -> "gdx.settings.tooltip.show_fps";
             case "gdx_show_cpu_memory" ->
                 "gdx.settings.tooltip.show_cpu_memory";

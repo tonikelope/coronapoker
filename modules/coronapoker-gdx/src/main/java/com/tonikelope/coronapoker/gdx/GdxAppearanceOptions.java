@@ -49,6 +49,13 @@ final class GdxAppearanceOptions {
         return TABLE_VIEW.values().get(selectedIndex(TABLE_VIEW, properties));
     }
 
+    static final Choice SHUFFLE_VIEW = exact("vista_barajado", "VISTA DE BARAJADO", "table",
+            new String[]{"table", "3d"}, new String[]{"MISMA QUE LA MESA", "3D"});
+
+    static boolean tiltedShuffle(Properties properties) {
+        return selectedIndex(SHUFFLE_VIEW, properties) == 1;
+    }
+
     static final Choice AMOUNT_ZEROS = exact(GdxChipAmountText.ZEROS_KEY,
             "CERO FINAL EN IMPORTES CON CÉNTIMOS",
             GdxChipAmountText.ZeroMode.DEFAULT.setting,
@@ -61,6 +68,7 @@ final class GdxAppearanceOptions {
             new String[]{"ALTA", "NORMAL"});
 
     static final List<Choice> ANIMATION_CHOICES = List.of(
+            SHUFFLE_VIEW,
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
@@ -116,7 +124,7 @@ final class GdxAppearanceOptions {
     /** A selector follows the view in the settings and its animation switches. */
     static boolean enabled(Choice choice, Properties properties) {
         boolean available = switch (choice.key()) {
-            case "swap_velocidad", "swap_arco" -> !perspectiveTable(properties);
+            case "swap_velocidad", "swap_arco", "vista_barajado" -> !perspectiveTable(properties);
             case GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY -> perspectiveTable(properties);
             default -> true;
         };
@@ -136,6 +144,7 @@ final class GdxAppearanceOptions {
 
     static String parentKey(Choice choice) {
         return switch (choice.key()) {
+            case "vista_barajado" -> "animacion_barajado";
             case "reparto_velocidad",
                     GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
                 "animacion_reparto";

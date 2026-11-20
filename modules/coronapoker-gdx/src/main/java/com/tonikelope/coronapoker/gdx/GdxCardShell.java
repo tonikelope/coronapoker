@@ -27,6 +27,8 @@ import org.lwjgl.opengl.GL30C;
 
 /** Thin two-sided plastic shell with depth and a premultiplied resolve. */
 final class GdxCardShell implements Disposable {
+    private static final int CROP_BLOCK_SIZE = 128;
+
     private record Grid(int columns, int rows, float aspect) { }
     private final Map<Grid, GdxCardContour> contours = new LinkedHashMap<>(8, 0.75f, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<Grid, GdxCardContour> eldest) {
@@ -54,12 +56,15 @@ final class GdxCardShell implements Disposable {
     private int multisampleTarget;
     private int multisampleColour;
     private int multisampleDepth;
+    private int multisampleSamples;
+    private int reportedSamples = -1;
     private boolean previousMultisample;
     private boolean grouping;
     private boolean groupHasCards;
     private float groupWidth;
     private float groupHeight;
     private final int requestedSamples;
+    private final boolean supersampleCrop;
     private int nativeWidth;
     private int nativeHeight;
     private int regionX, regionY, regionWidth, regionHeight;
@@ -67,7 +72,12 @@ final class GdxCardShell implements Disposable {
     GdxCardPickMesh pickTarget;
 
     GdxCardShell(int requestedSamples) {
-        this.requestedSamples = Math.max(0, Math.min(8, requestedSamples));
+        this(requestedSamples, true);
+    }
+
+    GdxCardShell(int requestedSamples, boolean supersampleCrop) {
+        this.requestedSamples = Math.max(0, requestedSamples);
+        this.supersampleCrop = supersampleCrop;
     }
 
     void prepare(int cols, int strips, float aspect) {
@@ -288,41 +298,52 @@ final class GdxCardShell implements Disposable {
                 && neededWidth * resolutionScale <= layer.getWidth()
                 && neededHeight * resolutionScale <= layer.getHeight()) return;
 
-        int tw = neededWidth, th = neededHeight;
+        int width = neededWidth;
+        int height = neededHeight;
+        int maximum = GL11C.glGetInteger(GL20.GL_MAX_TEXTURE_SIZE);
         if (cropped) {
-            // Grow in blocks so bending or spreading a few pixels doesn't
-            // recreate the buffers in the middle of an animation.
-            tw = Math.min(w, (neededWidth + 127) / 128 * 128);
-            th = Math.min(h, (neededHeight + 127) / 128 * 128);
+            width = cropCapacity(neededWidth, w);
+            height = cropCapacity(neededHeight, h);
             if (layer != null && nativeWidth == w && nativeHeight == h) {
-                tw = Math.max(tw, layer.getWidth() / resolutionScale);
-                th = Math.max(th, layer.getHeight() / resolutionScale);
+                width = Math.max(width, layer.getWidth() / resolutionScale);
+                height = Math.max(height, layer.getHeight() / resolutionScale);
             }
         }
-        if (layer != null) layer.dispose();
-        int maximum = GL11C.glGetInteger(GL20.GL_MAX_TEXTURE_SIZE);
+        if (layer != null) {
+            layer.dispose();
+            layer = null;
+        }
         resolutionScale = 1;
-        if (cropped && tw <= maximum / 2 && th <= maximum / 2) {
+        if (supersampleCrop && cropped && width <= maximum / 2 && height <= maximum / 2) {
             var limits = BufferUtils.newIntBuffer(2);
             GL11C.glGetIntegerv(GL20.GL_MAX_VIEWPORT_DIMS, limits);
             if (w <= limits.get(0) / 2 && h <= limits.get(1) / 2) resolutionScale = 2;
         }
-        createMultisample(tw * resolutionScale, th * resolutionScale);
+        createMultisample(width * resolutionScale, height * resolutionScale);
         if (!cropped && requestedSamples > 0 && multisampleTarget == 0
                 && w <= maximum / 2 && h <= maximum / 2) {
             resolutionScale = 2;
         }
         // 24-bit depth keeps the two thin sheets distinct even with MSAA off.
         var builder = new com.badlogic.gdx.graphics.glutils.GLFrameBuffer.FrameBufferBuilder(
-                tw * resolutionScale, th * resolutionScale);
+                width * resolutionScale, height * resolutionScale);
         builder.addBasicColorTextureAttachment(Pixmap.Format.RGBA8888);
         if (multisampleTarget == 0) builder.addDepthRenderBuffer(GL30C.GL_DEPTH_COMPONENT24);
         layer = builder.build();
         Texture.TextureFilter filter = resolutionScale > 1
                 ? Texture.TextureFilter.Linear : Texture.TextureFilter.Nearest;
         layer.getColorBufferTexture().setFilter(filter, filter);
+        if (multisampleSamples != reportedSamples && multisampleSamples != requestedSamples) {
+            Gdx.app.log("3D rendering", "Offscreen MSAA requested " + requestedSamples
+                    + "x, driver granted " + multisampleSamples + " sample(s)");
+        }
+        reportedSamples = multisampleSamples;
         nativeWidth = w;
         nativeHeight = h;
+    }
+
+    private static int cropCapacity(int needed, int limit) {
+        return Math.min(limit, (needed + CROP_BLOCK_SIZE - 1) / CROP_BLOCK_SIZE * CROP_BLOCK_SIZE);
     }
 
     private void composite(float worldWidth, float worldHeight) {
@@ -374,7 +395,8 @@ final class GdxCardShell implements Disposable {
                 GL30C.GL_RENDERBUFFER, multisampleDepth);
         if (GL30C.glCheckFramebufferStatus(GL30C.GL_FRAMEBUFFER) != GL30C.GL_FRAMEBUFFER_COMPLETE) {
             disposeMultisample();
-            Gdx.app.log("3D cards", "MSAA unavailable, using supersampled geometry");
+        } else {
+            multisampleSamples = Math.max(0, GL11C.glGetInteger(GL13C.GL_SAMPLES));
         }
         GL30C.glBindRenderbuffer(GL30C.GL_RENDERBUFFER, 0);
     }
@@ -384,6 +406,7 @@ final class GdxCardShell implements Disposable {
         if (multisampleColour != 0) GL30C.glDeleteRenderbuffers(multisampleColour);
         if (multisampleDepth != 0) GL30C.glDeleteRenderbuffers(multisampleDepth);
         multisampleTarget = multisampleColour = multisampleDepth = 0;
+        multisampleSamples = 0;
     }
 
     private void captureSurface(FloatArray source) {

@@ -7,44 +7,37 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tonikelope.coronapoker.core.PreferencesService;
-import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 final class GdxSettingsTooltipsTest {
 
     @Test
-    void explainedDropdownOptionsAreTranslatedInBothLanguages(@TempDir Path root) {
-        var preferences = new PreferencesService(root.resolve("settings.properties"));
-        var presentation = new GdxGamePresentationSettings(preferences,
-                ModMediaCatalog.discover(root));
+    void explainedDropdownOptionsAreTranslatedInBothLanguages() {
         var spanish = new GdxGameText("es");
         var english = new GdxGameText("en");
         Map<String, Integer> selectors = Map.ofEntries(
                 Map.entry("BOT_DIFFICULTY", 3), Map.entry("CUSTOM_BOT_DIFFICULTY", 3),
                 Map.entry("CUSTOM_BOT_PERSONALITY", 5), Map.entry("ANTE_MODE", 4),
-                Map.entry("BLIND_UNIT", 2), Map.entry("REBUY_CAP", 2),
-                Map.entry("RABBIT", 4), Map.entry("WINDOW_MODE", 3),
-                Map.entry("FPS_LIMIT", presentation.frameRateLimits().size()),
-                Map.entry("MSAA", presentation.msaaLevels().size()),
-                Map.entry("CARD_RENDERING", presentation.cardRenderingModes().size()));
+                Map.entry("REBUY_CAP", 2),
+                Map.entry("RABBIT", 4), Map.entry("WINDOW_MODE", 2));
         selectors.forEach((selector, count) -> {
             for (int option = 0; option < count; option++) {
-                String key = GdxSettingsTooltips.optionKey(selector, option, presentation);
+                String key = GdxSettingsTooltips.optionKey(selector, option);
                 assertNotNull(key, selector);
                 assertNotEquals(key, spanish.translate(key));
                 assertNotEquals(key, english.translate(key));
                 assertNotEquals(spanish.translate(key), english.translate(key));
             }
         });
-        assertNull(GdxSettingsTooltips.optionKey("SERVER_HISTORY", 0, presentation));
+        for (String selector : List.of("BLIND_UNIT", "FPS_LIMIT", "MSAA",
+                "CARD_RENDERING", "APPEARANCE_CHOICE", "SERVER_HISTORY")) {
+            assertNull(GdxSettingsTooltips.optionKey(selector, 0), selector);
+        }
+        assertNull(GdxSettingsTooltips.optionKey("WINDOW_MODE", GdxWindowMode.WINDOWED.ordinal()));
     }
 
     @Test
@@ -74,7 +67,7 @@ final class GdxSettingsTooltipsTest {
         for (String language : List.of("en", "es")) {
             GdxGameText text = new GdxGameText(language);
             String description = GdxSettingsTooltips.content(
-                    "ante_mode", new Properties(), text).text();
+                    "ante_mode", text).text();
             for (String mode : List.of("BBA", "BA", "SBA")) {
                 assertTrue(description.matches(".*\\b" + mode + "\\b.*"),
                         language + " " + mode);
@@ -88,35 +81,38 @@ final class GdxSettingsTooltipsTest {
 
     @Test
     void graphicsTooltipsExplainTheSettingAndThenItsImpact() {
-        Properties properties = new Properties();
-        properties.setProperty("gdx_msaa_samples", "4");
         GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
-                "gdx_msaa_samples", properties, new GdxGameText("es"));
+                "gdx_msaa_samples", new GdxGameText("es"));
         assertTrue(spanish.text().contains("Suaviza"));
-        assertTrue(spanish.text().contains("Impacto estimado en el rendimiento: MEDIO"));
-        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
+        assertTrue(spanish.text().contains("Impacto estimado en el rendimiento: ALTO"));
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                 spanish.performanceImpact());
 
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
-                "gdx_vsync", properties, new GdxGameText("en"));
+                "gdx_vsync", new GdxGameText("en"));
         assertTrue(english.text().contains("Synchronizes frames"));
         assertFalse(english.text().contains("Estimated performance impact"));
 
-        properties.setProperty("gdx_fps_limit", "0");
         GdxSettingsTooltips.Content monitorRefresh = GdxSettingsTooltips.content(
-                "gdx_fps_limit", properties, new GdxGameText("en"));
+                "gdx_fps_limit", new GdxGameText("en"));
         assertTrue(monitorRefresh.text().contains("follows your display"));
-        assertFalse(monitorRefresh.text().contains("Estimated performance impact"));
+        assertTrue(monitorRefresh.text().contains("Estimated performance impact"));
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
+                monitorRefresh.performanceImpact());
+
+        var shadows = GdxSettingsTooltips.content(
+                GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY, new GdxGameText("es"));
+        assertTrue(shadows.text().contains("fichas en vuelo"));
+        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH, shadows.performanceImpact());
     }
 
     @Test
     void pokerVideoTooltipExplainsReopeningDuringPlayInBothLanguages() {
         String key = GdxSettingsContract.POKER_VIDEOS_KEY;
-        Properties properties = new Properties();
-        assertTrue(GdxSettingsTooltips.content(key, properties,
+        assertTrue(GdxSettingsTooltips.content(key,
                 new GdxGameText("es")).text().contains(
                         "puedes volver a abrirlo desde su icono"));
-        assertTrue(GdxSettingsTooltips.content(key, properties,
+        assertTrue(GdxSettingsTooltips.content(key,
                 new GdxGameText("en")).text().contains(
                         "can be reopened from its icon"));
     }
@@ -167,12 +163,10 @@ final class GdxSettingsTooltipsTest {
             assertNotEquals(key, english.translate(key), setting);
         }
         String viewHelp = GdxSettingsTooltips.content(
-                GdxSettingsContract.appearanceTableSettingKey(0),
-                new Properties(), spanish).text();
+                GdxSettingsContract.appearanceTableSettingKey(0), spanish).text();
         assertTrue(viewHelp.contains("2D") && viewHelp.contains("3D")
                 && viewHelp.contains("pulsada V") && viewHelp.contains("arrastra"));
-        assertTrue(GdxSettingsTooltips.content("unmapped_setting",
-                new Properties(), spanish).text().isEmpty());
+        assertTrue(GdxSettingsTooltips.content("unmapped_setting", spanish).text().isEmpty());
     }
 
     @Test
@@ -191,14 +185,14 @@ final class GdxSettingsTooltipsTest {
     @Test
     void shufflePreloadHasItsOwnConciseMemoryTooltip() {
         GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
-                "animacion_barajado_precarga", new Properties(),
+                "animacion_barajado_precarga",
                 new GdxGameText("es"));
         assertFalse(spanish.text().contains("MiB"));
         assertTrue(spanish.text().contains("uso de memoria"));
         assertTrue(spanish.text().length() < 140);
 
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
-                "animacion_barajado_precarga", new Properties(),
+                "animacion_barajado_precarga",
                 new GdxGameText("en"));
         assertFalse(english.text().contains("MiB"));
         assertTrue(english.text().contains("memory usage"));
@@ -236,11 +230,10 @@ final class GdxSettingsTooltipsTest {
 
     @Test
     void cpuMemoryTooltipStaysConcise() {
-        Properties properties = new Properties();
         GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
-                "gdx_show_cpu_memory", properties, new GdxGameText("es"));
+                "gdx_show_cpu_memory", new GdxGameText("es"));
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
-                "gdx_show_cpu_memory", properties, new GdxGameText("en"));
+                "gdx_show_cpu_memory", new GdxGameText("en"));
 
         assertTrue(spanish.text().length() < 90);
         assertTrue(english.text().length() < 90);
@@ -249,10 +242,10 @@ final class GdxSettingsTooltipsTest {
     @Test
     void modAudioTooltipExplainsWhichVersionIsUsed() {
         GdxSettingsTooltips.Content spanish = GdxSettingsTooltips.content(
-                "sonidos_chorra", new Properties(), new GdxGameText("es"),
+                "sonidos_chorra", new GdxGameText("es"),
                 true);
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
-                "sonidos_chorra", new Properties(), new GdxGameText("en"),
+                "sonidos_chorra", new GdxGameText("en"),
                 true);
 
         assertTrue(spanish.text().contains("MOD cargado"));
@@ -263,12 +256,9 @@ final class GdxSettingsTooltipsTest {
     void jokeStartAndRecoveryAudioTooltipsExplainTheirRealEffect() {
         GdxGameText spanish = new GdxGameText("es");
 
-        assertTrue(GdxSettingsTooltips.content("sonidos_chorra",
-                new Properties(), spanish).text().contains("broma"));
-        assertTrue(GdxSettingsTooltips.content("sonido_inicio",
-                new Properties(), spanish).text().contains("comienza"));
-        assertTrue(GdxSettingsTooltips.content("musica_recuperacion",
-                new Properties(), spanish).text().contains("recupera"));
+        assertTrue(GdxSettingsTooltips.content("sonidos_chorra", spanish).text().contains("broma"));
+        assertTrue(GdxSettingsTooltips.content("sonido_inicio", spanish).text().contains("comienza"));
+        assertTrue(GdxSettingsTooltips.content("musica_recuperacion", spanish).text().contains("recupera"));
     }
 
     @Test
@@ -278,20 +268,18 @@ final class GdxSettingsTooltipsTest {
                 .GamePresentationSettings.jokeSoundPreferenceKey(resource);
 
         String officialSpanish = GdxSettingsTooltips.content(key,
-                new Properties(),
                 new GdxGameText("es")).text();
-        String modSpanish = GdxSettingsTooltips.content(key,
-                new Properties(), new GdxGameText("es"), true).text();
+        String modSpanish = GdxSettingsTooltips.content(key, new GdxGameText("es"), true).text();
         String officialParent = GdxSettingsTooltips.content(
-                "sonido_chorra_allin", new Properties(),
+                "sonido_chorra_allin",
                 new GdxGameText("es"), false,
                 GdxGameAudioResources.JokeBankMode.OFFICIAL).text();
         String exclusiveParent = GdxSettingsTooltips.content(
-                "sonido_chorra_allin", new Properties(),
+                "sonido_chorra_allin",
                 new GdxGameText("es"), true,
                 GdxGameAudioResources.JokeBankMode.MOD_ONLY).text();
         String fusedParent = GdxSettingsTooltips.content(
-                "sonido_chorra_allin", new Properties(),
+                "sonido_chorra_allin",
                 new GdxGameText("es"), true,
                 GdxGameAudioResources.JokeBankMode.FUSED).text();
 
@@ -311,10 +299,9 @@ final class GdxSettingsTooltipsTest {
 
     @Test
     void audioTooltipsNameTheRealModFilesWithoutGenericFiller() {
-        String startup = GdxSettingsTooltips.content("sonido_arranque",
-                new Properties(), new GdxGameText("es")).text();
+        String startup = GdxSettingsTooltips.content("sonido_arranque", new GdxGameText("es")).text();
         String switchSounds = GdxSettingsTooltips.content(
-                "sonido_interruptor", new Properties(),
+                "sonido_interruptor",
                 new GdxGameText("es")).text();
 
         assertTrue(startup.contains("sounds/misc/init.wav"));

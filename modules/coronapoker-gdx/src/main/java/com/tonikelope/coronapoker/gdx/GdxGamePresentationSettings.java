@@ -39,7 +39,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private final List<String> availableDecks;
     private final Map<String, String> normalizedDecks;
     private volatile boolean autoRebuyOnBroke;
-    private volatile int actualMsaaSamples;
+    private record WindowMsaa(int requested, int granted) { }
+    private volatile WindowMsaa windowMsaa;
     private volatile AnimationFlags animationFlags;
     private boolean savedCommunityDealByStreet;
     private String secretFeltFirst = "";
@@ -83,7 +84,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
 
     private record AnimationFlags(boolean master, boolean halo,
             boolean allInCinematics, boolean gameOverCinematics,
-            boolean blindDealer, boolean bets, boolean counters,
+            boolean blindDealer, boolean bets, boolean normalFlyingChipShadows,
+            boolean counters,
             boolean seatEntry, boolean shuffle, boolean shufflePreload,
             boolean deal, boolean flip, boolean swap, boolean allInFire,
             boolean winnerEffect) {
@@ -99,6 +101,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 master && bool("cinematicas_gameover", true),
                 master && bool("animacion_ciegas_dealer", true),
                 master && bool("animacion_apuestas", true),
+                !GdxAppearanceOptions.isDefault(
+                        GdxAppearanceOptions.FLYING_CHIP_SHADOW_QUALITY, properties),
                 master && bool("animacion_contadores", true),
                 master && bool("animacion_entrada_asientos", true),
                 shuffle,
@@ -424,13 +428,20 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         properties.setProperty(GdxSettingsContract.AUTO_REBUY_KEY,
                 Boolean.toString(enabled));
     }
-    int actualMsaaSamples() { return actualMsaaSamples; }
+    int actualMsaaSamples() {
+        WindowMsaa current = windowMsaa;
+        return current == null ? 0 : current.granted();
+    }
+    int windowMsaaRequest() {
+        WindowMsaa current = windowMsaa;
+        return current == null ? requestedMsaaSamples() : current.requested();
+    }
     void setActualMsaaSamples(int samples) {
-        actualMsaaSamples = Math.max(0, samples);
+        windowMsaa = new WindowMsaa(requestedMsaaSamples(), Math.max(0, samples));
     }
     int requestedMsaaSamples() {
-        int configured = integer("gdx_msaa_samples", 4);
-        return MSAA_LEVELS.contains(configured) ? configured : 4;
+        int configured = integer(GdxSettingsContract.MSAA_KEY, GdxSettingsContract.DEFAULT_MSAA_SAMPLES);
+        return MSAA_LEVELS.contains(configured) ? configured : GdxSettingsContract.DEFAULT_MSAA_SAMPLES;
     }
     List<Integer> msaaLevels() {
         return MSAA_LEVELS;
@@ -438,7 +449,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     int selectMsaaSamples(int samples, boolean persist) {
         int selected = MSAA_LEVELS.contains(samples) ? samples
                 : requestedMsaaSamples();
-        properties.setProperty("gdx_msaa_samples", Integer.toString(selected));
+        properties.setProperty(GdxSettingsContract.MSAA_KEY, Integer.toString(selected));
         if (persist) preferences.saveDeferred();
         return selected;
     }
@@ -577,6 +588,9 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     }
     @Override public boolean betAnimation() {
         return animationFlags.bets();
+    }
+    boolean normalFlyingChipShadows() {
+        return animationFlags.normalFlyingChipShadows();
     }
     @Override public boolean counterAnimation() {
         return animationFlags.counters();

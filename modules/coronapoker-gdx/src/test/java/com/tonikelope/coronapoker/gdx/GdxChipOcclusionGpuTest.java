@@ -286,7 +286,7 @@ class GdxChipOcclusionGpuTest {
         renderer.beginChipRack();
         var pose = GdxChipContactsTest.flat(W * .5f, H * .5f, D * .6f);
         for (float value : progress) renderer.addFlyingChipShadow(pose, D, value, THICKNESS);
-        renderer.drawChipRack(faces, 1f, false);
+        renderer.drawChipRack(faces, 1f, false, false);
         return ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
     }
 
@@ -410,7 +410,7 @@ class GdxChipOcclusionGpuTest {
                     front ? D * 1.22f : 0f);
             renderer.beginChipRack();
             renderer.addFlyingTableChip(0, pose, D, THICKNESS);
-            renderer.drawChipRack(faces, 1f, true);
+            renderer.drawChipRack(faces, 1f, true, false);
         }
         return ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
     }
@@ -425,7 +425,7 @@ class GdxChipOcclusionGpuTest {
             pose.pitch = .5f * (float) Math.sin(i);
             pose.roll = .45f * (float) Math.cos(i);
             renderer.addFlyingTableChip(0, pose, D * .5f, THICKNESS * .5f);
-            if ((i + 1) % groupSize == 0) renderer.drawChipRack(faces, 1f, true);
+            if ((i + 1) % groupSize == 0) renderer.drawChipRack(faces, 1f, true, false);
         }
         byte[] image = ScreenUtils.getFrameBufferPixels(0, 0, W, H, false);
         int green = 0;

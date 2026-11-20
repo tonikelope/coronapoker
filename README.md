@@ -270,7 +270,7 @@ can safely overlay the supported presentation assets:
 - **One responsive GDX table layout** that scales and extends with the available window while preserving the same controls and presentation model.
 - **Three display modes**: exclusive fullscreen, borderless fullscreen (the default) and windowed, with optional automatic fullscreen when a table starts.
 - **Appearance controls** for the deck, card back, felt and table-light level, with live previews where applicable.
-- **Graphics controls** for vertical synchronisation, frame-rate limit and overlay, MSAA and card rendering.
+- **Graphics controls** for vertical synchronisation, frame-rate limit and overlay, MSAA and card rendering. MSAA applies after restarting. The main window and live 3D geometry use the sample count granted by the driver, and graphics settings show that count when it differs from your selection. Cached backgrounds and intermediate blur or fade textures have their own sampling.
 - **Smoother native text** across the menu, HUD, chat and dialogs, with the same font sizing and spacing. Table tooltips use smaller text and wrap long descriptions. Clickable controls show a hand cursor.
 - **Consistent settings controls** in the main menu, waiting room and live table: categorical choices use scrollable drop-down lists, while minus/plus steppers are reserved for quantities. Live-table restrictions keep the same layout and clearly show whether an option is locked for everyone or host-only.
 - **Table light switch.** In both table views, the light fades from full brightness to the configured level and back.

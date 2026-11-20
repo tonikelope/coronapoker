@@ -3389,6 +3389,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && GdxSettingsContract.requiresMsaaRestart(
                         settingsOpenedMsaaSamples,
                         presentationSettings.requestedMsaaSamples(),
+                        presentationSettings.windowMsaaRequest(),
                         presentationSettings.actualMsaaSamples());
         shortcutCaptureId = null;
         if (save) {
@@ -11961,15 +11962,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return uppercase(gameText.translate(
                     "gdx.settings.value.unavailable"));
         }
-        return GdxSettingsContract.msaaStatusLabel(
-                presentationSettings.requestedMsaaSamples(),
-                presentationSettings.actualMsaaSamples(), gameText);
+        return GdxSettingsContract.msaaSelectedLabel(
+                presentationSettings.requestedMsaaSamples(), gameText);
     }
 
-    private String tableMsaaRestartStatus() {
+    private String tableMsaaStatusDetail() {
         if (presentationSettings == null) return "";
-        return GdxSettingsContract.msaaRestartStatus(
+        return GdxSettingsContract.msaaStatusDetail(
                 presentationSettings.requestedMsaaSamples(),
+                presentationSettings.windowMsaaRequest(),
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
@@ -12019,7 +12020,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // Use the active window's granted setting, including OFF.
             // A pending MSAA change is applied on restart, like the HUD.
             int samples = presentationSettings == null
-                    ? Gdx.graphics.getBufferFormat().samples : presentationSettings.actualMsaaSamples();
+                    ? GdxApplicationShell.defaultFramebufferSamples()
+                    : presentationSettings.actualMsaaSamples();
             perspectiveTable = new GdxPerspectiveTable(samples);
         }
         return perspectiveTable;
@@ -22334,7 +22336,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 perspectiveTable.addFlyingTableChip(move.color, move.pose, tableChipDiameter, thickness);
             }
         }
-        perspectiveTable.drawChipRack(tableChipFaces, 1f, !shadows);
+        boolean normalShadows = shadows && presentationSettings != null
+                && presentationSettings.normalFlyingChipShadows();
+        perspectiveTable.drawChipRack(tableChipFaces, 1f, !shadows, normalShadows);
     }
 
     private void drawLiveFlyingChip(float fromX, float fromY, float toX,
@@ -27570,7 +27574,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 : settingsRowsViewport(content, firstY);
         if ((contentPage != 9 && !viewportBounds.contains(pointer))
                 || settingsLockHover(x, firstY, width) != null) return null;
-        Properties properties = tableSettingsProperties();
         if (contentPage == 0) {
             GdxSettingsContract.TogglePage page = settingsAudioPage();
             int totalRows = GdxSettingsContract.audioRowCount(page);
@@ -27583,7 +27586,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsContract.masterVolumeRow(page));
                 SettingsTooltipHover volume = settingsTooltipHover(
                         GdxSettingsLayout.volumeRow(x, volumeY, width).bounds(),
-                        "master_volume", viewportBounds, properties);
+                        "master_volume", viewportBounds);
                 if (volume != null) return volume;
             }
             if (GdxSettingsContract.hasAudioDevices(page)) {
@@ -27591,14 +27594,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         settingsAudioRowBounds(x, width, rows, page,
                                 GdxSettingsContract.audioOutputDeviceRow(
                                         page)),
-                        "gdx_audio_output_device", viewportBounds,
-                        properties);
+                        "gdx_audio_output_device", viewportBounds);
                 if (output != null) return output;
                 SettingsTooltipHover capture = settingsTooltipHover(
                         settingsAudioRowBounds(x, width, rows, page,
                                 GdxSettingsContract.audioCaptureDeviceRow(
                                         page)),
-                        "audio_capture_device", viewportBounds, properties);
+                        "audio_capture_device", viewportBounds);
                 if (capture != null) return capture;
             }
             for (int optionIndex = 0;
@@ -27621,7 +27623,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     GdxSettingsContract.PerformanceImpact.NONE));
                 }
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        option.key(), viewportBounds, properties,
+                        option.key(), viewportBounds,
                         GdxGameAudioResources.modOverridesSetting(
                                 presentationSettings, option,
                                 gameText.language()),
@@ -27634,8 +27636,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 SettingsTooltipHover retention = settingsTooltipHover(
                         settingsAudioRowBounds(x, width, rows, page,
                                 GdxSettingsContract.voiceRetentionRow(page)),
-                        "audio_voice_note_retention_days", viewportBounds,
-                        properties);
+                        "audio_voice_note_retention_days", viewportBounds);
                 if (retention != null) return retention;
                 Rectangle actionBounds = settingsAudioRowBounds(x, width,
                         rows, page,
@@ -27644,11 +27645,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxSettingsLayout.splitActionRow(actionBounds.x,
                                 actionBounds.y, actionBounds.width);
                 SettingsTooltipHover view = settingsTooltipHover(
-                        actions.left(), "voice_notes_view", viewportBounds,
-                        properties);
+                        actions.left(), "voice_notes_view", viewportBounds);
                 if (view != null) return view;
                 return settingsTooltipHover(actions.right(),
-                        "voice_notes_purge", viewportBounds, properties);
+                        "voice_notes_purge", viewportBounds);
             }
             return null;
         }
@@ -27661,7 +27661,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 SettingsTooltipHover hovered = settingsTooltipHover(
                         settingsAppearanceTableRowBounds(x, width, rows, row),
                         GdxSettingsContract.appearanceTableSettingKey(row),
-                        viewportBounds, properties);
+                        viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27673,7 +27673,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     settingsAppearanceGraphicsRows(content, firstY,
                             settingsAppearanceScroll);
             String[] keys = {"gdx_window_mode", "auto_fullscreen",
-                "gdx_vsync", "gdx_fps_limit", "gdx_msaa_samples",
+                "gdx_vsync", "gdx_fps_limit", GdxSettingsContract.MSAA_KEY,
                 GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
                 "gpu_renderer"};
             for (int row = rows.firstIndex();
@@ -27681,7 +27681,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle bounds = settingsAppearanceGraphicsRowBounds(x,
                         width, rows, row);
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        keys[row], viewportBounds, properties);
+                        keys[row], viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27703,7 +27703,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 Rectangle bounds = GdxSettingsLayout.groupedRow(x,
                         rows.rowY(row), width, row, groups, rowCount);
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
-                        animationRow.key(), viewportBounds, properties);
+                        animationRow.key(), viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27722,7 +27722,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         width, row, totalRows);
                 SettingsTooltipHover hovered = settingsTooltipHover(bounds,
                         GdxSettingsContract.controlSettingKey(row),
-                        viewportBounds, properties);
+                        viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27743,7 +27743,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 SettingsTooltipHover hovered = settingsTooltipHover(
                         settingsGameRowBounds(x, width, rows, gamePage,
                                 keys.size(), row), keys.get(row),
-                        viewportBounds, properties);
+                        viewportBounds);
                 if (hovered != null) return hovered;
             }
             return null;
@@ -27753,36 +27753,31 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     content);
             if (performance.contains(pointer)) {
                 return new SettingsTooltipHover("gdx_show_cpu_memory",
-                        GdxSettingsTooltips.content("gdx_show_cpu_memory",
-                                properties, gameText));
+                        GdxSettingsTooltips.content("gdx_show_cpu_memory", gameText));
             }
         }
         return null;
     }
 
     private SettingsTooltipHover settingsTooltipHover(
-            Rectangle bounds, String key, Rectangle viewportBounds,
-            Properties properties) {
-        return settingsTooltipHover(bounds, key, viewportBounds, properties,
+            Rectangle bounds, String key, Rectangle viewportBounds) {
+        return settingsTooltipHover(bounds, key, viewportBounds,
                 false);
     }
 
     private SettingsTooltipHover settingsTooltipHover(
-            Rectangle bounds, String key, Rectangle viewportBounds,
-            Properties properties, boolean modOverride) {
-        return settingsTooltipHover(bounds, key, viewportBounds, properties,
+            Rectangle bounds, String key, Rectangle viewportBounds, boolean modOverride) {
+        return settingsTooltipHover(bounds, key, viewportBounds,
                 modOverride, GdxGameAudioResources.JokeBankMode.OFFICIAL);
     }
 
     private SettingsTooltipHover settingsTooltipHover(
-            Rectangle bounds, String key, Rectangle viewportBounds,
-            Properties properties, boolean modOverride,
+            Rectangle bounds, String key, Rectangle viewportBounds, boolean modOverride,
             GdxGameAudioResources.JokeBankMode jokeBankMode) {
         if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) {
             return null;
         }
-        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(key,
-                properties, gameText, modOverride, jokeBankMode);
+        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(key, gameText, modOverride, jokeBankMode);
         return content.text().isBlank() ? null : new SettingsTooltipHover(key, content);
     }
 
@@ -29284,11 +29279,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                         "gdx.settings.row.antialiasing_scene")),
                                 GdxSettingsContract.markDefault(
                                         tableMsaaSettingLabel(),
-                                        "4".equals(tableSettingsProperties()
-                                                .getProperty(
-                                                        "gdx_msaa_samples",
-                                                        "4"))),
-                                tableMsaaRestartStatus(),
+                                        presentationSettings != null
+                                                && presentationSettings.requestedMsaaSamples()
+                                                == GdxSettingsContract.DEFAULT_MSAA_SAMPLES),
+                                tableMsaaStatusDetail(),
                                 presentationSettings != null, alpha);
                     } else if (row == 5) {
                         boolean isDefault = Integer.toString(
@@ -30309,7 +30303,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case MSAA -> presentationSettings == null ? List.of()
                     : presentationSettings.msaaLevels().stream()
                             .map(samples -> GdxSettingsContract
-                                    .msaaStatusLabel(samples, samples,
+                                    .msaaSelectedLabel(samples,
                                             gameText))
                             .toList();
             case CARD_RENDERING -> presentationSettings == null ? List.of()
@@ -30650,8 +30644,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.end();
         String optionKey = hoveredOption < 0 || voiceNotesOpen
                 || nestedModalParentCaptureActive ? null
-                : GdxSettingsTooltips.optionKey(settingsSelectionList.name(),
-                        hoveredOption, presentationSettings);
+                : GdxSettingsTooltips.optionKey(settingsSelectionList.name(), hoveredOption);
         if (optionKey == null) {
             settingsPerformanceTooltipDelay.clear();
         } else if (settingsPerformanceTooltipDelay.ready(
@@ -30762,6 +30755,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     GdxAppearanceOptions.select(
                             settingsSelectionAppearanceChoice,
                             tableSettingsProperties(), option);
+                    if (presentationSettings != null) {
+                        presentationSettings.refreshRuntimePreferences();
+                    }
                 }
             }
             case ANTE_MODE -> {

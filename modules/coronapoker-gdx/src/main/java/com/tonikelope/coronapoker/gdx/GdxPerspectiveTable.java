@@ -295,12 +295,15 @@ final class GdxPerspectiveTable implements Disposable {
     private float cameraProgress = Float.NaN;
 
     private final GdxCardShell chipShell;
+    private final GdxCardShell flightShadowShell;
 
     GdxPerspectiveTable(int msaaSamples) {
         shell = new GdxCardShell(msaaSamples);
         pocketShell = new GdxCardShell(msaaSamples);
         boardShell = new GdxCardShell(msaaSamples);
         chipShell = new GdxCardShell(msaaSamples);
+        // Keep airborne shadows on their own single-sample, native-resolution target.
+        flightShadowShell = new GdxCardShell(0, false);
     }
 
     private final GdxPlasticCard.UncoverShape uncoverShape = new GdxPlasticCard.UncoverShape();
@@ -1213,7 +1216,7 @@ final class GdxPerspectiveTable implements Disposable {
         vertices.add(z * normalRadial);
     }
 
-    void drawChipRack(Texture[] faces, float opacity, boolean airborne) {
+    void drawChipRack(Texture[] faces, float opacity, boolean airborne, boolean normalShadows) {
         if (airborne ? flyingChips.isEmpty() : !Float.isFinite(cardBoundsMin.x)) return;
         begin(8, faces[0], faces[0], opacity);
         if (airborne) {
@@ -1229,11 +1232,13 @@ final class GdxPerspectiveTable implements Disposable {
                     cardBoundsMax.x, cardBoundsMax.y, cardBoundsMax.z));
             return;
         }
-        beginCroppedCardLayer(chipShell);
+        GdxCardShell target = normalShadows ? flightShadowShell : chipShell;
+        beginCroppedCardLayer(target);
         try {
-            chipShell.renderLayer(() -> flyingShadows.draw(shader, view, chipShell.targetWidth(), chipShell.targetHeight()), width, height);
+            target.renderLayer(() -> flyingShadows.draw(shader, view,
+                    target.targetWidth(), target.targetHeight()), width, height);
         } finally {
-            chipShell.endPair();
+            target.endPair();
         }
     }
 
@@ -1728,6 +1733,7 @@ final class GdxPerspectiveTable implements Disposable {
         pocketShell.dispose();
         boardShell.dispose();
         chipShell.dispose();
+        flightShadowShell.dispose();
         flyingChips.dispose();
         flyingShadows.dispose();
         for (StandingChipPile pile : potPiles) if (pile != null && pile.mesh != null) pile.mesh.dispose();

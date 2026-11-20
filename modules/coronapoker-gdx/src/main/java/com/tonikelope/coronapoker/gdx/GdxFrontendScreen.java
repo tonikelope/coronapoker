@@ -8994,6 +8994,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && GdxSettingsContract.requiresMsaaRestart(
                         settingsOpenedMsaaSamples,
                         presentationSettings.requestedMsaaSamples(),
+                        presentationSettings.windowMsaaRequest(),
                         presentationSettings.actualMsaaSamples());
         if (save) {
             presentationSettings.commitCommunityDealStyle();
@@ -9951,7 +9952,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxSettingsLayout.drawGroups(shapes, baseX, baseWidth, rows,
                     groups, 1f);
             String[] keys = {"gdx_window_mode", "auto_fullscreen",
-                "gdx_vsync", "gdx_fps_limit", "gdx_msaa_samples",
+                "gdx_vsync", "gdx_fps_limit", GdxSettingsContract.MSAA_KEY,
                 GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
                 "gpu_renderer"};
             for (int row = rows.firstIndex();
@@ -10004,9 +10005,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             uppercase(gameText.translate(
                                     "gdx.settings.row.antialiasing_scene")),
                             GdxSettingsContract.markDefault(msaaSettingLabel(),
-                                    "4".equals(initialProperties.getProperty(
-                                            "gdx_msaa_samples", "4"))),
-                            msaaRestartStatus(), Dropdown.MSAA, true);
+                                    Integer.toString(GdxSettingsContract.DEFAULT_MSAA_SAMPLES)
+                                            .equals(initialProperties.getProperty(GdxSettingsContract.MSAA_KEY,
+                                                    Integer.toString(GdxSettingsContract.DEFAULT_MSAA_SAMPLES)))),
+                            msaaStatusDetail(), Dropdown.MSAA, true);
                 } else if (row == 5) {
                     settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
                             bounds.height,
@@ -11355,14 +11357,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String msaaSettingLabel() {
-        return GdxSettingsContract.msaaStatusLabel(
-                presentationSettings.requestedMsaaSamples(),
-                presentationSettings.actualMsaaSamples(), gameText);
+        return GdxSettingsContract.msaaSelectedLabel(
+                presentationSettings.requestedMsaaSamples(), gameText);
     }
 
-    private String msaaRestartStatus() {
-        return GdxSettingsContract.msaaRestartStatus(
+    private String msaaStatusDetail() {
+        return GdxSettingsContract.msaaStatusDetail(
                 presentationSettings.requestedMsaaSamples(),
+                presentationSettings.windowMsaaRequest(),
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
@@ -14308,7 +14310,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 bounds.width, bounds.height);
         if (visible == null) return;
         GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
-                settingKey, initialProperties, gameText, modOverride,
+                settingKey, gameText, modOverride,
                 jokeBankMode);
         if (content.text().isBlank()) return;
         tooltipHits.add(new TooltipHit(visible,
@@ -14827,8 +14829,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     .map(limit -> GdxSettingsContract.frameRateLimitLabel(
                             limit, gameText)).toList();
             case MSAA -> presentationSettings.msaaLevels().stream()
-                    .map(samples -> GdxSettingsContract.msaaStatusLabel(
-                            samples, samples, gameText)).toList();
+                    .map(samples -> GdxSettingsContract.msaaSelectedLabel(
+                            samples, gameText)).toList();
             case CARD_RENDERING -> presentationSettings.cardRenderingModes()
                     .stream().map(mode -> GdxSettingsContract
                             .cardRenderingStatusLabel(mode, gameText)).toList();
@@ -14942,6 +14944,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 if (dropdownAppearanceChoice != null) {
                     GdxAppearanceOptions.select(dropdownAppearanceChoice,
                             initialProperties, option);
+                    presentationSettings.refreshRuntimePreferences();
                 }
             }
             case ANTE_MODE -> {
@@ -15129,8 +15132,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     selectDropdownOption(dropdown, selectedOption);
                 });
                 if (over) {
-                    String key = GdxSettingsTooltips.optionKey(dropdown.name(),
-                            option, presentationSettings);
+                    String key = GdxSettingsTooltips.optionKey(dropdown.name(), option);
                     if (key != null) {
                         dropdownOptionTooltip = new TooltipHit(
                                 new Rectangle(x + 6f, rowY + 3f,

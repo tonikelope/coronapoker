@@ -29,6 +29,8 @@ final class GdxSettingsContract {
     static final float MASTER_VOLUME_STEP = 0.01f;
     static final boolean DEFAULT_VSYNC = true;
     static final int DEFAULT_FRAME_RATE_LIMIT = 120;
+    static final String MSAA_KEY = "gdx_msaa_samples";
+    static final int DEFAULT_MSAA_SAMPLES = 4;
     /** Persisted under its legacy SMAA key to preserve existing preferences. */
     static final String CARD_RENDERING_KEY = "gdx_card_smaa_quality";
     static final String HALO_EFFECT_KEY = "efecto_halos";
@@ -96,6 +98,7 @@ final class GdxSettingsContract {
     static final String POT_PLAYER_COUNT_KEY = "mostrar_jugadores_bote";
     static final String DIM_FOLDED_OPPONENTS_KEY = "atenuar_jugadores_foldeados";
     static final String TABLE_VIEW_KEY = "gdx_table_view";
+    static final String FLYING_CHIP_SHADOW_QUALITY_KEY = "gdx_flying_chip_shadow_quality";
     static final String TABLE_CHAT_FEED_KEY = "gdx_table_chat_feed";
     static final String TABLE_SPEAKING_EMOJI_KEY = "gdx_table_speaking_emoji";
     static final String AUDIO_MIC_AUTO_GAIN_KEY = "audio_mic_auto_gain";
@@ -649,6 +652,7 @@ final class GdxSettingsContract {
                     animationToggle("animacion_fuego_allin"),
                     animationToggle("animacion_efecto_ganador"),
                     animationToggle("animacion_apuestas"),
+                    animationChoice(FLYING_CHIP_SHADOW_QUALITY_KEY),
                     animationToggle(STACK_BET_PREVIEW_KEY));
 
     /**
@@ -708,7 +712,7 @@ final class GdxSettingsContract {
             "animacion_barajado", "animacion_barajado_precarga",
             "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
-            "animacion_apuestas", STACK_BET_PREVIEW_KEY,
+            "animacion_apuestas", FLYING_CHIP_SHADOW_QUALITY_KEY, STACK_BET_PREVIEW_KEY,
             "animacion_contadores",
             "animacion_entrada_asientos", "animacion_cascada_overlay",
             "animacion_swap",
@@ -720,7 +724,7 @@ final class GdxSettingsContract {
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
             "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
             "gdx_fps_limit",
-            "gdx_msaa_samples", CARD_RENDERING_KEY,
+            MSAA_KEY, CARD_RENDERING_KEY,
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max",
@@ -744,47 +748,27 @@ final class GdxSettingsContract {
     }
 
     /**
-     * Estimates the cost of an active feature or the selected graphics value.
-     * Low is brief or local work, medium is additional animation or decoding,
-     * and high is sustained or expensive rendering. Monitor refresh varies
-     * by display. Shuffle preloading describes its RAM trade-off separately.
+     * Rates what a setting can cost on supported hardware. The rating and
+     * its tooltip color are independent of the currently selected value.
      */
-    static PerformanceImpact performanceImpact(String key,
-            Properties properties) {
+    static PerformanceImpact performanceImpact(String key) {
         if (key == null || key.isBlank()) return PerformanceImpact.NONE;
-        Properties values = properties == null ? new Properties() : properties;
         return switch (key) {
             case "animaciones", POKER_VIDEOS_KEY, "animacion_barajado",
-                    "animacion_fuego_allin", MODAL_BLUR_KEY ->
-                PerformanceImpact.HIGH;
+                    MODAL_BLUR_KEY, "animacion_apuestas",
+                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY, CARD_RENDERING_KEY,
+                    "gdx_fps_limit" -> PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_accion", "cinematicas_allin",
                     "cinematicas_gameover", "animacion_reparto",
-                    "animacion_destape", "animacion_apuestas", COLLECT_HAND_CARDS_KEY,
-                    "animacion_efecto_ganador", HALO_EFFECT_KEY,
-                    GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
+                    "animacion_destape", COLLECT_HAND_CARDS_KEY,
+                    "animacion_fuego_allin", "animacion_efecto_ganador",
+                    HALO_EFFECT_KEY, GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
             case POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
                     "animacion_ciegas_dealer", "animacion_contadores",
                     "animacion_entrada_asientos", "animacion_swap",
                     FINAL_SUMMARY_CARDS_ANIMATION_KEY, STACK_BET_PREVIEW_KEY,
                     "animacion_contador_final", "animacion_downgrade" ->
                 PerformanceImpact.LOW;
-            case "gdx_msaa_samples" -> switch (integer(values, key, 4)) {
-                case 0 -> PerformanceImpact.NONE;
-                case 2 -> PerformanceImpact.LOW;
-                case 8 -> PerformanceImpact.HIGH;
-                default -> PerformanceImpact.MEDIUM;
-            };
-            case CARD_RENDERING_KEY ->
-                integer(values, key, DEFAULT_CARD_RENDERING_MODE)
-                        == GdxCardSmaaRenderer.RENDERING_NATIVE
-                        ? PerformanceImpact.NONE : PerformanceImpact.HIGH;
-            case "gdx_fps_limit" -> switch (
-                    integer(values, key, DEFAULT_FRAME_RATE_LIMIT)) {
-                case 0 -> PerformanceImpact.NONE;
-                case 60 -> PerformanceImpact.LOW;
-                case 240 -> PerformanceImpact.HIGH;
-                default -> PerformanceImpact.MEDIUM;
-            };
             default -> PerformanceImpact.NONE;
         };
     }
@@ -1080,8 +1064,7 @@ final class GdxSettingsContract {
     }
 
     /** Clean selected MSAA value shared by every GDX settings entry point. */
-    static String msaaStatusLabel(int requested, int actual,
-            GdxGameText text) {
+    static String msaaSelectedLabel(int requested, GdxGameText text) {
         return antialiasingValue("MSAA", requested, text);
     }
 
@@ -1092,24 +1075,23 @@ final class GdxSettingsContract {
                 : limit + " FPS";
     }
 
-    /**
-     * Separate restart notice for the wide label lane of the MSAA row.
-     * Keeping it out of the narrow value lane prevents illegible fitting.
-     */
-    static String msaaRestartStatus(int requested, int actual,
+    /** The actual format can differ from the format requested at startup. */
+    static String msaaStatusDetail(int selected, int windowRequest, int actual,
             GdxGameText text) {
-        if (actual == requested) return "";
-        return translatedUpper(text,
-                "gdx.settings.value.restart_current",
-                "REINICIAR (ACTUAL "
-                + antialiasingValue("MSAA", actual, text) + ")",
-                antialiasingValue("MSAA", actual, text));
+        if (actual == selected) return "";
+        String current = antialiasingValue("MSAA", actual, text);
+        return selected != windowRequest
+                ? translatedUpper(text, "gdx.settings.value.restart_current",
+                        "REINICIAR (ACTUAL " + current + ")", current)
+                : translatedUpper(text, "gdx.settings.value.driver_msaa",
+                        "[!] CONTROLADOR (" + current + ")", current);
     }
 
-    /** Whether this edit selected an MSAA back buffer that needs a restart. */
+    /** Whether this edit changed the MSAA request to a format not yet in use. */
     static boolean requiresMsaaRestart(int openedRequested, int requested,
-            int actual) {
-        return openedRequested != requested && requested != actual;
+            int windowRequest, int actual) {
+        return openedRequested != requested && requested != windowRequest
+                && requested != actual;
     }
 
     static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
@@ -1476,7 +1458,7 @@ final class GdxSettingsContract {
             if (includeStartupGraphics) {
                 properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
                         GdxWindowMode.BORDERLESS.persistedValue());
-                properties.setProperty("gdx_msaa_samples", "4");
+                properties.setProperty(MSAA_KEY, Integer.toString(DEFAULT_MSAA_SAMPLES));
             }
             return;
         }
@@ -1526,7 +1508,8 @@ final class GdxSettingsContract {
                     || stringAtDefault(properties,
                             GdxWindowMode.PREFERENCE_KEY,
                             GdxWindowMode.BORDERLESS.persistedValue())
-                    && stringAtDefault(properties, "gdx_msaa_samples", "4"));
+                    && stringAtDefault(properties, MSAA_KEY,
+                            Integer.toString(DEFAULT_MSAA_SAMPLES)));
         }
         TogglePage page = appearanceTogglePage(index);
         for (ToggleOption option : page.options()) {

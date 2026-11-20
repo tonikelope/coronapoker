@@ -55,6 +55,11 @@ final class GdxAppearanceOptions {
             new String[]{"never", "if_space", "always"},
             new String[]{"NO", "SÓLO SI HAY SITIO", "SIEMPRE"});
 
+    static final Choice FLYING_CHIP_SHADOW_QUALITY = exact(
+            GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY,
+            "CALIDAD SOMBRAS", "high", new String[]{"high", "normal"},
+            new String[]{"ALTA", "NORMAL"});
+
     static final List<Choice> ANIMATION_CHOICES = List.of(
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
@@ -73,7 +78,8 @@ final class GdxAppearanceOptions {
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
             exact("swap_arco", "ESTILO AL ORDENAR", "false",
                     new String[]{"true", "false"},
-                    new String[]{"ARCO", "HORIZONTAL"}));
+                    new String[]{"ARCO", "HORIZONTAL"}),
+            FLYING_CHIP_SHADOW_QUALITY);
 
     static String selectedLabel(Choice choice, Properties properties) {
         return choice.labels().get(selectedIndex(choice, properties));
@@ -109,11 +115,12 @@ final class GdxAppearanceOptions {
 
     /** A selector follows the view in the settings and its animation switches. */
     static boolean enabled(Choice choice, Properties properties) {
-        boolean only2d = switch (choice.key()) {
-            case "swap_velocidad", "swap_arco" -> true;
-            default -> false;
+        boolean available = switch (choice.key()) {
+            case "swap_velocidad", "swap_arco" -> !perspectiveTable(properties);
+            case GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY -> perspectiveTable(properties);
+            default -> true;
         };
-        if (only2d && perspectiveTable(properties)) return false;
+        if (!available) return false;
         String parent = parentKey(choice);
         boolean animations = Boolean.parseBoolean(properties.getProperty(
                 "animaciones", "true"));
@@ -135,6 +142,7 @@ final class GdxAppearanceOptions {
             case "card_flip_duration", "card_flip_direction" ->
                 "animacion_destape";
             case "swap_velocidad", "swap_arco" -> "animacion_swap";
+            case GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY -> "animacion_apuestas";
             default -> null;
         };
     }

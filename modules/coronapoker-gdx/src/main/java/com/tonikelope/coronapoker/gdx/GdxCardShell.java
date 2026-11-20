@@ -27,6 +27,8 @@ import org.lwjgl.opengl.GL30C;
 
 /** Thin two-sided plastic shell with depth and a premultiplied resolve. */
 final class GdxCardShell implements Disposable {
+    private static final int DEFAULT_CROP_BLOCK_SIZE = 128;
+
     private record Grid(int columns, int rows, float aspect) { }
     private final Map<Grid, GdxCardContour> contours = new LinkedHashMap<>(8, 0.75f, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<Grid, GdxCardContour> eldest) {
@@ -60,6 +62,8 @@ final class GdxCardShell implements Disposable {
     private float groupWidth;
     private float groupHeight;
     private final int requestedSamples;
+    private final int cropBlockSize;
+    private boolean cropReserveRejected;
     private int nativeWidth;
     private int nativeHeight;
     private int regionX, regionY, regionWidth, regionHeight;
@@ -67,7 +71,12 @@ final class GdxCardShell implements Disposable {
     GdxCardPickMesh pickTarget;
 
     GdxCardShell(int requestedSamples) {
+        this(requestedSamples, DEFAULT_CROP_BLOCK_SIZE);
+    }
+
+    GdxCardShell(int requestedSamples, int cropBlockSize) {
         this.requestedSamples = Math.max(0, Math.min(8, requestedSamples));
+        this.cropBlockSize = cropBlockSize;
     }
 
     void prepare(int cols, int strips, float aspect) {
@@ -288,41 +297,80 @@ final class GdxCardShell implements Disposable {
                 && neededWidth * resolutionScale <= layer.getWidth()
                 && neededHeight * resolutionScale <= layer.getHeight()) return;
 
-        int tw = neededWidth, th = neededHeight;
+        int width = neededWidth;
+        int height = neededHeight;
+        int maximum = GL11C.glGetInteger(GL20.GL_MAX_TEXTURE_SIZE);
         if (cropped) {
-            // Grow in blocks so bending or spreading a few pixels doesn't
-            // recreate the buffers in the middle of an animation.
-            tw = Math.min(w, (neededWidth + 127) / 128 * 128);
-            th = Math.min(h, (neededHeight + 127) / 128 * 128);
+            width = cropCapacity(neededWidth, DEFAULT_CROP_BLOCK_SIZE, w);
+            height = cropCapacity(neededHeight, DEFAULT_CROP_BLOCK_SIZE, h);
             if (layer != null && nativeWidth == w && nativeHeight == h) {
-                tw = Math.max(tw, layer.getWidth() / resolutionScale);
-                th = Math.max(th, layer.getHeight() / resolutionScale);
+                width = Math.max(width, layer.getWidth() / resolutionScale);
+                height = Math.max(height, layer.getHeight() / resolutionScale);
             }
         }
-        if (layer != null) layer.dispose();
-        int maximum = GL11C.glGetInteger(GL20.GL_MAX_TEXTURE_SIZE);
+        if (layer != null) {
+            layer.dispose();
+            layer = null;
+        }
         resolutionScale = 1;
-        if (cropped && tw <= maximum / 2 && th <= maximum / 2) {
+        if (cropped && width <= maximum / 2 && height <= maximum / 2) {
             var limits = BufferUtils.newIntBuffer(2);
             GL11C.glGetIntegerv(GL20.GL_MAX_VIEWPORT_DIMS, limits);
             if (w <= limits.get(0) / 2 && h <= limits.get(1) / 2) resolutionScale = 2;
         }
-        createMultisample(tw * resolutionScale, th * resolutionScale);
-        if (!cropped && requestedSamples > 0 && multisampleTarget == 0
-                && w <= maximum / 2 && h <= maximum / 2) {
-            resolutionScale = 2;
+        int reservedWidth = width;
+        int reservedHeight = height;
+        if (canReserveCroppedLayer(w, h, maximum)) {
+            reservedWidth = Math.max(width, cropCapacity(neededWidth, cropBlockSize, w));
+            reservedHeight = Math.max(height, cropCapacity(neededHeight, cropBlockSize, h));
         }
-        // 24-bit depth keeps the two thin sheets distinct even with MSAA off.
-        var builder = new com.badlogic.gdx.graphics.glutils.GLFrameBuffer.FrameBufferBuilder(
-                tw * resolutionScale, th * resolutionScale);
-        builder.addBasicColorTextureAttachment(Pixmap.Format.RGBA8888);
-        if (multisampleTarget == 0) builder.addDepthRenderBuffer(GL30C.GL_DEPTH_COMPONENT24);
-        layer = builder.build();
-        Texture.TextureFilter filter = resolutionScale > 1
-                ? Texture.TextureFilter.Linear : Texture.TextureFilter.Nearest;
-        layer.getColorBufferTexture().setFilter(filter, filter);
+        if (reservedWidth != width || reservedHeight != height) {
+            try {
+                createMultisample(reservedWidth * resolutionScale, reservedHeight * resolutionScale);
+                if (requestedSamples < 2 || multisampleTarget != 0) {
+                    layer = buildLayer(reservedWidth, reservedHeight);
+                }
+            } catch (com.badlogic.gdx.utils.GdxRuntimeException allocationFailed) {
+                Gdx.app.debug("3D cards", "Falling-chip target reserve unavailable", allocationFailed);
+            }
+            cropReserveRejected = layer == null;
+        }
+        if (layer == null) {
+            createMultisample(width * resolutionScale, height * resolutionScale);
+            if (!cropped && requestedSamples > 0 && multisampleTarget == 0
+                    && w <= maximum / 2 && h <= maximum / 2) {
+                resolutionScale = 2;
+            }
+            layer = buildLayer(width, height);
+        }
         nativeWidth = w;
         nativeHeight = h;
+    }
+
+    private boolean canReserveCroppedLayer(int width, int height, int maxTextureSize) {
+        // The larger reserve must support the original pixel grid and samples.
+        if (resolutionScale != 2 || cropReserveRejected
+                || cropBlockSize == DEFAULT_CROP_BLOCK_SIZE
+                || !GL.getCapabilities().OpenGL30) return false;
+        int limit = Math.min(maxTextureSize, GL11C.glGetInteger(GL30C.GL_MAX_RENDERBUFFER_SIZE)) / 2;
+        return width <= limit && height <= limit;
+    }
+
+    private static int cropCapacity(int needed, int blockSize, int limit) {
+        return Math.min(limit, (needed + blockSize - 1) / blockSize * blockSize);
+    }
+
+    private FrameBuffer buildLayer(int width, int height) {
+        // 24-bit depth keeps the two thin sheets distinct even with MSAA off.
+        var builder = new com.badlogic.gdx.graphics.glutils.GLFrameBuffer.FrameBufferBuilder(
+                width * resolutionScale, height * resolutionScale);
+        builder.addBasicColorTextureAttachment(Pixmap.Format.RGBA8888);
+        if (multisampleTarget == 0) builder.addDepthRenderBuffer(GL30C.GL_DEPTH_COMPONENT24);
+        FrameBuffer target = builder.build();
+        Texture.TextureFilter filter = resolutionScale > 1
+                ? Texture.TextureFilter.Linear : Texture.TextureFilter.Nearest;
+        target.getColorBufferTexture().setFilter(filter, filter);
+        return target;
     }
 
     private void composite(float worldWidth, float worldHeight) {

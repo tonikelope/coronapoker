@@ -6035,6 +6035,19 @@ final class GdxTableViewStateTest {
         assertEquals(7, state.immediateRebuyAmount("borja"));
     }
 
+    @Test
+    void tableLightFadesBothWaysAndReversesFromItsCurrentLevel() {
+        float darkening = CoronaPokerGdxTable.advanceUserLightDimmer(0f, true, .15f);
+        assertEquals(1f / 3f, darkening, .001f);
+        assertEquals(darkening,
+                CoronaPokerGdxTable.advanceUserLightDimmer(darkening, false, 0f));
+        float brightening = CoronaPokerGdxTable.advanceUserLightDimmer(darkening, false, .075f);
+        assertEquals(1f / 6f, brightening, .001f);
+        assertEquals(0f, CoronaPokerGdxTable.advanceUserLightDimmer(brightening, false, 1f));
+        assertEquals(1f, CoronaPokerGdxTable.advanceUserLightDimmer(darkening, true, 1f));
+        assertEquals(.5f, CoronaPokerGdxTable.advanceUserLightDimmer(1f, false, .225f), .001f);
+    }
+
     private static TableSnapshot.CardSnapshot card(String code) {
         return new TableSnapshot.CardSnapshot(code, true, false);
     }

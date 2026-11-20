@@ -30,9 +30,9 @@ final class GdxHandCardCollectionTest {
             }
             assertEquals(1f, sweep.opacity(), .001f);
             assertFalse(sweep.finished());
-            sweep.advance(end + 90_000_000L);
+            sweep.advance(end + 170_000_000L);
             assertEquals(.5f, sweep.opacity(), .001f);
-            sweep.advance(end + 181_000_000L);
+            sweep.advance(end + 341_000_000L);
             assertEquals(0f, sweep.opacity());
             assertTrue(sweep.finished());
         }
@@ -43,8 +43,39 @@ final class GdxHandCardCollectionTest {
         var sweep = sequence(100);
         sweep.advance(0L);
         assertEquals(1f, sweep.opacity());
+        sweep.advance(170_000_000L);
+        assertEquals(.5f, sweep.opacity(), .001f);
+        assertEquals(.5f, sweep.holeCardOpacity(), .001f);
+        sweep.advance(341_000_000L);
+        assertTrue(sweep.finished());
+    }
+
+    @Test
+    void playersCardsFadeDuringTheSweepAndTheBoardFadesAfterward() {
+        var sweep = sequence(100, 0, 1, 2, 3, 4);
+        sweep.advance(0L);
+        assertEquals(1f, sweep.holeCardOpacity());
+        sweep.advance(170_000_000L);
+        assertEquals(.5f, sweep.holeCardOpacity(), .001f);
+        assertEquals(1f, sweep.opacity());
+        sweep.advance(341_000_000L);
+        assertEquals(0f, sweep.holeCardOpacity());
+        assertEquals(1f, sweep.opacity());
+        assertFalse(sweep.finished());
+        sweep.advance(638_000_000L);
+        assertEquals(.5f, sweep.opacity(), .001f);
+    }
+
+    @Test
+    void collectingOnlyASecondRunoutLeavesPlayersCardsFullyVisible() {
+        var card = new TableSnapshot.CardSnapshot("A_C", true, false);
+        var sweep = new GdxHandCardCollection(
+                List.of(new GdxHandCardCollection.BoardCard(4, card)),
+                100, false, new CompletableFuture<>());
+        sweep.advance(0L);
         sweep.advance(90_000_000L);
         assertEquals(.5f, sweep.opacity(), .001f);
+        assertEquals(1f, sweep.holeCardOpacity());
         sweep.advance(181_000_000L);
         assertTrue(sweep.finished());
     }
@@ -68,10 +99,10 @@ final class GdxHandCardCollectionTest {
                 sweep.cardElevation(0, 4f, 140f, 158f), .0001f,
                 "Retiring the lower sheets must not move the surviving card");
 
-        sweep.advance(558_000_000L);
+        sweep.advance(638_000_000L);
         assertEquals(.5f, sweep.opacity(), .001f);
         assertEquals(1, sweep.visibleBoardCardCount());
-        sweep.advance(650_000_000L);
+        sweep.advance(810_000_000L);
         assertEquals(0, sweep.visibleBoardCardCount());
     }
 
@@ -87,7 +118,7 @@ final class GdxHandCardCollectionTest {
         var riverOnly = sequence(100, 4);
         riverOnly.advance(0L);
         assertEquals(1, riverOnly.visibleBoardCardCount());
-        riverOnly.advance(90_000_000L);
+        riverOnly.advance(170_000_000L);
         assertEquals(1, riverOnly.visibleBoardCardCount());
         assertEquals(.5f, riverOnly.opacity(), .001f);
 

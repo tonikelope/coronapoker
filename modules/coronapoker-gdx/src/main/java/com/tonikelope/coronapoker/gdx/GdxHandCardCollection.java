@@ -7,10 +7,11 @@ import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/** Sweeps the board from flop to river, then fades its top card. */
+/** Fades the players' cards in place and collects the board from flop to river. */
 final class GdxHandCardCollection {
     static final int RIVER_SLOT = 4;
-    static final float FADE_SECONDS = .18f;
+    static final float HAND_FADE_SECONDS = .34f;
+    private static final float RUNOUT_FADE_SECONDS = .18f;
     private static final float SWEEP_DURATION_SCALE = .45f;
 
     record BoardCard(int slot, TableSnapshot.CardSnapshot card) { }
@@ -61,9 +62,21 @@ final class GdxHandCardCollection {
     }
 
     float opacity() {
-        float progress = MathUtils.clamp((clock.elapsedSeconds() - sweepSeconds) / FADE_SECONDS, 0f, 1f);
+        return fadeOpacity(clock.elapsedSeconds() - sweepSeconds, boardFadeSeconds());
+    }
+
+    float holeCardOpacity() {
+        return wholeHand ? fadeOpacity(clock.elapsedSeconds(), HAND_FADE_SECONDS) : 1f;
+    }
+
+    private float boardFadeSeconds() {
+        return wholeHand ? HAND_FADE_SECONDS : RUNOUT_FADE_SECONDS;
+    }
+
+    private static float fadeOpacity(float elapsed, float duration) {
+        float progress = MathUtils.clamp(elapsed / duration, 0f, 1f);
         return 1f - Interpolation.smooth.apply(progress);
     }
 
-    boolean finished() { return clock.elapsedSeconds() >= sweepSeconds + FADE_SECONDS; }
+    boolean finished() { return clock.elapsedSeconds() >= sweepSeconds + boardFadeSeconds(); }
 }

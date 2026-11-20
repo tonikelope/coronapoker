@@ -243,6 +243,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     // overlap. Turn and river remain single-card reveals.
     private static final float COMMUNITY_FLIP_STAGGER_SECONDS = 0.200f;
     private static final float FOLD_DISABLE_SECONDS = 0.36f;
+    private static final float TABLE_LIGHT_TRANSITION_SECONDS = 0.45f;
     private static final float FOLDED_REMOTE_SEAT_ALPHA = 0.35f;
     static final float REMOTE_SEAT_ENTRY_SECONDS = 0.42f;
     static final float REMOTE_SEAT_ENTRY_STAGGER_SECONDS = 0.09f;
@@ -1861,6 +1862,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float communityHudWidth;
     private float communityHudHeight;
     private boolean userLightsOff;
+    private float userLightDimmer;
     private boolean leftButtonReleasedThisFrame;
     private final GdxPointerCapture primaryPointer = new GdxPointerCapture();
     private boolean feltClickCandidate;
@@ -5507,7 +5509,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void applyVisualEvent(TableVisualEvent event, CompletableFuture<Void> barrier) {
         if (event instanceof TableVisualEvent.CloseTable close) {
-            resetHandCardCollection();
+            if (close.summary().reason() == TableSessionSummary.CloseReason.COMPLETED) {
+                collectCompletedHandCards(new CompletableFuture<>());
+            } else {
+                resetHandCardCollection();
+            }
             terminationRequested = false;
             recoverableTerminationRequested = false;
             terminationConfirmation = null;
@@ -7152,6 +7158,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateDeferredShufflePreload();
         warmDeckImages();
         renderFrameNanos = System.nanoTime();
+        userLightDimmer = advanceUserLightDimmer(userLightDimmer, userLightsOff, delta);
         updateHandCardCollection();
         updateLivePositionRotation();
         updateLiveActionChip();
@@ -11343,6 +11350,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void toggleUserLights() {
         userLightsOff = !userLightsOff;
         playSwitchSound(!userLightsOff);
+    }
+
+    static float advanceUserLightDimmer(float current, boolean lightsOff, float delta) {
+        float step = delta / TABLE_LIGHT_TRANSITION_SECONDS;
+        return MathUtils.clamp(current + (lightsOff ? step : -step), 0f, 1f);
     }
 
     private void adjustLiveBet(int direction) {
@@ -16338,12 +16350,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Objects.requireNonNull(liveState,
                 "Hole-card rendering requires authoritative live state");
         if (handCardsCollected) return;
+        float opacity = handCardCollection == null ? 1f : handCardCollection.holeCardOpacity();
+        if (opacity <= 0f) return;
         if (foregroundRevealFlights
                 ? !hasForegroundHoleCardLayerContent()
                 : !hasBackgroundHoleCardLayerContent()) {
             return;
         }
-        boolean fading = beginHandCardFadeLayer();
+        boolean fading = beginHandCardFadeLayer(opacity);
         boolean antialiased = beginCardSmaaLayer();
         boolean pocketInFlight = liveHoleReveal != null
                 && usesPerspectivePocket(livePlayer(liveHoleReveal.event.nickname()));
@@ -16354,7 +16368,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         drawLiveHoleCards(foregroundRevealFlights);
         if (antialiased) finishCardSmaaLayer();
-        if (fading) finishHandCardFadeLayer();
+        if (fading) finishHandCardFadeLayer(opacity);
     }
 
     private boolean hasForegroundHoleCardLayerContent() {
@@ -16417,9 +16431,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 this::restoreParentFramebufferAfterNestedPass);
     }
 
-    private boolean beginHandCardFadeLayer() {
-        if (handCardCollection == null || !handCardCollection.wholeHand
-                || handCardCollection.opacity() >= 1f) return false;
+    private boolean beginHandCardFadeLayer(float opacity) {
+        if (opacity >= 1f) return false;
         int width = Gdx.graphics.getBackBufferWidth();
         int height = Gdx.graphics.getBackBufferHeight();
         if (handCardFadeLayer == null || handCardFadeLayer.getWidth() != width
@@ -16435,11 +16448,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
-    private void finishHandCardFadeLayer() {
+    private void finishHandCardFadeLayer(float opacity) {
         handCardFadeLayer.end();
         handCardFadeLayerActive = false;
         restoreParentFramebufferAfterNestedPass();
-        compositeCardLayer(handCardFadeLayer.getColorBufferTexture(), handCardCollection.opacity());
+        compositeCardLayer(handCardFadeLayer.getColorBufferTexture(), opacity);
     }
 
     private boolean canBoundCommunitySmaa() {
@@ -16746,7 +16759,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 boardWidth);
 
         if (hasCommunityCardLayerContent()) {
-            boolean fading = beginHandCardFadeLayer();
+            float opacity = handCardCollection != null && handCardCollection.wholeHand
+                    ? handCardCollection.opacity() : 1f;
+            boolean fading = beginHandCardFadeLayer(opacity);
             boolean antialiased = beginCardSmaaLayer();
             boolean boundSmaa = antialiased && canBoundCommunitySmaa();
             if (perspectiveActive) {
@@ -16775,7 +16790,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             } else if (antialiased) {
                 finishCardSmaaLayer();
             }
-            if (fading) finishHandCardFadeLayer();
+            if (fading) finishHandCardFadeLayer(opacity);
         }
 
     }
@@ -17650,7 +17665,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         boolean paused = liveState.snapshot().paused();
-        if (!paused && !userLightsOff) return;
+        if (!paused && userLightDimmer <= 0f) return;
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         int lightLevel = GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL;
@@ -17673,7 +17688,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // Manual lights-off is a table effect. A pause is a modal and its
             // darkness comes from the same canonical backdrop as every other
             // modal, avoiding a second stacked shade of variable intensity.
-            shapes.setColor(0f, 0f, 0f, (100 - lightLevel) / 100f);
+            float shade = Interpolation.smooth.apply(userLightDimmer);
+            shapes.setColor(0f, 0f, 0f, shade * (100 - lightLevel) / 100f);
             shapes.rect(0f, 0f, width, height);
         }
         if (paused) {

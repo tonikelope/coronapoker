@@ -9,12 +9,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class GdxShufflePlacementTest {
     @Test
-    void matchesTheVisibleWidthOfTheBlenderDeck() {
-        assertEquals(360f, GdxRiffleShuffle.restWidthPixels(1280, 720));
-        assertEquals(384.1875f, GdxRiffleShuffle.restWidthPixels(1024, 768));
-        assertEquals(540f, GdxRiffleShuffle.restWidthPixels(1920, 1080));
-        assertEquals(540f, GdxRiffleShuffle.restWidthPixels(3840, 2160));
-        assertEquals(234f * 540f / 960f, GdxRiffleShuffle.restWidthPixels(300, 720));
+    void scalesTheBlenderFramingWithTheTableViewport() {
+        assertEquals(360f, GdxRiffleShuffle.restWidth(1280, 720));
+        assertEquals(384f, GdxRiffleShuffle.restWidth(1024, 768));
+        assertEquals(540f, GdxRiffleShuffle.restWidth(1920, 1080));
+        assertEquals(1080f, GdxRiffleShuffle.restWidth(3840, 2160));
+        assertEquals(720f, GdxRiffleShuffle.restWidth(2560, 1440));
+        assertEquals(234f * 540f / 960f, GdxRiffleShuffle.restWidth(300, 720), .001f);
     }
 
     @Test
@@ -47,11 +48,11 @@ final class GdxShufflePlacementTest {
         var point = new Vector3();
         for (int[] size : new int[][] {{1280, 720}, {1024, 768}, {1920, 1080}, {3840, 2160}}) {
             float width = size[0], height = size[1], centerY = height * .52f;
-            float target = GdxRiffleShuffle.restWidthPixels(size[0], size[1]);
+            float target = GdxRiffleShuffle.restWidth(size[0], size[1]);
             table.layout(width, height, centerY + 27f);
             for (float transition : new float[] {0f, .5f, 1f}) {
                 table.moveCamera(transition);
-                table.shuffleProjection(projection, centerY, target, GdxPerspectiveTable.SHUFFLE_REFERENCE_ASPECT);
+                table.shuffleProjection(projection, centerY, target, GdxPerspectiveTable.SHUFFLE_REFERENCE_ASPECT, GdxShuffleAngle.DEFAULT);
                 float left = width, right = 0f, bottom = height, top = 0f;
                 for (int i = 0; i < mesh.vertices.length; i += GdxShuffleGeometry.FLOATS_PER_VERTEX) {
                     point.set(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2]).prj(projection);

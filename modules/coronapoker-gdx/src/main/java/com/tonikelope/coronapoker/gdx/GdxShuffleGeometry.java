@@ -80,7 +80,11 @@ final class GdxShuffleGeometry {
     private static final int PUSH_END = FRAME_COUNT - 1;
     static final float STANDARD_ASPECT = 63f / 88f;
     private static final float THICKNESS = .27f / 88f;
+    static final float STACK_HEIGHT = CARDS * THICKNESS;
     private static final float CORNER = 3.2f / 88f;
+    private static final float OPENING_TRAVEL = .52f;
+    // The opening and layer stagger bound every card's outer edge across the full shuffle.
+    static final float MAX_HALF_SPAN = .5f + OPENING_TRAVEL + spread(CARDS_PER_PACKET - 1) - spread(0);
     private static final float HELD_BEND = 1.39f;
     private static final int ROUND_STRIPS = 6;
     static final int STRIPS = 42;
@@ -115,7 +119,7 @@ final class GdxShuffleGeometry {
         for (int s = 0; s <= STRIPS; s++) {
             for (int side = -1; side <= 1; side += 2) {
                 for (int rim = 0; rim < 2; rim++) {
-                    point.set(.5f - alongCard[s], rim * CARDS * THICKNESS, side * halfWidths[s] * widthScale).prj(projection);
+                    point.set(.5f - alongCard[s], rim * STACK_HEIGHT, side * halfWidths[s] * widthScale).prj(projection);
                     left = Math.min(left, point.x);
                     right = Math.max(right, point.x);
                     bottom = Math.min(bottom, point.y);
@@ -187,7 +191,7 @@ final class GdxShuffleGeometry {
             int layer = order / 2;
             float packed = (layer + .5f + (upper ? CARDS_PER_PACKET : 0)) * THICKNESS;
             float base = MathUtils.lerp(packed, riffleHeight(order), curl);
-            float outer = MathUtils.lerp(.5f + .52f * split, .5f + spread(0), approach)
+            float outer = MathUtils.lerp(.5f + OPENING_TRAVEL * split, .5f + spread(0), approach)
                     + (spread(layer) - spread(0)) * curl;
             writeBentCard(order, base, outer, HELD_BEND * curl);
         }

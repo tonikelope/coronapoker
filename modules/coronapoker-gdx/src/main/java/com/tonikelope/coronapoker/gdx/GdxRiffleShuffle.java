@@ -28,6 +28,8 @@ final class GdxRiffleShuffle implements Disposable {
         }; }
     }
 
+    static final float PREVIEW_EYE_X = 1.597f;
+    static final float PREVIEW_EYE_Z = 2.735f;
     private static final int SHADOW_SIZE = 1024;
     private static final String SHADOW_VERTEX = """
             attribute vec3 a_position;
@@ -158,7 +160,7 @@ final class GdxRiffleShuffle implements Disposable {
                  1.7f, 0, -1.2f, 0, 0, -4, 1, -1.7f, 0, -1.2f, 0, 0, -4, 1});
         felt.setIndices(new short[]{0, 1, 2, 0, 2, 3});
         perspective.fieldOfView = 20.25f;
-        perspective.position.set(1.597f, 1.212f, 2.735f);
+        perspective.position.set(PREVIEW_EYE_X, 1.212f, PREVIEW_EYE_Z);
         perspective.lookAt(.030f, .240f, 0f);
         perspective.near = .5f;
         perspective.far = 6f;
@@ -240,11 +242,10 @@ final class GdxRiffleShuffle implements Disposable {
         end();
     }
 
-    /** All six Blender decks had a 540-pixel resting silhouette on a 960-pixel canvas. */
-    static float restWidthPixels(int width, int height) {
-        int canvas = height >= 1080 ? 960 : Math.max(1,
-                Math.min(Math.round(960f * height / 1080f), Math.round(width * .78f)));
-        return canvas * (540f / 960f);
+    /** At 1080p the Blender deck occupied 540 px of its 960 px canvas. Scale that framing with the table. */
+    static float restWidth(float viewportWidth, float viewportHeight) {
+        float canvasWidth = Math.min(viewportHeight * (960f / 1080f), viewportWidth * .78f);
+        return canvasWidth * (540f / 960f);
     }
 
     /** The caller supplies the same camera and board plane used by the live table. */

@@ -718,7 +718,7 @@ final class GdxSettingsContractTest {
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(20, page.options().size());
         assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(27, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(28, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -726,7 +726,7 @@ final class GdxSettingsContractTest {
                 "efecto_relieve",
                 "cinematicas_allin",
                 "cinematicas_gameover",
-                "animacion_barajado",
+                "animacion_barajado", GdxShuffleAngle.KEY,
                 "animacion_reparto",
                 "reparto_velocidad",
                 GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
@@ -750,6 +750,26 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
+    }
+
+    @Test
+    void shuffleAngleBelongsToShuffleAndParticipatesInSaveCancelAndDefaults() {
+        var settings = new Properties();
+        var page = GdxSettingsContract.APPEARANCE_PAGES.get(0);
+        var keys = GdxSettingsContract.appearanceRows(page).stream()
+                .map(GdxSettingsContract.AppearanceAnimationRow::key).toList();
+        assertEquals(keys.indexOf("animacion_barajado") + 1, keys.indexOf(GdxShuffleAngle.KEY));
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(GdxShuffleAngle.KEY));
+        assertEquals(30, GdxShuffleAngle.value(settings));
+        settings.setProperty(GdxShuffleAngle.KEY, "invalid");
+        assertEquals(30, GdxShuffleAngle.value(settings));
+        settings.setProperty(GdxShuffleAngle.KEY, "999");
+        assertEquals(180, GdxShuffleAngle.value(settings));
+        settings.setProperty("animacion_barajado", "false");
+        assertFalse(GdxShuffleAngle.enabled(settings));
+        GdxSettingsContract.restoreAppearancePageDefaults(settings, 1, true);
+        assertEquals(30, GdxShuffleAngle.value(settings));
+        assertTrue(GdxShuffleAngle.enabled(settings));
     }
 
     @Test

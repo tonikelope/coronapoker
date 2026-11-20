@@ -1795,6 +1795,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final ArrayDeque<PendingVisualEvent> deferredVisualEvents = new ArrayDeque<>();
     private LiveShuffle liveShuffle;
     private GdxRiffleShuffle riffle;
+    private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
     private final Matrix4 shuffleProjection = new Matrix4();
     private final Map<String, Float> shuffleCardAspects = new HashMap<>();
     private int appliedCardMode = -1;
@@ -2272,6 +2273,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     && button == Input.Buttons.LEFT) {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
+                if (liveShuffle == null && shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, tableSettingsProperties())) {
+                    primaryPointer.capturePressedGesture();
+                    return true;
+                }
                 if (settingsRowScrollTrackContains(pointer.x, pointer.y)) {
                     return beginTableScrollDrag(TableScrollDrag.SETTINGS_ROWS,
                             pointer.y, pointerIndex, button);
@@ -2316,6 +2321,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean touchDragged(int screenX, int screenY, int pointerIndex) {
+            if (uiLayer == UI_SETTINGS && activeDialog == null && settingsSelectionList == SettingsSelectionList.NONE) {
+                pointer.set(screenX, screenY);
+                viewport.unproject(pointer);
+                if (liveShuffle == null && shuffleAngleSlider.drag(pointer.x, pointerIndex, tableSettingsProperties())) return true;
+            }
             if (pocketPeekPointer.active()) {
                 if (pocketPeekPointer.owns(pointerIndex, Input.Buttons.LEFT)
                         && !Float.isNaN(pocketPeekDragAmount)) {
@@ -2392,6 +2402,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchUp(int screenX, int screenY, int pointerIndex,
                 int button) {
+            if (button == Input.Buttons.LEFT && shuffleAngleSlider.release(pointerIndex)) return true;
             if (releasePocketPeekPointer(pointerIndex, button)) return true;
             if (voicePointer.release(pointerIndex, button)) {
                 finishVoiceRecording(false);
@@ -2501,6 +2512,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchCancelled(int screenX, int screenY,
                 int pointerIndex, int button) {
+            if (button == Input.Buttons.LEFT && shuffleAngleSlider.release(pointerIndex)) return true;
             if (releasePocketPeekPointer(pointerIndex, button)) return true;
             if (rulesWindow.cancel(pointerIndex, button) || tableGallery.cancel(pointerIndex, button)) {
                 floatingWindowInputThisFrame = true;
@@ -3314,6 +3326,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void closeTableSettings(boolean save) {
+        shuffleAngleSlider.cancel();
         imagePreview.dispose();
         audioPreview.stop();
         settingsSelectionList = SettingsSelectionList.NONE;
@@ -3560,20 +3573,32 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         else if (!selected.equals(liveShuffle.deck)) liveShuffle.pendingDeck = selected;
     }
 
+    private int shuffleAngle() {
+        return liveShuffle == null ? GdxShuffleAngle.value(tableSettingsProperties()) : liveShuffle.angle;
+    }
+
+    private boolean shuffleAngleEditable() {
+        return liveShuffle == null && GdxShuffleAngle.enabled(tableSettingsProperties());
+    }
+
     private void restoreTableAppearanceDefaults() {
         Properties properties = tableSettingsProperties();
         String deck = properties.getProperty("baraja", "goliat");
         String back = properties.getProperty("trasera", "default");
+        String angle = properties.getProperty(GdxShuffleAngle.KEY);
         GdxSettingsContract.restoreAppearancePageDefaults(properties, settingsAppearancePage, true);
         if (liveShuffle != null) {
             properties.setProperty("baraja", deck);
             properties.setProperty("trasera", back);
+            if (angle != null) properties.setProperty(GdxShuffleAngle.KEY, angle);
         }
         GdxVisualEffects.synchronize(properties);
         if (presentationSettings != null) {
             presentationSettings.refreshRuntimePreferences();
         }
-        GdxDisplayModeController.apply(GdxWindowMode.configured(properties));
+        if (GdxSettingsContract.isAppearanceGraphicsPage(settingsAppearancePage)) {
+            GdxDisplayModeController.apply(GdxWindowMode.configured(properties));
+        }
         if (presentationSettings != null) {
             synchronizeSelectedDeck();
             replaceFeltTexture(presentationSettings.felt());
@@ -7055,6 +7080,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void render() {
+        shuffleAngleSlider.hide();
         finishScreenshotReadback(false);
         synchronizeCardSampling();
         GdxPixelText.beginFrame();
@@ -18456,8 +18482,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!perspectiveActive || seat.index != 0) return new Vector2(seat.positionX, seat.positionY);
         float cardWidth = perspectiveBoardCardWidth();
         float x = tableCenterX + cardWidth * 1.12f;
-        float markerHeight = GdxPerspectiveTable.positionMarkerThickness(localPositionMarkerDiameter(cardWidth)) * .5f;
-        var point = perspectiveTable.chipPointToScreen(x, localPositionMarkerY(), markerHeight);
+        float diameter = localPositionMarkerDiameter(cardWidth);
+        float y = localPositionMarkerY();
+        float restWidth = shuffleRestWidth();
+        com.badlogic.gdx.math.Vector3 point;
+        if (liveShuffleAnimationEnabled() && restWidth > 0f) {
+            float aspect = liveShuffle != null && liveShuffle.presentationStarted
+                    ? liveShuffle.cardAspect : shuffleCardAspect(availableDeck(liveDeck));
+            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY, restWidth, aspect, shuffleAngle());
+            point = perspectiveTable.shuffleMarkerToScreen(x, y, diameter,
+                    perspectiveLocalChipBounds, perspectiveLocalRightChipBounds);
+        } else {
+            point = perspectiveTable.chipPointToScreen(x, y, GdxPerspectiveTable.positionMarkerThickness(diameter) * .5f);
+        }
         return new Vector2(MathUtils.lerp(seat.positionX, point.x, perspectiveBlend),
                 MathUtils.lerp(seat.positionY, point.y, perspectiveBlend));
     }
@@ -19422,7 +19459,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (presentationSettings != null) liveDeck = availableDeck(presentationSettings.deck());
             else if (!event.deck().isBlank()) liveDeck = availableDeck(event.deck());
             liveState.apply(event);
-            liveShuffle = new LiveShuffle(liveDeck, activeCardBackDeck(),
+            shuffleAngleSlider.cancel();
+            liveShuffle = new LiveShuffle(liveDeck, activeCardBackDeck(), shuffleAngle(),
                     liveShuffleAnimationEnabled(), liveShuffleSoundEnabled());
             barrier.complete(null);
             return;
@@ -19441,8 +19479,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!active.presentationStarted) {
             if (active.animationEnabled) {
                 if (riffle == null) riffle = new GdxRiffleShuffle();
-                active.cardAspect = shuffleCardAspects.computeIfAbsent(active.deck, deck ->
-                        GdxShuffleArtwork.cardAspect(deckCardFile(deck, GdxShuffleArtwork.code(0) + ".jpg")));
+                active.cardAspect = shuffleCardAspect(active.deck);
                 activeCardBack();
                 if (GdxAppearanceOptions.perspectiveTable(tableSettingsProperties())) active.faces(0);
             }
@@ -20693,6 +20730,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawLiveCinematicOverlay();
     }
 
+    private float shuffleCardAspect(String deck) {
+        return shuffleCardAspects.computeIfAbsent(deck, selected ->
+                GdxShuffleArtwork.cardAspect(deckCardFile(selected, GdxShuffleArtwork.code(0) + ".jpg")));
+    }
+
+    private float shuffleRestWidth() {
+        return GdxRiffleShuffle.restWidth(viewport.getWorldWidth(), viewport.getWorldHeight());
+    }
+
     private void drawLiveShuffleOverlay() {
         LiveShuffle active = liveShuffle;
         if (active == null) {
@@ -20704,14 +20750,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (riffle == null || !active.presentationStarted) return;
-        int pixelsWide = Gdx.graphics.getBackBufferWidth();
-        int pixelsHigh = Gdx.graphics.getBackBufferHeight();
-        if (pixelsWide <= 0 || pixelsHigh <= 0) return;
-        float restWidth = GdxRiffleShuffle.restWidthPixels(pixelsWide, pixelsHigh)
-                * worldWidth / pixelsWide;
+        float restWidth = shuffleRestWidth();
+        if (restWidth <= 0f) return;
         boolean inPerspective = perspectiveActive && perspectiveTable != null;
         if (inPerspective) {
-            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY, restWidth, active.cardAspect);
+            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY, restWidth, active.cardAspect, active.angle);
         } else {
             shuffleProjection.set(camera.combined).translate(tableCenterX, tableCenterY, -1f)
                     .rotate(com.badlogic.gdx.math.Vector3.X, 90f).scale(restWidth, .5f, restWidth);
@@ -23968,6 +24011,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         row < rows.lastExclusive(); row++) {
                     GdxSettingsContract.AppearanceAnimationRow animationRow =
                             animationRows.get(row);
+                    if (animationRow.shuffleAngle()) continue; // The track captures its own drag.
                     if (animationRow.toggle() != null) {
                         GdxSettingsContract.ToggleOption option =
                                 animationRow.toggle();
@@ -28117,7 +28161,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         row < rows.lastExclusive(); row++) {
                     GdxSettingsContract.AppearanceAnimationRow animationRow =
                             animationRows.get(row);
-                    if (animationRow.toggle() != null) {
+                    if (animationRow.shuffleAngle()) {
+                        Rectangle bounds = GdxSettingsLayout.groupedRow(x, rows.rowY(row), width, row, groups, rowCount);
+                        shuffleAngleSlider.draw(shapes, bounds, rows, shuffleAngle(), shuffleAngleEditable(), alpha);
+                    } else if (animationRow.toggle() != null) {
                         GdxSettingsContract.ToggleOption option =
                                 animationRow.toggle();
                         boolean enabled = GdxSettingsContract.enabled(option,
@@ -29088,7 +29135,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         row < rows.lastExclusive(); row++) {
                     GdxSettingsContract.AppearanceAnimationRow animationRow =
                             animationRows.get(row);
-                    if (animationRow.choice() != null) {
+                    if (animationRow.shuffleAngle()) {
+                        Rectangle bounds = GdxSettingsLayout.groupedRow(x, rows.rowY(row), width, row, groups, rowCount);
+                        boolean enabled = shuffleAngleEditable();
+                        float baseline = bounds.y + bounds.height * .5f + 9f;
+                        drawFittedLeft(settingsSmallFont, uppercase(gameText.translate(GdxShuffleAngle.LABEL)),
+                                bounds.x + 18f, baseline, bounds.width * .42f - 30f,
+                                enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
+                        drawFittedCentered(settingsSmallFont, GdxShuffleAngle.labelValue(shuffleAngle()),
+                                bounds.x + bounds.width - 53f, baseline, 84f,
+                                enabled ? POT_GOLD : SETTINGS_DISABLED, alpha);
+                    } else if (animationRow.choice() != null) {
                         GdxAppearanceOptions.Choice option =
                                 animationRow.choice();
                         boolean enabled = GdxAppearanceOptions.enabled(option,
@@ -34075,6 +34132,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         final String deck;
         final String backDeck;
+        final int angle;
         final boolean animationEnabled;
         final boolean soundEnabled;
         final float cycleSeconds;
@@ -34090,9 +34148,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         private Texture[] faceOrder;
         private int faceCycle = -1;
 
-        LiveShuffle(String deck, String backDeck, boolean animationEnabled, boolean soundEnabled) {
+        LiveShuffle(String deck, String backDeck, int angle, boolean animationEnabled, boolean soundEnabled) {
             this.deck = deck;
             this.backDeck = backDeck;
+            this.angle = angle;
             this.animationEnabled = animationEnabled;
             this.soundEnabled = soundEnabled;
             cycleSeconds = animationEnabled ? GdxShuffleGeometry.Motion.MID_BRIDGE.duration()

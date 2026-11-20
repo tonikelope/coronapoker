@@ -232,6 +232,16 @@ final class GdxSettingsStyle {
                 slider.height, 6f);
     }
 
+    static void drawAngleSlider(ShapeRenderer shapes, Rectangle row, Rectangle track, float progress, float alpha) {
+        drawRow(shapes, row.x, row.y, row.width, row.height, ROW_BORDER, ROW_FILL, alpha);
+        shapes.setColor(ROW_BORDER.r, ROW_BORDER.g, ROW_BORDER.b, alpha);
+        roundedRect(shapes, track.x, track.y, track.width, track.height, 4f);
+        shapes.setColor(ROW_HOVER_BORDER.r, ROW_HOVER_BORDER.g, ROW_HOVER_BORDER.b, alpha);
+        float fill = track.width * progress;
+        if (fill > 0f) shapes.rect(track.x, track.y, fill, track.height);
+        shapes.circle(track.x + fill, track.y + track.height * .5f, 9f, 24);
+    }
+
     private static void drawRow(ShapeRenderer shapes, float x, float y,
             float width, float height, Color border, Color fill,
             float alpha) {

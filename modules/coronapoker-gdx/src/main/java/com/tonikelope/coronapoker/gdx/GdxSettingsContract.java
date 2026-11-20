@@ -157,20 +157,26 @@ final class GdxSettingsContract {
      * live-table settings cannot drift into two different layouts.
      */
     record AppearanceAnimationRow(ToggleOption toggle,
-            GdxAppearanceOptions.Choice choice) {
+            GdxAppearanceOptions.Choice choice, boolean shuffleAngle) {
+
+        AppearanceAnimationRow(ToggleOption toggle, GdxAppearanceOptions.Choice choice) {
+            this(toggle, choice, false);
+        }
 
         AppearanceAnimationRow {
-            if ((toggle == null) == (choice == null)) {
+            if (shuffleAngle ? (toggle != null || choice != null) : ((toggle == null) == (choice == null))) {
                 throw new IllegalArgumentException(
                         "Exactly one animation row control is required");
             }
         }
 
         String key() {
+            if (shuffleAngle) return GdxShuffleAngle.KEY;
             return toggle != null ? toggle.key() : choice.key();
         }
 
         boolean child() {
+            if (shuffleAngle) return true;
             return toggle != null
                     ? GdxSettingsContract.isChildOption(
                             APPEARANCE_ANIMATIONS_PAGE, toggle)
@@ -630,6 +636,7 @@ final class GdxSettingsContract {
                     animationToggle("cinematicas_allin"),
                     animationToggle("cinematicas_gameover"),
                     animationToggle("animacion_barajado"),
+                    new AppearanceAnimationRow(null, null, true),
                     animationToggle("animacion_reparto"),
                     animationChoice("reparto_velocidad"),
                     animationChoice(COMMUNITY_DEAL_STYLE_KEY),
@@ -706,7 +713,7 @@ final class GdxSettingsContract {
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado",
-            "animacion_reparto",
+            GdxShuffleAngle.KEY, "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
             "animacion_apuestas", FLYING_CHIP_SHADOW_QUALITY_KEY, STACK_BET_PREVIEW_KEY,
             "animacion_contadores",
@@ -1135,6 +1142,9 @@ final class GdxSettingsContract {
         for (AppearanceAnimationRow row : rows) {
             if (row.toggle() != null) {
                 visualOptions.add(row.toggle());
+            } else if (row.shuffleAngle()) {
+                visualOptions.add(new ToggleOption(GdxShuffleAngle.KEY, GdxShuffleAngle.LABEL,
+                        false, Gate.NONE, false, "animacion_barajado"));
             } else {
                 GdxAppearanceOptions.Choice choice = row.choice();
                 visualOptions.add(new ToggleOption(choice.key(),
@@ -1466,6 +1476,7 @@ final class GdxSettingsContract {
                     Boolean.toString(option.fallback()));
         }
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
+            properties.remove(GdxShuffleAngle.KEY);
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
                 properties.setProperty(choice.key(), choice.fallback());
@@ -1515,6 +1526,7 @@ final class GdxSettingsContract {
                     option.fallback())) return false;
         }
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
+            if (GdxShuffleAngle.value(properties) != GdxShuffleAngle.DEFAULT) return false;
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
                 if (!stringAtDefault(properties, choice.key(), choice.fallback())) return false;

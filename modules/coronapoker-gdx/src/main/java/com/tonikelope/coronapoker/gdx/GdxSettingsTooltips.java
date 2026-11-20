@@ -297,6 +297,7 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_shuffle";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
+            case GdxShuffleAngle.KEY -> "gdx.settings.tooltip.shuffle_angle";
             case "animacion_reparto" ->
                 "gdx.settings.tooltip.animation_deal";
             case "reparto_velocidad" ->

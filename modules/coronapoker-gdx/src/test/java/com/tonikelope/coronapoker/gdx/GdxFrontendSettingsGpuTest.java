@@ -140,6 +140,7 @@ final class GdxFrontendSettingsGpuTest {
             }
         }
         session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
+        verifyAngleTrack(screen, screen, screen::render, (java.util.Properties) field(screen, "initialProperties"));
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
         for (String felt : List.of("azul", "verde", "azul", "verde", "azul")) {
             chooseFelt(screen, presentation, felt);
@@ -170,6 +171,36 @@ final class GdxFrontendSettingsGpuTest {
         Object texture = field(screen, "feltTexture");
         screen.touchUp((int) point.x, (int) point.y, 0, Input.Buttons.LEFT);
         assertSame(texture, field(screen, "feltTexture"));
+    }
+
+    private static void verifyAngleTrack(Object owner, com.badlogic.gdx.InputProcessor input, Runnable render,
+            java.util.Properties properties) throws Exception {
+        invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, 1);
+        var slider = field(owner, "shuffleAngleSlider");
+        var track = (Rectangle) field(slider, "track");
+        var hit = (Rectangle) field(slider, "hit");
+        var scroll = owner.getClass().getDeclaredField("settingsAppearanceScroll");
+        scroll.setAccessible(true);
+        for (int offset = 0; offset < 1000; offset += 64) {
+            scroll.setFloat(owner, offset);
+            render.run();
+            if (hit.height > 32f) break;
+        }
+        assertTrue(hit.height > 32f, "The angle track must be visible and enabled");
+        var viewport = (Viewport) field(owner, "viewport");
+        Vector2 start = viewport.project(new Vector2(track.x, hit.y + hit.height * .5f));
+        Vector2 end = viewport.project(new Vector2(track.x + track.width + 10f, hit.y + hit.height * .5f));
+        int touchY = HEIGHT - 1 - Math.round(start.y);
+        assertTrue(input.touchDown((int) start.x, touchY, 0, Input.Buttons.LEFT));
+        assertEquals(-180, GdxShuffleAngle.value(properties));
+        assertTrue(input.touchCancelled((int) start.x, touchY, 0, Input.Buttons.LEFT));
+        assertTrue(input.touchDown((int) start.x, touchY, 0, Input.Buttons.LEFT));
+        assertTrue(input.touchDragged(Math.round(end.x), touchY, 0));
+        assertTrue(input.touchUp(Math.round(end.x), touchY, 0, Input.Buttons.LEFT));
+        assertEquals(180, GdxShuffleAngle.value(properties));
+        assertTrue(((GdxSettingsSession) field(owner, "settingsSession")).propertiesChanged(properties));
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
+        assertEquals(30, GdxShuffleAngle.value(properties));
     }
 
     private static void verifyDeckPreview(GdxFrontendScreen screen,
@@ -207,6 +238,11 @@ final class GdxFrontendSettingsGpuTest {
                     TableVisualEvent.PreparationStatus.Phase.READY), ready);
             ready.join();
             invoke(table, "openSettings", new Class<?>[0]);
+            var session = (GdxSettingsSession) field(table, "settingsSession");
+            session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
+            verifyAngleTrack(table, table.inputProcessor(), table::render, preferences.properties());
+            verifyShuffleAngleLock(table, preferences.properties());
+            invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
             for (String felt : List.of("azul", "verde", "azul", "verde", "azul")) {
                 invoke(table, "selectTableFeltOption", new Class<?>[]{int.class},
                         GdxGamePresentationSettings.FELTS.indexOf(felt));
@@ -230,6 +266,60 @@ final class GdxFrontendSettingsGpuTest {
         } finally {
             table.dispose();
         }
+    }
+
+    private static void verifyShuffleAngleLock(CoronaPokerGdxTable table, java.util.Properties properties) throws Exception {
+        var slider = field(table, "shuffleAngleSlider");
+        var track = (Rectangle) field(slider, "track");
+        var hit = (Rectangle) field(slider, "hit");
+        var viewport = (Viewport) field(table, "viewport");
+        var input = table.inputProcessor();
+        Vector2 start = viewport.project(new Vector2(track.x + track.width * .7f, hit.y + hit.height * .5f));
+        Vector2 end = viewport.project(new Vector2(track.x, hit.y + hit.height * .5f));
+        int touchY = HEIGHT - 1 - Math.round(start.y);
+        assertTrue(input.touchDown(Math.round(start.x), touchY, 0, Input.Buttons.LEFT));
+        int initialAngle = GdxShuffleAngle.value(properties);
+        assertTrue(initialAngle > 60 && initialAngle < 80);
+        var started = new CompletableFuture<Void>();
+        table.acceptEvent(new TableVisualEvent.Shuffle(3, "goliat", TableVisualEvent.Shuffle.Phase.START), started);
+        assertTrue(started.isDone());
+        var shuffle = field(table, "liveShuffle");
+        assertEquals(initialAngle, field(shuffle, "angle"));
+        input.touchDragged(Math.round(end.x), touchY, 0);
+        input.touchUp(Math.round(end.x), touchY, 0, Input.Buttons.LEFT);
+        table.render();
+        assertEquals(0f, hit.width);
+        assertEquals(initialAngle, GdxShuffleAngle.value(properties));
+        invoke(table, "restoreTableAppearanceDefaults", new Class<?>[0]);
+        assertEquals(HEIGHT, Gdx.graphics.getHeight(), "Resetting animations must preserve the window size");
+        assertEquals(initialAngle, GdxShuffleAngle.value(properties));
+        // Cancelling uncommitted settings may restore the next hand's preference.
+        properties.setProperty(GdxShuffleAngle.KEY, "15");
+        assertEquals(initialAngle, invoke(table, "shuffleAngle", new Class<?>[0]));
+        properties.setProperty(GdxShuffleAngle.KEY, Integer.toString(initialAngle));
+        // Advance the animation clock across the first pass, still awaiting FINISH.
+        float cycle = (float) field(shuffle, "cycleSeconds");
+        var epoch = shuffle.getClass().getDeclaredField("startedAtNanos");
+        epoch.setAccessible(true);
+        epoch.setLong(shuffle, System.nanoTime() - (long) ((cycle + .25) * 1_000_000_000L));
+        table.render();
+        table.render();
+        assertTrue((boolean) field(shuffle, "firstEndPresented"));
+        assertSame(shuffle, field(table, "liveShuffle"));
+        assertEquals(0f, hit.width);
+        input.touchDown(Math.round(end.x), touchY, 0, Input.Buttons.LEFT);
+        input.touchUp(Math.round(end.x), touchY, 0, Input.Buttons.LEFT);
+        assertEquals(initialAngle, GdxShuffleAngle.value(properties));
+        var finished = new CompletableFuture<Void>();
+        table.acceptEvent(new TableVisualEvent.Shuffle(4, "goliat", TableVisualEvent.Shuffle.Phase.FINISH), finished);
+        table.render();
+        assertTrue(finished.isDone());
+        assertNull(field(table, "liveShuffle"));
+        assertTrue(hit.width > 0f);
+        assertTrue(input.touchDown((int) end.x, touchY, 0, Input.Buttons.LEFT));
+        input.touchUp((int) end.x, touchY, 0, Input.Buttons.LEFT);
+        assertEquals(-180, GdxShuffleAngle.value(properties));
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
     }
 
     private static void assertEnlargedFrame(GdxImagePreview preview) throws InterruptedException {

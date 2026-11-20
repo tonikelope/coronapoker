@@ -718,6 +718,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final List<TextItem> statsChartTexts = new ArrayList<>();
     private final Rectangle settingsRowsClip = new Rectangle();
     private boolean settingsRowsActive;
+    private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
     private final GdxPointerHold scrollPointer = new GdxPointerHold();
     private float scrollDragGrabOffset;
@@ -1424,6 +1425,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsRowsClip.set(0f, 0f, 0f, 0f);
         settingsRowsActive = false;
         settingsDebugViewport.set(0f, 0f, 0f, 0f);
+        shuffleAngleSlider.hide();
         // The clipped chat layer belongs only to the message history. Clear
         // its previous-frame viewport before drawing a gallery or emoji
         // picker, otherwise that stale layer is composed over the dialog.
@@ -8956,6 +8958,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeSettings(boolean save) {
+        shuffleAngleSlider.cancel();
         imagePreview.dispose();
         settingsShortcutCaptureId = null;
         if (save && settingsReturnSurface == Surface.LOBBY) {
@@ -10056,7 +10059,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             float currentY = rows.rowY(row);
             GdxSettingsContract.AppearanceAnimationRow animationRow =
                     animationRows.get(row);
-            if (animationRow.toggle() != null) {
+            if (animationRow.shuffleAngle()) {
+                Rectangle bounds = GdxSettingsLayout.groupedRow(baseX, currentY, baseWidth, row, groups, rowCount);
+                boolean enabled = GdxShuffleAngle.enabled(initialProperties);
+                int angle = GdxShuffleAngle.value(initialProperties);
+                shuffleAngleSlider.draw(shapes, bounds, rows, angle, enabled, 1f);
+                float baseline = bounds.y + bounds.height * .5f + 9f;
+                textFit(smallFont, uppercase(gameText.translate(GdxShuffleAngle.LABEL)), bounds.x + 18f,
+                        baseline, enabled ? Color.WHITE : DISABLED, false, bounds.width * .42f - 30f);
+                textFit(smallFont, GdxShuffleAngle.labelValue(angle), bounds.x + bounds.width - 53f,
+                        baseline, enabled ? GOLD : DISABLED, true, 84f);
+                settingsTooltip(bounds, GdxShuffleAngle.KEY);
+            } else if (animationRow.toggle() != null) {
                 GdxSettingsContract.ToggleOption option =
                         animationRow.toggle();
                 boolean enabled = GdxSettingsContract.enabled(option,
@@ -16624,6 +16638,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return true;
         }
+        if (button == Input.Buttons.LEFT && surface == Surface.SETTINGS && dropdown == Dropdown.NONE
+                && !hasNestedFrontendModal() && !frontendNoticeOwnsPointer()
+                && shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)) return true;
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
         if (avatarCropSession == null && dropdown != Dropdown.NONE
                 && button == Input.Buttons.LEFT
@@ -16712,6 +16729,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (pendingLanguage != null) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (surface == Surface.SETTINGS && dropdown == Dropdown.NONE && !hasNestedFrontendModal()
+                && shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)) return true;
         if (rulesWindow.isOpen()) {
             rulesWindow.touchDragged(pointer.x, pointer.y, pointerIndex);
             return true;
@@ -16784,6 +16803,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (pendingLanguage != null) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
+        if (button == Input.Buttons.LEFT && shuffleAngleSlider.release(pointerIndex)) return true;
         if (lobbyVoicePointer.release(pointerIndex, button)) {
             pressedHit = null;
             clearPointerRepeat();
@@ -18157,6 +18177,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (b == Input.Buttons.LEFT && shuffleAngleSlider.release(p)) return true;
         if (pendingLanguage != null) return true;
         if (rulesWindow.cancel(p, b)) return true;
         if (lobbyGallery.cancel(p, b)) return true;

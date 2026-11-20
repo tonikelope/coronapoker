@@ -49,7 +49,7 @@ final class GdxSettingsContract {
     static final String FINAL_SUMMARY_CARDS_ANIMATION_KEY =
             "animacion_tarjetas_fin_timba";
     static final int DEFAULT_CARD_RENDERING_MODE =
-            GdxCardSmaaRenderer.RENDERING_BALANCED;
+            GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
     static final int APPEARANCE_TABLE_VIEW_ROW = 0;
     static final int APPEARANCE_DECK_ROW = 1;
     static final int APPEARANCE_CARD_BACK_ROW = 2;
@@ -639,6 +639,7 @@ final class GdxSettingsContract {
                     animationToggle("cinematicas_allin"),
                     animationToggle("cinematicas_gameover"),
                     animationToggle("animacion_barajado"),
+                    animationChoice("duracion_barajado"),
                     animationChoice("vista_barajado"),
                     new AppearanceAnimationRow(null, null, GdxShuffleAngle.KEY),
                     new AppearanceAnimationRow(null, null, GdxCardZoom.SHUFFLE_LABEL),
@@ -721,7 +722,7 @@ final class GdxSettingsContract {
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado",
-            GdxShuffleAngle.KEY, "vista_barajado", GdxCardZoom.LEGACY_SHUFFLE_KEY,
+            GdxShuffleAngle.KEY, "vista_barajado", "duracion_barajado", GdxCardZoom.LEGACY_SHUFFLE_KEY,
             GdxCardZoom.SHUFFLE_2D.key, GdxCardZoom.SHUFFLE_3D.key,
             "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
@@ -1107,19 +1108,17 @@ final class GdxSettingsContract {
     }
 
     static int cardRenderingMode(Properties properties) {
-        return switch (properties.getProperty(CARD_RENDERING_KEY, "")) {
-            case "1" -> GdxCardSmaaRenderer.RENDERING_SMOOTH;
-            case "3" -> GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
-            default -> DEFAULT_CARD_RENDERING_MODE;
-        };
+        // A saved direct trilinear selection remains valid. Retired modes use the current default.
+        return Integer.toString(GdxCardSmaaRenderer.RENDERING_BALANCED).equals(properties.getProperty(CARD_RENDERING_KEY))
+                ? GdxCardSmaaRenderer.RENDERING_BALANCED : DEFAULT_CARD_RENDERING_MODE;
     }
 
     static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
-        if (GdxCardSampling.smoothArtwork(rendering)) {
-            String smooth = translatedUpper(text, "gdx.settings.value.smooth", "SUAVE");
-            return smooth + (rendering == GdxCardSmaaRenderer.RENDERING_SMOOTH_AF ? " 16× + AF" : " 16×");
+        if (rendering == GdxCardSmaaRenderer.RENDERING_BALANCED) {
+            return text == null ? "TRILINEAL + AF(x16)" : text.translate("gdx.settings.value.card_trilinear");
         }
-        return translatedUpper(text, "gdx.settings.value.balanced", "EQUILIBRADO");
+        return text == null ? "TRILINEAL + AF(x16) + 16 muestras"
+                : text.translate("gdx.settings.value.card_trilinear_16_samples");
     }
 
     private static String antialiasingValue(String technique, int samples,

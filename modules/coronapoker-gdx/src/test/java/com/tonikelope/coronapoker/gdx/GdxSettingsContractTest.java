@@ -21,11 +21,16 @@ final class GdxSettingsContractTest {
         prefs.start();
         Properties p = prefs.properties();
         for (var zoom : List.of(GdxCardZoom.SHUFFLE_2D, GdxCardZoom.SHUFFLE_3D)) {
+            assertEquals(150, zoom.percent(p));
+            p.setProperty(zoom.key, "100");
             assertEquals(100, zoom.percent(p));
+            p.remove(zoom.key);
             assertEquals(155, zoom.snap(153));
             assertEquals(50, zoom.snap(13));
             assertEquals(300, zoom.snap(303));
         }
+        p.setProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY, "1");
+        assertEquals(100, GdxCardZoom.SHUFFLE_2D.percent(p));
         p.setProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY, "2");
         assertEquals(200, GdxCardZoom.SHUFFLE_3D.percent(p));
         p.setProperty(GdxCardZoom.SHUFFLE_2D.key, "165");
@@ -737,8 +742,8 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(20, page.options().size());
-        assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(29, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(9, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(30, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -746,7 +751,7 @@ final class GdxSettingsContractTest {
                 "efecto_relieve",
                 "cinematicas_allin",
                 "cinematicas_gameover",
-                "animacion_barajado", GdxShuffleAngle.KEY, GdxCardZoom.SHUFFLE_LABEL,
+                "animacion_barajado", "duracion_barajado", GdxShuffleAngle.KEY, GdxCardZoom.SHUFFLE_LABEL,
                 "animacion_reparto",
                 "reparto_velocidad",
                 GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
@@ -795,7 +800,7 @@ final class GdxSettingsContractTest {
         var page = GdxSettingsContract.APPEARANCE_PAGES.get(0);
         var keys = GdxSettingsContract.appearanceRows(page).stream()
                 .map(GdxSettingsContract.AppearanceAnimationRow::key).toList();
-        assertEquals(keys.indexOf("animacion_barajado") + 1, keys.indexOf(GdxShuffleAngle.KEY));
+        assertEquals(keys.indexOf("duracion_barajado") + 1, keys.indexOf(GdxShuffleAngle.KEY));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(GdxShuffleAngle.KEY));
         assertEquals(45, GdxShuffleAngle.value(settings));
         settings.setProperty(GdxShuffleAngle.KEY, "invalid");
@@ -1194,7 +1199,7 @@ final class GdxSettingsContractTest {
         assertEquals("right", properties.getProperty("card_flip_direction"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
-        assertEquals("2", properties.getProperty(GdxSettingsContract.CARD_RENDERING_KEY));
+        assertEquals("3", properties.getProperty(GdxSettingsContract.CARD_RENDERING_KEY));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));
         assertEquals("true", properties.getProperty("gdx_vsync"));
 

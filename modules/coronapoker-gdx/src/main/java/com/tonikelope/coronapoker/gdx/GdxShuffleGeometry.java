@@ -34,17 +34,6 @@ final class GdxShuffleGeometry {
     private static final float MID_BRIDGE_HALF_CHORD = (float) Math.sin(MID_BRIDGE_TURN) / MID_BRIDGE_CURVATURE;
     private static final int MID_BRIDGE_PAUSE_FRAMES = 6;
 
-    // The Blender player started the WAV at the first release and cut it
-    // at the start of frame 53 (52 intervals of 20 ms).
-    static float soundStart(int cue) {
-        return (Motion.MID_BRIDGE.leadFrames + (cue == 0 ? 0 : BRIDGE_RELEASE_START)) * FRAME_SECONDS;
-    }
-
-    static float soundEnd(int cue) {
-        return cue == 0 ? soundStart(0) + CARDS * FRAME_SECONDS
-                : (Motion.MID_BRIDGE.leadFrames + BRIDGE_LAST_LANDING) * FRAME_SECONDS;
-    }
-
     enum Motion {
         ORIGINAL("Mezcla original", 0, FRAME_COUNT),
         FULL_DECK("Mazo entero", 46, FRAME_COUNT),
@@ -65,6 +54,17 @@ final class GdxShuffleGeometry {
 
         float duration() {
             return (leadFrames + releaseFrames) * FRAME_SECONDS;
+        }
+
+        // The Blender player started the WAV at the first release and cut it
+        // at the start of frame 53 (52 intervals of 20 ms).
+        float soundStart(int cue) {
+            return (leadFrames + (cue == 0 ? 0 : BRIDGE_RELEASE_START)) * FRAME_SECONDS;
+        }
+
+        float soundEnd(int cue) {
+            return cue == 0 ? soundStart(0) + CARDS * FRAME_SECONDS
+                    : (leadFrames + BRIDGE_LAST_LANDING) * FRAME_SECONDS;
         }
 
         float releaseTime(float elapsed) {

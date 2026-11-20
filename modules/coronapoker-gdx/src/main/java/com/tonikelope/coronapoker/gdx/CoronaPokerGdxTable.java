@@ -1670,7 +1670,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean sharedBackgroundMusic;
 
     private Sound shuffleSound;
-    private Sound riffleTrack;
+    private final java.util.EnumMap<GdxShuffleGeometry.Motion, Sound> riffleTracks =
+            new java.util.EnumMap<>(GdxShuffleGeometry.Motion.class);
     private Sound dealSound;
     private Sound uncoverSound;
     private Sound checkSound;
@@ -3600,7 +3601,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean tableAnimationChoiceEnabled(GdxAppearanceOptions.Choice choice) {
-        return (choice != GdxAppearanceOptions.SHUFFLE_VIEW || liveShuffle == null)
+        return (!GdxAppearanceOptions.shuffleChoice(choice) || liveShuffle == null)
                 && GdxAppearanceOptions.enabled(choice, tableSettingsProperties());
     }
 
@@ -3615,6 +3616,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String angle = properties.getProperty(GdxShuffleAngle.KEY);
         String zoom2D = properties.getProperty(GdxCardZoom.SHUFFLE_2D.key);
         String zoom3D = properties.getProperty(GdxCardZoom.SHUFFLE_3D.key);
+        String shuffleDuration = properties.getProperty(GdxAppearanceOptions.SHUFFLE_DURATION.key());
         String shuffleView = properties.getProperty(GdxAppearanceOptions.SHUFFLE_VIEW.key());
         String oldSize = properties.getProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY);
         GdxSettingsContract.restoreAppearancePageDefaults(properties, settingsAppearancePage, true);
@@ -3624,6 +3626,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (angle != null) properties.setProperty(GdxShuffleAngle.KEY, angle);
             if (zoom2D != null) properties.setProperty(GdxCardZoom.SHUFFLE_2D.key, zoom2D);
             if (zoom3D != null) properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, zoom3D);
+            if (shuffleDuration != null) properties.setProperty(GdxAppearanceOptions.SHUFFLE_DURATION.key(), shuffleDuration);
+            else properties.remove(GdxAppearanceOptions.SHUFFLE_DURATION.key());
             if (shuffleView != null) properties.setProperty(GdxAppearanceOptions.SHUFFLE_VIEW.key(), shuffleView);
             else properties.remove(GdxAppearanceOptions.SHUFFLE_VIEW.key());
             if (oldSize != null) properties.setProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY, oldSize);
@@ -4029,9 +4033,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         switch (creationResourceIndex++) {
             case 0 -> shuffleSound = gameSound("misc/shuffle.wav");
             case 1 -> {
-                var recording = GdxShuffleAudio.track(gameAudioResource("misc/shuffle.wav"));
+                var recording = GdxShuffleAudio.tracks(gameAudioResource("misc/shuffle.wav"));
                 shuffleSoundDurationSeconds = recording.originalDuration();
-                riffleTrack = Gdx.audio.newSound(recording.file());
+                recording.files().forEach((motion, file) -> riffleTracks.put(motion, Gdx.audio.newSound(file)));
             }
             case 2 -> dealSound = gameSound("misc/deal.wav");
             case 3 -> uncoverSound = gameSound("misc/uncover.wav");
@@ -11910,7 +11914,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void selectTableAppearanceChoice(GdxAppearanceOptions.Choice choice,
             int option) {
-        if (choice == GdxAppearanceOptions.SHUFFLE_VIEW && !tableAnimationChoiceEnabled(choice)) return;
+        if (GdxAppearanceOptions.shuffleChoice(choice) && !tableAnimationChoiceEnabled(choice)) return;
         GdxAppearanceOptions.select(choice, tableProperties, option);
         if (presentationSettings != null) {
             presentationSettings.refreshRuntimePreferences();
@@ -19444,7 +19448,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void stopShuffleSound() {
         shuffleSoundId = -1L;
         if (shuffleSound != null) shuffleSound.stop();
-        if (riffleTrack != null) riffleTrack.stop();
+        riffleTracks.values().forEach(Sound::stop);
     }
 
     private void markLiveShuffleSoundStopped() {
@@ -19480,7 +19484,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             shuffleAngleSlider.cancel();
             cardZoomSlider.cancel();
             if (settingsSelectionList == SettingsSelectionList.APPEARANCE_CHOICE
-                    && settingsSelectionAppearanceChoice == GdxAppearanceOptions.SHUFFLE_VIEW) {
+                    && GdxAppearanceOptions.shuffleChoice(settingsSelectionAppearanceChoice)) {
                 settingsSelectionList = SettingsSelectionList.NONE;
                 settingsSelectionAppearanceChoice = null;
             }
@@ -19528,7 +19532,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && cycle != active.lastSoundAttempt) {
             active.lastSoundAttempt = cycle;
             float phase = elapsed - cycle * active.cycleSeconds;
-            active.soundStopped = !startShuffleSound(active.animationEnabled ? riffleTrack : shuffleSound, phase);
+            active.soundStopped = !startShuffleSound(active.animationEnabled ? riffleTracks.get(active.motion) : shuffleSound, phase);
         }
     }
 
@@ -20793,7 +20797,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float pose = active.showFirstEnd ? active.cycleSeconds : elapsed - cycle * active.cycleSeconds;
         Texture[] faces = tilted ? active.faces(cycle) : null;
         riffle.prepare(pose, tilted ? GdxRiffleShuffle.View.PERSPECTIVE : GdxRiffleShuffle.View.OVERHEAD,
-                GdxShuffleGeometry.Motion.MID_BRIDGE, active.cardAspect);
+                active.motion, active.cardAspect);
         restoreParentFramebufferAfterNestedPass();
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
@@ -33168,7 +33172,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         backgroundMusic = null;
         disposeSafely(shuffleSound);
-        disposeSafely(riffleTrack);
+        riffleTracks.values().forEach(track -> disposeSafely(track));
+        riffleTracks.clear();
         disposeSafely(dealSound);
         disposeSafely(uncoverSound);
         disposeSafely(checkSound);
@@ -33493,7 +33498,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         releaseRemoteRebuyPresentation();
         releaseRecoveryAnimation();
         shuffleSound.dispose();
-        riffleTrack.dispose();
+        riffleTracks.values().forEach(Sound::dispose);
+        riffleTracks.clear();
         dealSound.dispose();
         uncoverSound.dispose();
         checkSound.dispose();
@@ -34177,6 +34183,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         final String backDeck;
         final int angle;
         final int zoom2D, zoom3D;
+        final GdxShuffleGeometry.Motion motion;
         final boolean tiltedOnFlatTable;
         final boolean animationEnabled;
         final boolean soundEnabled;
@@ -34197,12 +34204,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             this.deck = deck;
             this.backDeck = backDeck;
             this.angle = angle;
+            motion = GdxAppearanceOptions.shuffleMotion(tableSettingsProperties());
             tiltedOnFlatTable = GdxAppearanceOptions.tiltedShuffle(tableSettingsProperties());
             zoom2D = GdxCardZoom.SHUFFLE_2D.percent(tableSettingsProperties());
             zoom3D = GdxCardZoom.SHUFFLE_3D.percent(tableSettingsProperties());
             this.animationEnabled = animationEnabled;
             this.soundEnabled = soundEnabled;
-            cycleSeconds = animationEnabled ? GdxShuffleGeometry.Motion.MID_BRIDGE.duration()
+            cycleSeconds = animationEnabled ? motion.duration()
                     : shuffleSoundDurationSeconds;
         }
 

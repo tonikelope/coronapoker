@@ -144,10 +144,8 @@ final class GdxFrontendSettingsGpuTest {
         verifyAngleTrack(screen, screen, screen::render, (java.util.Properties) field(screen, "initialProperties"));
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, GdxSettingsContract.appearanceGraphicsPageIndex());
         var modes = presentation.cardRenderingModes();
-        assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH,
-                GdxCardSmaaRenderer.RENDERING_SMOOTH_AF), modes);
-        for (int mode : List.of(GdxCardSmaaRenderer.RENDERING_SMOOTH, GdxCardSmaaRenderer.RENDERING_SMOOTH_AF,
-                GdxCardSmaaRenderer.RENDERING_BALANCED)) {
+        assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH_AF), modes);
+        for (int mode : modes) {
             var point = pressOption(screen, "CARD_RENDERING", modes.indexOf(mode));
             assertEquals(mode, presentation.requestedCardRenderingMode());
             screen.touchUp((int) point.x, (int) point.y, 0, Input.Buttons.LEFT);
@@ -374,12 +372,18 @@ final class GdxFrontendSettingsGpuTest {
         properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, "175");
         var view = GdxAppearanceOptions.SHUFFLE_VIEW;
         properties.setProperty(view.key(), "3d");
+        var duration = GdxAppearanceOptions.SHUFFLE_DURATION;
+        properties.setProperty(duration.key(), "medium");
         var started = new CompletableFuture<Void>();
         table.acceptEvent(new TableVisualEvent.Shuffle(3, "goliat", TableVisualEvent.Shuffle.Phase.START), started);
         assertTrue(started.isDone());
         var shuffle = field(table, "liveShuffle");
         assertEquals(initialAngle, field(shuffle, "angle"));
         assertEquals(true, field(shuffle, "tiltedOnFlatTable"));
+        assertEquals(GdxShuffleGeometry.Motion.FULL_DECK, field(shuffle, "motion"));
+        invoke(table, "selectTableAppearanceChoice",
+                new Class<?>[]{GdxAppearanceOptions.Choice.class, int.class}, duration, 2);
+        assertEquals("medium", properties.getProperty(duration.key()));
         invoke(table, "selectTableAppearanceChoice",
                 new Class<?>[]{GdxAppearanceOptions.Choice.class, int.class}, view, 0);
         assertEquals("3d", properties.getProperty(view.key()));
@@ -394,6 +398,7 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(0f, hit.width);
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));
         invoke(table, "restoreTableAppearanceDefaults", new Class<?>[0]);
+        assertEquals("medium", properties.getProperty(duration.key()));
         assertEquals(HEIGHT, Gdx.graphics.getHeight(), "Resetting animations must preserve the window size");
         assertEquals("3d", properties.getProperty(view.key()));
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));

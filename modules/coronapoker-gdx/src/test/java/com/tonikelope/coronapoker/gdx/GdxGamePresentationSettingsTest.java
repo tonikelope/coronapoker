@@ -416,21 +416,24 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void cardRenderingAllowsLiveComparisonAndMapsRetiredNativeToBalanced() {
+    void cardRenderingKeepsDirectTrilinearAndDefaultsToSixteenSamples() {
         var properties = new java.util.Properties();
-        int balanced = GdxCardSmaaRenderer.RENDERING_BALANCED, smooth = GdxCardSmaaRenderer.RENDERING_SMOOTH;
-        for (String saved : java.util.List.of("0", "bogus", "2")) {
+        int direct = GdxCardSmaaRenderer.RENDERING_BALANCED;
+        int sampled = GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
+        int page = GdxSettingsContract.appearanceGraphicsPageIndex();
+        assertEquals(sampled, GdxSettingsContract.cardRenderingMode(properties));
+        for (String saved : List.of("0", "1", "3", "bogus")) {
             properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, saved);
-            assertEquals(balanced, GdxSettingsContract.cardRenderingMode(properties));
-            assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, GdxSettingsContract.appearanceGraphicsPageIndex(), false));
+            assertEquals(sampled, GdxSettingsContract.cardRenderingMode(properties));
+            assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, page, false));
         }
-        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, "1");
-        assertEquals(smooth, GdxSettingsContract.cardRenderingMode(properties));
-        int smoothAf = GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
-        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, Integer.toString(smoothAf));
-        assertEquals(smoothAf, GdxSettingsContract.cardRenderingMode(properties));
-        assertEquals("SUAVE 16× + AF", GdxSettingsContract.cardRenderingStatusLabel(smoothAf, new GdxGameText("es")));
-        assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties, GdxSettingsContract.appearanceGraphicsPageIndex(), false));
+        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, Integer.toString(direct));
+        assertEquals(direct, GdxSettingsContract.cardRenderingMode(properties));
+        assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties, page, false));
+        var text = new GdxGameText("es");
+        assertEquals("TRILINEAL + AF(x16)", GdxSettingsContract.cardRenderingStatusLabel(direct, text));
+        assertEquals("TRILINEAL + AF(x16) + 16 muestras",
+                GdxSettingsContract.cardRenderingStatusLabel(sampled, text));
     }
 
     @Test

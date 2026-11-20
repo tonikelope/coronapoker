@@ -10,10 +10,10 @@ final class GdxShuffleSizingTest {
 
     @Test
     void replaysTheRecordedRiffleFromItsStartAtBothReleases() {
-        assertEquals(.92f, GdxShuffleGeometry.soundStart(0), .00001f);
-        assertEquals(2.60f, GdxShuffleGeometry.soundStart(1), .00001f);
-        assertEquals(1.96f, GdxShuffleGeometry.soundEnd(0), .00001f);
-        assertEquals(3.96f, GdxShuffleGeometry.soundEnd(1), .00001f);
+        assertEquals(.92f, GdxShuffleGeometry.Motion.MID_BRIDGE.soundStart(0), .00001f);
+        assertEquals(2.60f, GdxShuffleGeometry.Motion.MID_BRIDGE.soundStart(1), .00001f);
+        assertEquals(1.96f, GdxShuffleGeometry.Motion.MID_BRIDGE.soundEnd(0), .00001f);
+        assertEquals(3.96f, GdxShuffleGeometry.Motion.MID_BRIDGE.soundEnd(1), .00001f);
         assertEquals(4.46f, GdxShuffleGeometry.Motion.MID_BRIDGE.duration(), .00001f);
     }
 

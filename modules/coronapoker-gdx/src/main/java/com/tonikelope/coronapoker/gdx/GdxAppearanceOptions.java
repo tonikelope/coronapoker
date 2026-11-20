@@ -52,6 +52,21 @@ final class GdxAppearanceOptions {
     static final Choice SHUFFLE_VIEW = exact("vista_barajado", "VISTA DE BARAJADO", "table",
             new String[]{"table", "3d"}, new String[]{"MISMA QUE LA MESA", "3D"});
 
+    static final Choice SHUFFLE_DURATION = exact("duracion_barajado", "DURACIÓN", "full",
+            new String[]{"full", "medium", "short"}, new String[]{"COMPLETA", "MEDIA", "CORTA"});
+
+    static GdxShuffleGeometry.Motion shuffleMotion(Properties properties) {
+        return switch (selectedIndex(SHUFFLE_DURATION, properties)) {
+            case 1 -> GdxShuffleGeometry.Motion.FULL_DECK;
+            case 2 -> GdxShuffleGeometry.Motion.ORIGINAL;
+            default -> GdxShuffleGeometry.Motion.MID_BRIDGE;
+        };
+    }
+
+    static boolean shuffleChoice(Choice choice) {
+        return choice == SHUFFLE_VIEW || choice == SHUFFLE_DURATION;
+    }
+
     static boolean tiltedShuffle(Properties properties) {
         return selectedIndex(SHUFFLE_VIEW, properties) == 1;
     }
@@ -68,7 +83,7 @@ final class GdxAppearanceOptions {
             new String[]{"ALTA", "NORMAL"});
 
     static final List<Choice> ANIMATION_CHOICES = List.of(
-            SHUFFLE_VIEW,
+            SHUFFLE_VIEW, SHUFFLE_DURATION,
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),
@@ -144,7 +159,7 @@ final class GdxAppearanceOptions {
 
     static String parentKey(Choice choice) {
         return switch (choice.key()) {
-            case "vista_barajado" -> "animacion_barajado";
+            case "vista_barajado", "duracion_barajado" -> "animacion_barajado";
             case "reparto_velocidad",
                     GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
                 "animacion_reparto";

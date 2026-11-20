@@ -6,8 +6,8 @@ import java.util.Properties;
 
 /** Percent of one community card on the felt, stored separately for each view. */
 enum GdxCardZoom {
-    SHUFFLE_2D("zoom_barajado_2d", 100, 300),
-    SHUFFLE_3D("zoom_barajado_3d", 100, 300);
+    SHUFFLE_2D("zoom_barajado_2d", 150, 300),
+    SHUFFLE_3D("zoom_barajado_3d", 150, 300);
 
     static final String LEGACY_SHUFFLE_KEY = "barajado_tamano";
     static final String SHUFFLE_LABEL = "gdx.settings.row.shuffle_zoom";
@@ -29,6 +29,7 @@ enum GdxCardZoom {
         String raw = settings.getProperty(key);
         if (raw == null) {
             return switch (settings.getProperty(LEGACY_SHUFFLE_KEY, "")) {
+                case "1" -> 100;
                 case "2" -> 200;
                 case "3" -> 300;
                 default -> normal;

@@ -23,13 +23,35 @@ final class GdxShuffleAudioSynchronizationTest {
         var format = new javax.sound.sampled.AudioFormat(1000f, 16, 1, true, false);
         byte[] recording = new byte[4000];
         new java.util.Random(17).nextBytes(recording);
-        byte[] wave = GdxShuffleAudio.arrange(recording, format);
+        byte[] wave = GdxShuffleAudio.arrange(recording, format, GdxShuffleGeometry.Motion.MID_BRIDGE);
         org.junit.jupiter.api.Assertions.assertEquals(4460 * 2, wave.length);
         for (int frame = 0; frame < 4460; frame++) {
             int sample = frame >= 920 && frame < 1960 ? frame - 920
                     : frame >= 2600 && frame < 3960 ? frame - 2600 : -1;
             for (int b = 0; b < 2; b++) {
                 org.junit.jupiter.api.Assertions.assertEquals(sample < 0 ? 0 : recording[sample*2+b], wave[frame*2+b]);
+            }
+        }
+    }
+
+    @Test
+    void shorterMotionsPlayOnlyTheFirstReleaseAndEndAtTheMeshBoundary() {
+        var format = new javax.sound.sampled.AudioFormat(1000f, 16, 1, true, false);
+        byte[] source = new byte[4000];
+        java.util.Arrays.fill(source, (byte) 79);
+        var settings = new java.util.Properties();
+        var choice = GdxAppearanceOptions.SHUFFLE_DURATION;
+        org.junit.jupiter.api.Assertions.assertEquals(GdxShuffleGeometry.Motion.MID_BRIDGE,
+                GdxAppearanceOptions.shuffleMotion(settings));
+        for (int i = 1; i <= 2; i++) {
+            GdxAppearanceOptions.select(choice, settings, i);
+            var motion = GdxAppearanceOptions.shuffleMotion(settings);
+            var wave = GdxShuffleAudio.arrange(source, format, motion);
+            int start = i == 1 ? 920 : 0;
+            org.junit.jupiter.api.Assertions.assertEquals((i == 1 ? 2640 : 1720) * 2, wave.length);
+            for (int frame = 0; frame < wave.length / 2; frame++) {
+                org.junit.jupiter.api.Assertions.assertEquals(frame >= start && frame < start + 1040 ? 79 : 0,
+                        wave[frame * 2]);
             }
         }
     }
@@ -42,7 +64,7 @@ final class GdxShuffleAudioSynchronizationTest {
                 "private static float wavDurationSeconds(");
         int upload = update.indexOf("active.faces(0)");
         int clock = update.indexOf("active.startPresentation(System.nanoTime())");
-        int audio = update.indexOf("startShuffleSound(active.animationEnabled ? riffleTrack : shuffleSound, phase)");
+        int audio = update.indexOf("startShuffleSound(active.animationEnabled ? riffleTracks.get(active.motion) : shuffleSound, phase)");
         assertTrue(upload >= 0 && clock > upload && audio > clock,
                 "frame zero, shared epoch and WAV must arm in that order");
         assertTrue(update.contains("active.elapsedSeconds(renderFrameNanos)"));

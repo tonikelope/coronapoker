@@ -1107,14 +1107,19 @@ final class GdxSettingsContract {
     }
 
     static int cardRenderingMode(Properties properties) {
-        return Integer.toString(GdxCardSmaaRenderer.RENDERING_SMOOTH).equals(properties.getProperty(CARD_RENDERING_KEY))
-                ? GdxCardSmaaRenderer.RENDERING_SMOOTH : DEFAULT_CARD_RENDERING_MODE;
+        return switch (properties.getProperty(CARD_RENDERING_KEY, "")) {
+            case "1" -> GdxCardSmaaRenderer.RENDERING_SMOOTH;
+            case "3" -> GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
+            default -> DEFAULT_CARD_RENDERING_MODE;
+        };
     }
 
     static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
-        return rendering == GdxCardSmaaRenderer.RENDERING_SMOOTH
-                ? translatedUpper(text, "gdx.settings.value.smooth", "SUAVE") + " 16×"
-                : translatedUpper(text, "gdx.settings.value.balanced", "EQUILIBRADO");
+        if (GdxCardSampling.smoothArtwork(rendering)) {
+            String smooth = translatedUpper(text, "gdx.settings.value.smooth", "SUAVE");
+            return smooth + (rendering == GdxCardSmaaRenderer.RENDERING_SMOOTH_AF ? " 16× + AF" : " 16×");
+        }
+        return translatedUpper(text, "gdx.settings.value.balanced", "EQUILIBRADO");
     }
 
     private static String antialiasingValue(String technique, int samples,

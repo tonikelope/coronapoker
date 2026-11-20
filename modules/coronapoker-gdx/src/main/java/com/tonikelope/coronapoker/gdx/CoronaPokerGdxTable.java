@@ -4457,8 +4457,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     static float cardArtworkLodBias(int renderingMode) {
-        if (renderingMode == GdxCardSmaaRenderer.RENDERING_BALANCED) return 0f;
-        return renderingMode == GdxCardSmaaRenderer.RENDERING_SMOOTH
+        return GdxCardSampling.smoothArtwork(renderingMode)
                 ? CARD_ARTWORK_SMOOTH_LOD_BIAS
                 : CARD_ARTWORK_NATIVE_LOD_BIAS;
     }

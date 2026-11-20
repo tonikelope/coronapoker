@@ -17,9 +17,12 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.utils.ScreenUtils;
 import java.util.concurrent.atomic.AtomicReference;
 import java.lang.reflect.Field;
+import org.lwjgl.opengl.EXTTextureFilterAnisotropic;
+import org.lwjgl.opengl.GL11;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -103,11 +106,28 @@ final class GdxCardSmaaGpuCertificationTest {
             System.out.println("Card SMAA GPU proof: " + weightedPixels
                     + " weighted pixels, " + changed
                     + " final framebuffer pixels changed");
+            verifyCardTextureModes(card);
             return changed;
         } finally {
             renderer.dispose();
             card.dispose();
             batch.dispose();
+        }
+    }
+
+    private static void verifyCardTextureModes(Texture card) {
+        float maximum = Texture.getMaxAnisotropicFilterLevel();
+        for (int mode : new int[]{GdxCardSmaaRenderer.RENDERING_BALANCED,
+                GdxCardSmaaRenderer.RENDERING_SMOOTH_AF, GdxCardSmaaRenderer.RENDERING_SMOOTH}) {
+            GdxCardSampling.bind(card, 0, mode);
+            boolean smoothOnly = mode == GdxCardSmaaRenderer.RENDERING_SMOOTH;
+            assertEquals(smoothOnly ? GL11.GL_LINEAR_MIPMAP_NEAREST : GL11.GL_LINEAR_MIPMAP_LINEAR,
+                    GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER));
+            if (maximum > 1f) {
+                assertEquals(smoothOnly ? 1f : Math.min(16f, maximum),
+                        GL11.glGetTexParameterf(GL11.GL_TEXTURE_2D,
+                                EXTTextureFilterAnisotropic.GL_TEXTURE_MAX_ANISOTROPY_EXT), .001f);
+            }
         }
     }
 

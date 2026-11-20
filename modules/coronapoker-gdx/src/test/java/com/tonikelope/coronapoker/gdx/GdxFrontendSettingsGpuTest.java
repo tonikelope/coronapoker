@@ -144,8 +144,10 @@ final class GdxFrontendSettingsGpuTest {
         verifyAngleTrack(screen, screen, screen::render, (java.util.Properties) field(screen, "initialProperties"));
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, GdxSettingsContract.appearanceGraphicsPageIndex());
         var modes = presentation.cardRenderingModes();
-        assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH), modes);
-        for (int mode : List.of(GdxCardSmaaRenderer.RENDERING_SMOOTH, GdxCardSmaaRenderer.RENDERING_BALANCED)) {
+        assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH,
+                GdxCardSmaaRenderer.RENDERING_SMOOTH_AF), modes);
+        for (int mode : List.of(GdxCardSmaaRenderer.RENDERING_SMOOTH, GdxCardSmaaRenderer.RENDERING_SMOOTH_AF,
+                GdxCardSmaaRenderer.RENDERING_BALANCED)) {
             var point = pressOption(screen, "CARD_RENDERING", modes.indexOf(mode));
             assertEquals(mode, presentation.requestedCardRenderingMode());
             screen.touchUp((int) point.x, (int) point.y, 0, Input.Buttons.LEFT);

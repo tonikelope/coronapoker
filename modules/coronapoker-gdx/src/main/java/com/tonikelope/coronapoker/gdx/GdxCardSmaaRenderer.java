@@ -49,6 +49,7 @@ final class GdxCardSmaaRenderer implements Disposable {
     /** Apply selective SMAA while preserving the native card detail. */
     static final int RENDERING_SMOOTH = 1;
     static final int RENDERING_BALANCED = 2;
+    static final int RENDERING_SMOOTH_AF = 3;
 
     /**
      * Keeps most of the unprocessed artwork at opaque internal edges while

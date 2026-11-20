@@ -426,6 +426,10 @@ final class GdxGamePresentationSettingsTest {
         }
         properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, "1");
         assertEquals(smooth, GdxSettingsContract.cardRenderingMode(properties));
+        int smoothAf = GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
+        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, Integer.toString(smoothAf));
+        assertEquals(smoothAf, GdxSettingsContract.cardRenderingMode(properties));
+        assertEquals("SUAVE 16× + AF", GdxSettingsContract.cardRenderingStatusLabel(smoothAf, new GdxGameText("es")));
         assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties, GdxSettingsContract.appearanceGraphicsPageIndex(), false));
     }
 

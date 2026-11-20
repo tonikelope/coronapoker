@@ -229,6 +229,9 @@ final class GdxCardSmaaRendererContractTest {
         assertTrue(rabbit.contains(
                 "setUniformf(\"u_artworkLodBias\""));
         assertEquals(1f, GdxCardSampling.shaderValue(GdxCardSmaaRenderer.RENDERING_SMOOTH));
+        assertEquals(1f, GdxCardSampling.shaderValue(GdxCardSmaaRenderer.RENDERING_SMOOTH_AF));
+        assertEquals(CoronaPokerGdxTable.cardArtworkLodBias(GdxCardSmaaRenderer.RENDERING_SMOOTH),
+                CoronaPokerGdxTable.cardArtworkLodBias(GdxCardSmaaRenderer.RENDERING_SMOOTH_AF));
         assertEquals(-1f, GdxCardSampling.shaderValue(GdxCardSmaaRenderer.RENDERING_BALANCED));
         assertTrue(artwork.contains("if (u_artworkSmooth < -0.5) return texture2D(artwork, uv)"));
         assertEquals(0f, CoronaPokerGdxTable.cardArtworkLodBias(

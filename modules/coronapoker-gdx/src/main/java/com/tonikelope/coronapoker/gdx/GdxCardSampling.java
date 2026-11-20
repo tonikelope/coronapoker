@@ -8,19 +8,21 @@ import com.badlogic.gdx.graphics.Texture.TextureFilter;
 final class GdxCardSampling {
     private GdxCardSampling() {}
 
+    static boolean smoothArtwork(int mode) {
+        return mode == GdxCardSmaaRenderer.RENDERING_SMOOTH || mode == GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
+    }
+
     static float shaderValue(int mode) {
-        return switch (mode) {
-            case GdxCardSmaaRenderer.RENDERING_BALANCED -> -1f;
-            case GdxCardSmaaRenderer.RENDERING_SMOOTH -> 1f;
-            default -> 0f;
-        };
+        if (smoothArtwork(mode)) return 1f;
+        return mode == GdxCardSmaaRenderer.RENDERING_BALANCED ? -1f : 0f;
     }
 
     static void bind(Texture texture, int unit, int mode) {
-        boolean balanced = mode == GdxCardSmaaRenderer.RENDERING_BALANCED;
+        boolean trilinear = mode == GdxCardSmaaRenderer.RENDERING_BALANCED
+                || mode == GdxCardSmaaRenderer.RENDERING_SMOOTH_AF;
         texture.bind(unit);
-        texture.unsafeSetFilter(balanced ? TextureFilter.MipMapLinearLinear : TextureFilter.MipMapLinearNearest,
+        texture.unsafeSetFilter(trilinear ? TextureFilter.MipMapLinearLinear : TextureFilter.MipMapLinearNearest,
                 TextureFilter.Linear);
-        texture.unsafeSetAnisotropicFilter(balanced ? 16f : 1f);
+        texture.unsafeSetAnisotropicFilter(trilinear ? 16f : 1f);
     }
 }

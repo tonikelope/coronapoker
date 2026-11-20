@@ -29,7 +29,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
             "verde", "azul", "rojo", "negro", "madera");
     private static final List<Integer> MSAA_LEVELS = List.of(0, 2, 4, 8);
     private static final List<Integer> CARD_RENDERING_MODES = List.of(
-            GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH);
+            GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH,
+            GdxCardSmaaRenderer.RENDERING_SMOOTH_AF);
     private static final List<Integer> FRAME_RATE_LIMITS = List.of(
             60, 120, 144, 240, 0);
     private final PreferencesService preferences;

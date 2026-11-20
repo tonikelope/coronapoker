@@ -12254,8 +12254,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float tableW = Math.min(1510f, width * 0.78f);
         tableCenterX = tableCx;
         tableCenterY = tableCy;
-        float boardCardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableW / 10f);
-        float boardCardH = boardCardW * cardBack.getHeight() / cardBack.getWidth();
+        float boardCardW = communityCardWidth(tableW);
+        float boardCardH = communityCardLength(boardCardW, cardBack);
         // The pot owns the central axis, clearly above the upper edge of the
         // community row. It is never painted on top of a card.
         potCenterX = tableCx;
@@ -12697,7 +12697,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 LiveCardPlacement first = liveHolePlacement(dealer, 0);
                 LiveCardPlacement second = liveHolePlacement(dealer, 1);
                 if (dealer.index == 0) {
-                    float cardWidth = MathUtils.lerp(first.width, perspectiveBoardCardWidth(), perspectiveBlend);
+                    float cardWidth = MathUtils.lerp(first.width, communityCardWidth(), perspectiveBlend);
                     var source = perspectiveTable.pocketDealSource(first.x, perspectivePocketY(first),
                             second.x, perspectivePocketY(second), cardWidth);
                     dealerCardsX = source.x;
@@ -16317,7 +16317,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void drawPerspectivePocketFlight(Texture back,
             LiveCardPlacement target, float progress, int slot, int order, GdxPerspectiveTable.DealRoute route) {
-        float w = MathUtils.lerp(target.width, perspectiveBoardCardWidth(), perspectiveBlend);
+        float w = MathUtils.lerp(target.width, communityCardWidth(), perspectiveBlend);
         float h = w * target.height / target.width;
         batch.end();
         perspectiveTable.drawPocketFlight(back, dealerSourceX, dealerSourceY,
@@ -16332,9 +16332,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return placement.y + 60f * perspectiveBlend;
     }
 
-    private float perspectiveBoardCardWidth() {
-        float tableWidth = Math.min(1510f, viewport.getWorldWidth() * 0.78f);
+    private float communityCardWidth() {
+        return communityCardWidth(Math.min(1510f, viewport.getWorldWidth() * 0.78f));
+    }
+
+    private static float communityCardWidth(float tableWidth) {
         return Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
+    }
+
+    private static float communityCardLength(float cardWidth, Texture cardBack) {
+        return cardWidth * cardBack.getHeight() / cardBack.getWidth();
     }
 
     private void drawHoleCards(boolean foregroundRevealFlights) {
@@ -16354,7 +16361,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && usesPerspectivePocket(livePlayer(liveHoleReveal.event.nickname()));
         if (perspectiveActive && foregroundRevealFlights == pocketInFlight) {
             Texture back = activeCardBack();
-            float cardWidth = perspectiveBoardCardWidth();
+            float cardWidth = communityCardWidth();
             drawPerspectivePocket(cardWidth, cardWidth * back.getHeight() / back.getWidth());
         }
         drawLiveHoleCards(foregroundRevealFlights);
@@ -16721,8 +16728,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Objects.requireNonNull(liveState,
                 "Board rendering requires authoritative live state");
         Texture cardBack = activeCardBack();
-        float cardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
-        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+        float cardW = communityCardWidth(tableWidth);
+        float cardH = communityCardLength(cardW, cardBack);
         float gap = cardW + COMMUNITY_CARD_GAP;
         float boardWidth = communityBoardWidth(cardW);
         float firstX = cx - boardWidth / 2f;
@@ -17502,8 +17509,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         Texture cardBack = activeCardBack();
-        float cardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
-        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+        float cardW = communityCardWidth(tableWidth);
+        float cardH = communityCardLength(cardW, cardBack);
         float gap = cardW + COMMUNITY_CARD_GAP;
         float firstX = cx - communityBoardWidth(cardW) / 2f;
         float cardY = cy - cardH * 0.36f;
@@ -18458,7 +18465,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     (1f - progress) * (role - 1) * 320f,
                     seatPresenceAlpha(target.index), target.index == 0 || previous != null && previous.index == 0,
                     target.index == 0 ? progress : 1f - progress,
-                    perspectiveBoardCardWidth() * .09f * MathUtils.sin(MathUtils.PI * raw) * MathUtils.sin(MathUtils.PI * raw));
+                    communityCardWidth() * .09f * MathUtils.sin(MathUtils.PI * raw) * MathUtils.sin(MathUtils.PI * raw));
         }
         alphaEdgeRenderer.end(batch);
         batch.end();
@@ -18480,16 +18487,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Vector2 positionMarkerAnchor(Seat seat) {
         if (!perspectiveActive || seat.index != 0) return new Vector2(seat.positionX, seat.positionY);
-        float cardWidth = perspectiveBoardCardWidth();
+        float cardWidth = communityCardWidth();
         float x = tableCenterX + cardWidth * 1.12f;
         float diameter = localPositionMarkerDiameter(cardWidth);
         float y = localPositionMarkerY();
-        float restWidth = shuffleRestWidth();
         com.badlogic.gdx.math.Vector3 point;
-        if (liveShuffleAnimationEnabled() && restWidth > 0f) {
+        if (liveShuffleAnimationEnabled()) {
             float aspect = liveShuffle != null && liveShuffle.presentationStarted
                     ? liveShuffle.cardAspect : shuffleCardAspect(availableDeck(liveDeck));
-            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY, restWidth, aspect, shuffleAngle());
+            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY,
+                    communityCardLength(cardWidth, activeCardBack()), aspect, shuffleAngle());
             point = perspectiveTable.shuffleMarkerToScreen(x, y, diameter,
                     perspectiveLocalChipBounds, perspectiveLocalRightChipBounds);
         } else {
@@ -18518,7 +18525,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         alphaEdgeRenderer.end(batch);
         batch.end();
-        float diameter = MathUtils.lerp(size, localPositionMarkerDiameter(perspectiveBoardCardWidth())
+        float diameter = MathUtils.lerp(size, localPositionMarkerDiameter(communityCardWidth())
                 * size / POSITION_CHIP_SIZE, perspectiveBlend);
         perspectiveTable.drawPositionMarker(texture, x, y, diameter, size, -rotation, alpha, onTable, lift);
         batch.begin();
@@ -20735,10 +20742,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxShuffleArtwork.cardAspect(deckCardFile(selected, GdxShuffleArtwork.code(0) + ".jpg")));
     }
 
-    private float shuffleRestWidth() {
-        return GdxRiffleShuffle.restWidth(viewport.getWorldWidth(), viewport.getWorldHeight());
-    }
-
     private void drawLiveShuffleOverlay() {
         LiveShuffle active = liveShuffle;
         if (active == null) {
@@ -20750,14 +20753,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (riffle == null || !active.presentationStarted) return;
-        float restWidth = shuffleRestWidth();
-        if (restWidth <= 0f) return;
+        Texture back = activeCardBack();
+        float cardLength = communityCardLength(communityCardWidth(), back);
         boolean inPerspective = perspectiveActive && perspectiveTable != null;
         if (inPerspective) {
-            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY, restWidth, active.cardAspect, active.angle);
+            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY, cardLength, active.cardAspect, active.angle);
         } else {
             shuffleProjection.set(camera.combined).translate(tableCenterX, tableCenterY, -1f)
-                    .rotate(com.badlogic.gdx.math.Vector3.X, 90f).scale(restWidth, .5f, restWidth);
+                    .rotate(com.badlogic.gdx.math.Vector3.X, 90f).scale(cardLength, .5f, cardLength);
         }
         float elapsed = active.elapsedSeconds(renderFrameNanos);
         int cycle = active.cycleAt(elapsed);
@@ -20769,7 +20772,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         restoreParentFramebufferAfterNestedPass();
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
-        riffle.drawOnTable(shuffleProjection, activeCardBack(), faces, requestedCardRenderingMode());
+        riffle.drawOnTable(shuffleProjection, back, faces, requestedCardRenderingMode());
         if (active.showFirstEnd) active.firstEndPresented = true;
     }
 

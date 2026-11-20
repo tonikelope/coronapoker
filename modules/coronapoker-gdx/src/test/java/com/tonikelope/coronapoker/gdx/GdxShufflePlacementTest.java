@@ -9,16 +9,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class GdxShufflePlacementTest {
     @Test
-    void scalesTheBlenderFramingWithTheTableViewport() {
-        assertEquals(360f, GdxRiffleShuffle.restWidth(1280, 720));
-        assertEquals(384f, GdxRiffleShuffle.restWidth(1024, 768));
-        assertEquals(540f, GdxRiffleShuffle.restWidth(1920, 1080));
-        assertEquals(1080f, GdxRiffleShuffle.restWidth(3840, 2160));
-        assertEquals(720f, GdxRiffleShuffle.restWidth(2560, 1440));
-        assertEquals(234f * 540f / 960f, GdxRiffleShuffle.restWidth(300, 720), .001f);
-    }
-
-    @Test
     void theDeckAspectChangesOnlyTheShortEdgeDuringEveryPhase() {
         var reference = new GdxShuffleGeometry();
         var modded = new GdxShuffleGeometry();
@@ -39,20 +29,21 @@ final class GdxShufflePlacementTest {
     }
 
     @Test
-    void actualSquaredMeshStaysCenteredAtTheReferenceWidthAndRestsOnTheBoard() {
+    void rotatedDeckKeepsTheCommunityCardDimensionsOnTheFelt() {
         GdxNativesLoader.load();
         var table = new GdxPerspectiveTable(4);
         var mesh = new GdxShuffleGeometry();
-        mesh.update(0f, GdxShuffleGeometry.Motion.MID_BRIDGE, GdxPerspectiveTable.SHUFFLE_REFERENCE_ASPECT);
+        float aspect = 874f / 1176f;
+        mesh.update(0f, GdxShuffleGeometry.Motion.MID_BRIDGE, aspect);
         var projection = new Matrix4();
         var point = new Vector3();
         for (int[] size : new int[][] {{1280, 720}, {1024, 768}, {1920, 1080}, {3840, 2160}}) {
             float width = size[0], height = size[1], centerY = height * .52f;
-            float target = GdxRiffleShuffle.restWidth(size[0], size[1]);
+            float cardWidth = 140f, cardLength = cardWidth / aspect;
             table.layout(width, height, centerY + 27f);
             for (float transition : new float[] {0f, .5f, 1f}) {
                 table.moveCamera(transition);
-                table.shuffleProjection(projection, centerY, target, GdxPerspectiveTable.SHUFFLE_REFERENCE_ASPECT, GdxShuffleAngle.DEFAULT);
+                table.shuffleProjection(projection, centerY, cardLength, aspect, GdxShuffleAngle.DEFAULT);
                 float left = width, right = 0f, bottom = height, top = 0f;
                 for (int i = 0; i < mesh.vertices.length; i += GdxShuffleGeometry.FLOATS_PER_VERTEX) {
                     point.set(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2]).prj(projection);
@@ -63,7 +54,12 @@ final class GdxShufflePlacementTest {
                 }
                 assertEquals(width * .5f, (left + right) * .5f, .15f);
                 assertEquals(centerY, (bottom + top) * .5f, .15f);
-                assertEquals(target, right - left, .15f);
+                for (int angle : new int[]{-180, 0, GdxShuffleAngle.DEFAULT, 90, 180}) {
+                    table.shuffleProjection(projection, centerY, cardLength, aspect, angle);
+                    Vector3 middle = onFelt(table, projection, 0, 0, width, height);
+                    assertEquals(cardLength, 2f * middle.dst(onFelt(table, projection, .5f, 0, width, height)), .1f);
+                    assertEquals(cardWidth, 2f * middle.dst(onFelt(table, projection, 0, aspect * .5f, width, height)), .1f);
+                }
                 // Unproject a bottom corner onto the real board and recover its depth.
                 // A flat overlay or an elevated mesh would have a different projected z.
                 point.set(.45f, 0f, .30f).prj(projection);
@@ -74,4 +70,10 @@ final class GdxShufflePlacementTest {
             }
         }
     }
+    private static Vector3 onFelt(GdxPerspectiveTable table, Matrix4 projection,
+            float x, float z, float width, float height) {
+        Vector3 p = new Vector3(x, 0f, z).prj(projection);
+        return new Vector3(table.boardAt((p.x + 1f) * width * .5f, (p.y + 1f) * height * .5f));
+    }
+
 }

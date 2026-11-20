@@ -242,12 +242,6 @@ final class GdxRiffleShuffle implements Disposable {
         end();
     }
 
-    /** At 1080p the Blender deck occupied 540 px of its 960 px canvas. Scale that framing with the table. */
-    static float restWidth(float viewportWidth, float viewportHeight) {
-        float canvasWidth = Math.min(viewportHeight * (960f / 1080f), viewportWidth * .78f);
-        return canvasWidth * (540f / 960f);
-    }
-
     /** The caller supplies the same camera and board plane used by the live table. */
     void drawOnTable(com.badlogic.gdx.math.Matrix4 projection, Texture back, Texture[] faces, int mode) {
         begin(back, faces == null ? View.OVERHEAD : View.PERSPECTIVE, mode);

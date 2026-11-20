@@ -229,11 +229,10 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 shuffleModel = new Matrix4();
     private final GdxShuffleMarkerPlacement shuffleMarker = new GdxShuffleMarkerPlacement();
     private final Rectangle shuffleRestBounds = new Rectangle();
-    private float shuffleRestWidth = -1f;
+    private float shuffleCardLength = -1f;
     private float shuffleCenterY, shuffleAspect;
     private int shuffleAngle;
     // The Blender framing was calibrated with the 874 x 1176 CoronaPoker artwork.
-    static final float SHUFFLE_REFERENCE_ASPECT = 874f / 1176f;
     private final Matrix4 inverseView = new Matrix4();
     private final Frustum chipFrustum = new Frustum();
     private final Matrix4 layoutInverseView = new Matrix4();
@@ -361,7 +360,7 @@ final class GdxPerspectiveTable implements Disposable {
     void moveCamera(float progress) {
         if (cameraProgress == progress) return;
         cameraProgress = progress;
-        shuffleRestWidth = -1f;
+        shuffleCardLength = -1f;
         float elevation = MathUtils.lerp(89.9f, ELEVATION, progress);
         camera.fieldOfView = MathUtils.lerp(2f, FOV, progress);
         float distance = height * 0.5f / MathUtils.tanDeg(camera.fieldOfView * 0.5f);
@@ -388,44 +387,35 @@ final class GdxPerspectiveTable implements Disposable {
         backdropFelt = null;
     }
 
-    void shuffleProjection(Matrix4 result, float centerY, float restWidth, float aspect, int angle) {
-        if (shuffleCenterY != centerY || shuffleRestWidth != restWidth || shuffleAspect != aspect || shuffleAngle != angle) {
+    void shuffleProjection(Matrix4 result, float centerY, float cardLength, float aspect, int angle) {
+        if (shuffleCenterY != centerY || shuffleCardLength != cardLength || shuffleAspect != aspect || shuffleAngle != angle) {
             shuffleAngle = angle;
             shuffleCenterY = centerY;
-            shuffleRestWidth = restWidth;
+            shuffleCardLength = cardLength;
             shuffleAspect = aspect;
-            // Calibrate millimetres using the reference deck. A wider or narrower deck must
-            // keep the same physical length and stack thickness when replacing the artwork.
-            float shuffleLength = centerShuffle(centerY, restWidth, SHUFFLE_REFERENCE_ASPECT,
-                    restWidth, GdxShuffleAngle.DEFAULT, true);
-            if (aspect != SHUFFLE_REFERENCE_ASPECT || angle != GdxShuffleAngle.DEFAULT) {
-                centerShuffle(centerY, shuffleLength, aspect, restWidth, angle, false);
-            }
+            centerShuffle(centerY, cardLength, aspect, angle);
             shuffleMarker.project(shuffleOnFelt, aspect, width, height);
         }
         result.set(shuffleOnFelt);
     }
 
-    private float centerShuffle(float centerY, float length, float aspect, float restWidth, int angle, boolean fitWidth) {
+    private void centerShuffle(float centerY, float cardLength, float aspect, int angle) {
         float centerX = width * .5f;
         float x = centerX, y = centerY;
-        // Reproject the resting silhouette onto the real felt. All animation phases
-        // share this fixed model matrix, including the opening and the bridge.
+        // The unit long edge uses the community card's length on the felt. Recenter
+        // the projected stack after rotation while keeping that physical scale.
         for (int pass = 0; pass < 6; pass++) {
             Vector3 contact = boardAt(x, y);
             shuffleModel.setToTranslation(contact.x - centerX, CARD_REST_HEIGHT, boardCenterY - contact.y)
-                    .rotate(Vector3.Y, -angle).scale(length, length, length);
+                    .rotate(Vector3.Y, -angle).scale(cardLength, cardLength, cardLength);
             shuffleOnFelt.set(view).mul(shuffleModel);
             GdxShuffleGeometry.projectRestBounds(shuffleOnFelt, width, height, aspect, shuffleRestBounds, projectedPoint);
             float dx = centerX - (shuffleRestBounds.x + shuffleRestBounds.width * .5f);
             float dy = centerY - (shuffleRestBounds.y + shuffleRestBounds.height * .5f);
-            if (Math.abs(dx) < .02f && Math.abs(dy) < .02f
-                    && (!fitWidth || Math.abs(restWidth - shuffleRestBounds.width) < .02f)) break;
+            if (Math.abs(dx) < .02f && Math.abs(dy) < .02f) break;
             x += dx;
             y += dy;
-            if (fitWidth) length *= restWidth / shuffleRestBounds.width;
         }
-        return length;
     }
 
     Vector3 shuffleMarkerToScreen(float x, float y, float diameter, Rectangle leftBank, Rectangle rightBank) {

@@ -25,12 +25,18 @@ final class GdxShuffleGeometry {
     private static final float OPEN_BRIDGE_TURN = (float) Math.toRadians(43);
     private static final float OPEN_BRIDGE_CURVATURE = OPEN_BRIDGE_TURN / OPEN_BRIDGE_SUPPORT;
     private static final float OPEN_BRIDGE_HALF_CHORD = (float) Math.sin(OPEN_BRIDGE_TURN) / OPEN_BRIDGE_CURVATURE;
+    // Over the open span, 45.6 degrees puts the crown halfway between the two bridges.
+    private static final float MID_BRIDGE_TURN = (float) Math.toRadians(45.6);
+    private static final float MID_BRIDGE_CURVATURE = MID_BRIDGE_TURN / OPEN_BRIDGE_SUPPORT;
+    private static final float MID_BRIDGE_HALF_CHORD = (float) Math.sin(MID_BRIDGE_TURN) / MID_BRIDGE_CURVATURE;
+    private static final int MID_BRIDGE_PAUSE_FRAMES = 6;
 
     enum Motion {
         ORIGINAL("Mezcla original", 0, FRAME_COUNT),
         FULL_DECK("Mazo entero", 46, FRAME_COUNT),
         BRIDGE("Mazo entero + puente", 46, BRIDGE_FRAMES),
-        OPEN_BRIDGE("Puente abierto", 46, BRIDGE_FRAMES);
+        OPEN_BRIDGE("Puente abierto", 46, BRIDGE_FRAMES),
+        MID_BRIDGE("Puente intermedio", 46, BRIDGE_FRAMES + MID_BRIDGE_PAUSE_FRAMES);
 
         final String label;
         final int leadFrames;
@@ -52,7 +58,7 @@ final class GdxShuffleGeometry {
         }
 
         boolean hasBridge() {
-            return this == BRIDGE || this == OPEN_BRIDGE;
+            return this == BRIDGE || this == OPEN_BRIDGE || this == MID_BRIDGE;
         }
     }
 
@@ -117,7 +123,7 @@ final class GdxShuffleGeometry {
         }
         float frame = MathUtils.clamp(motion.releaseTime(elapsed) / FRAME_SECONDS, 0f, motion.releaseFrames - 1f);
         if (motion.hasBridge() && frame > RIFFLE_LANDED) {
-            writeBridge(frame, motion == Motion.OPEN_BRIDGE);
+            writeBridge(frame, motion);
             return;
         }
         float push = smooth((frame - PUSH_START) / (PUSH_END - PUSH_START));
@@ -148,13 +154,18 @@ final class GdxShuffleGeometry {
         return (order + .5f) * THICKNESS;
     }
 
-    private void writeBridge(float frame, boolean open) {
+    private void writeBridge(float frame, Motion motion) {
+        boolean open = motion != Motion.BRIDGE;
         float gather = smooth((frame - RIFFLE_LANDED) / (69f - RIFFLE_LANDED));
         float archStart = open ? RIFFLE_LANDED : 69f;
         float bow = smooth((frame - archStart) / (83f - archStart));
         float fullCurvature = open ? OPEN_BRIDGE_CURVATURE : 1.85f;
-        // Contact of the last sheet starts the push, even between display frames.
-        float pushTime = MathUtils.clamp((frame - BRIDGE_LAST_LANDING) / BRIDGE_PUSH_FRAMES, 0f, 1f);
+        float pushStart = BRIDGE_LAST_LANDING;
+        if (motion == Motion.MID_BRIDGE) {
+            fullCurvature = MID_BRIDGE_CURVATURE;
+            pushStart += MID_BRIDGE_PAUSE_FRAMES;
+        }
+        float pushTime = MathUtils.clamp((frame - pushStart) / BRIDGE_PUSH_FRAMES, 0f, 1f);
         float square = pushTime * (2f - pushTime);
         writeOffset = 0;
         for (int order = 0; order < CARDS; order++) {
@@ -166,13 +177,15 @@ final class GdxShuffleGeometry {
             float initialOffset = spread(order / 2);
             float offset, support;
             if (open) {
-                // Bend in place. During release the support point stays on
-                // the felt: arc length to the foot is asin(k * chord) / k.
-                // Each falling sheet slides in as it uncurls around that foot.
+                // Bend in place. Arc length to the foot on the felt is
+                // asin(k * chord) / k. Both open bridges land on the same chord.
                 support = OPEN_BRIDGE_SUPPORT;
                 if (remaining < 1f) {
-                    support = curvature == 0f ? OPEN_BRIDGE_HALF_CHORD
-                            : (float) Math.asin(curvature * OPEN_BRIDGE_HALF_CHORD) / curvature;
+                    float chord = motion == Motion.MID_BRIDGE
+                            ? MathUtils.lerp(OPEN_BRIDGE_HALF_CHORD, MID_BRIDGE_HALF_CHORD, remaining)
+                            : OPEN_BRIDGE_HALF_CHORD;
+                    support = curvature == 0f ? chord
+                            : (float) Math.asin(curvature * chord) / curvature;
                 }
                 offset = support - .5f + (initialOffset - spread(0)) * remaining;
             } else {

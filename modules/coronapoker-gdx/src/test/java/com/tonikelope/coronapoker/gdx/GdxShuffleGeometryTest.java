@@ -96,7 +96,7 @@ final class GdxShuffleGeometryTest {
     @Test
     void extendedCutsEnterTheOriginalGripAndReuseEveryRifflePose() {
         var original = new GdxShuffleGeometry();
-        for (Motion motion : new Motion[]{Motion.FULL_DECK, Motion.BRIDGE, Motion.OPEN_BRIDGE}) {
+        for (Motion motion : new Motion[]{Motion.FULL_DECK, Motion.BRIDGE, Motion.OPEN_BRIDGE, Motion.MID_BRIDGE}) {
             for (int tick = 0; tick < motion.leadFrames * 4; tick++) {
                 mesh.update(tick * .25f * FRAME_SECONDS, motion);
                 assertEquals(0f, mesh.vertices[vertex(0, 0, 2) + 1], .000001f);
@@ -193,8 +193,43 @@ final class GdxShuffleGeometryTest {
 
     @Test
     void openBridgeStartsAtTheRiffleLandingAndLetsEachSheetSettleBeforeThePush() {
-        Motion motion = Motion.OPEN_BRIDGE;
-        assertEquals(Motion.BRIDGE.duration(), motion.duration());
+        checkOpenBridge(Motion.OPEN_BRIDGE, 0);
+    }
+
+    @Test
+    void intermediateBridgeSplitsTheCrownHeightsAndHoldsTheOpenLandingForSixFrames() {
+        checkOpenBridge(Motion.MID_BRIDGE, 6);
+        float low = crownHeight(Motion.OPEN_BRIDGE);
+        float high = crownHeight(Motion.BRIDGE);
+        float middle = crownHeight(Motion.MID_BRIDGE);
+        assertTrue(low < middle && middle < high);
+        assertEquals((low + high) * .5f, middle, .04f); // millimetres
+
+        var open = new GdxShuffleGeometry();
+        int landing = Motion.OPEN_BRIDGE.leadFrames + 152;
+        open.update(landing * FRAME_SECONDS, Motion.OPEN_BRIDGE);
+        for (int tick = 0; tick <= 24; tick++) {
+            mesh.update((landing + tick * .25f) * FRAME_SECONDS, Motion.MID_BRIDGE);
+            assertArrayEquals(open.vertices, mesh.vertices, .000001f);
+        }
+        for (int tick = 0; tick <= 72; tick++) {
+            open.update((landing + tick * .25f) * FRAME_SECONDS, Motion.OPEN_BRIDGE);
+            mesh.update((landing + 6 + tick * .25f) * FRAME_SECONDS, Motion.MID_BRIDGE);
+            assertArrayEquals(open.vertices, mesh.vertices, .000002f);
+        }
+    }
+
+    private float crownHeight(Motion motion) {
+        mesh.update((motion.leadFrames + 83) * FRAME_SECONDS, motion);
+        float top = 0f;
+        for (int strip = 0; strip <= STRIPS; strip++) {
+            top = Math.max(top, mesh.vertices[vertex(CARDS - 1, strip, 0) + 1]);
+        }
+        return top * 88f;
+    }
+
+    private void checkOpenBridge(Motion motion, int pauseFrames) {
+        assertEquals(Motion.BRIDGE.duration() + pauseFrames * FRAME_SECONDS, motion.duration(), .000001f);
         mesh.update((motion.leadFrames + 56) * FRAME_SECONDS, motion);
         float[] flat = mesh.vertices.clone();
         mesh.update((motion.leadFrames + 57) * FRAME_SECONDS, motion);
@@ -233,7 +268,7 @@ final class GdxShuffleGeometryTest {
             }
         }
         float beforePush = mesh.vertices[vertex(0, 0, 0)];
-        mesh.update((motion.leadFrames + 152.125f) * FRAME_SECONDS, motion);
+        mesh.update((motion.leadFrames + 152.125f + pauseFrames) * FRAME_SECONDS, motion);
         assertTrue(mesh.vertices[vertex(0, 0, 0)] < beforePush - .001f);
         mesh.update(motion.duration(), motion);
         float[] finished = mesh.vertices.clone();

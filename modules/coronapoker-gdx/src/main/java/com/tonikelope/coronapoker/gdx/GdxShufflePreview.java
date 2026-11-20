@@ -31,7 +31,7 @@ import java.util.Locale;
 /** Standalone side-by-side viewer. It does not open a game or a player profile. */
 public final class GdxShufflePreview extends ApplicationAdapter {
 
-    private GdxShuffleGeometry.Motion motion = GdxShuffleGeometry.Motion.OPEN_BRIDGE;
+    private GdxShuffleGeometry.Motion motion = GdxShuffleGeometry.Motion.MID_BRIDGE;
     private static final Color BACKGROUND = Color.valueOf("101917");
     private static final Color TABLE = Color.valueOf("184137");
     private static final Color PANEL = Color.valueOf("23342f");
@@ -53,7 +53,8 @@ public final class GdxShufflePreview extends ApplicationAdapter {
     private static final GdxShuffleGeometry.Motion[] MOTIONS = GdxShuffleGeometry.Motion.values();
     private final Rectangle[] motionControls = {
         new Rectangle(48, 12, 208, 38), new Rectangle(268, 12, 208, 38),
-        new Rectangle(488, 12, 256, 38), new Rectangle(756, 12, 208, 38)
+        new Rectangle(488, 12, 256, 38), new Rectangle(756, 12, 208, 38),
+        new Rectangle(976, 12, 256, 38)
     };
     private final Rectangle deckControl = new Rectangle(40, 598, 282, 42);
     private final Rectangle backControl = new Rectangle(334, 598, 282, 42);
@@ -88,6 +89,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                 case "--front" -> view = GdxRiffleShuffle.View.FRONT;
                 case "--full-deck" -> motion = GdxShuffleGeometry.Motion.FULL_DECK;
                 case "--bridge" -> motion = GdxShuffleGeometry.Motion.BRIDGE;
+                case "--open-bridge" -> motion = GdxShuffleGeometry.Motion.OPEN_BRIDGE;
                 case "--classic" -> motion = GdxShuffleGeometry.Motion.ORIGINAL;
                 case "--gif" -> compare = false;
                 case "--deck" -> {
@@ -146,6 +148,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
                     case Input.Keys.NUM_2 -> selectMotion(GdxShuffleGeometry.Motion.FULL_DECK);
                     case Input.Keys.NUM_3 -> selectMotion(GdxShuffleGeometry.Motion.BRIDGE);
                     case Input.Keys.NUM_4 -> selectMotion(GdxShuffleGeometry.Motion.OPEN_BRIDGE);
+                    case Input.Keys.NUM_5 -> selectMotion(GdxShuffleGeometry.Motion.MID_BRIDGE);
                     case Input.Keys.C -> toggleComparison();
                     case Input.Keys.LEFT -> navigate(-1);
                     case Input.Keys.RIGHT -> navigate(1);
@@ -259,7 +262,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
 
     private void selectMotion(GdxShuffleGeometry.Motion selected) {
         if (frontal() || selected == motion) return;
-        if (!(motion.hasBridge() && selected.hasBridge())) elapsed = 0f;
+        elapsed = motion.hasBridge() && selected.hasBridge() ? Math.min(elapsed, selected.duration()) : 0f;
         motion = selected;
     }
 
@@ -358,8 +361,7 @@ public final class GdxShufflePreview extends ApplicationAdapter {
             for (int i = 0; i < motionControls.length; i++) {
                 button(MOTIONS[i].label, motionControls[i], motion == MOTIONS[i] ? BACKGROUND : INK);
             }
-            text("3 / 4 · Comparar puentes", 984, 39, 1.05f, MUTED);
-            text("Espacio · pausa     Flechas · fotograma     V · vista", 530, 92, 1.05f, MUTED);
+            text("Espacio · pausa     Flechas · fotograma     3/4/5 · puentes     V · vista", 530, 92, 1.05f, MUTED);
         }
         batch.end();
         if (captureDirectory != null) capture();

@@ -174,7 +174,7 @@ final class GdxSettingsContractTest {
     @Test
     void graphicsImpactIsRatedBySetting() {
         for (String key : List.of(GdxSettingsContract.MSAA_KEY,
-                "gdx_fps_limit",
+                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_fps_limit",
                 GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY)) {
             assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
                     GdxSettingsContract.performanceImpact(key), key);
@@ -714,7 +714,7 @@ final class GdxSettingsContractTest {
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 "auto_fullscreen"));
         assertFalse(keys.contains("cinematicas"));
-        assertEquals(7,
+        assertEquals(8,
                 GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
         assertEquals(java.util.List.of("ANIMACIONES Y EFECTOS"),
                 GdxSettingsContract.APPEARANCE_PAGES.stream()
@@ -727,7 +727,7 @@ final class GdxSettingsContractTest {
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.containsAll(
                 java.util.List.of("gdx_vsync", "gdx_fps_limit",
                         "gdx_show_fps", "gdx_show_cpu_memory",
-                        "gdx_msaa_samples")));
+                        "gdx_msaa_samples", "gdx_card_smaa_quality")));
     }
 
     @Test
@@ -1194,8 +1194,7 @@ final class GdxSettingsContractTest {
         assertEquals("right", properties.getProperty("card_flip_direction"));
         assertEquals("windowed", properties.getProperty("gdx_window_mode"));
         assertEquals("0", properties.getProperty("gdx_msaa_samples"));
-        assertEquals("0", properties.getProperty("gdx_card_smaa_quality"),
-                "A retired setting must not participate in resets");
+        assertEquals("2", properties.getProperty(GdxSettingsContract.CARD_RENDERING_KEY));
         assertEquals("120", properties.getProperty("gdx_fps_limit"));
         assertEquals("true", properties.getProperty("gdx_vsync"));
 

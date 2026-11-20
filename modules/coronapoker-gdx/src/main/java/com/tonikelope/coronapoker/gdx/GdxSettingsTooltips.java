@@ -349,6 +349,8 @@ final class GdxSettingsTooltips {
             case "gdx_vsync" -> "gdx.settings.tooltip.vsync";
             case "gdx_fps_limit" -> "gdx.settings.tooltip.fps_limit";
             case "gdx_msaa_samples" -> "gdx.settings.tooltip.msaa";
+            case GdxSettingsContract.CARD_RENDERING_KEY ->
+                "gdx.settings.tooltip.card_rendering";
             case "gdx_show_fps" -> "gdx.settings.tooltip.show_fps";
             case "gdx_show_cpu_memory" ->
                 "gdx.settings.tooltip.show_cpu_memory";

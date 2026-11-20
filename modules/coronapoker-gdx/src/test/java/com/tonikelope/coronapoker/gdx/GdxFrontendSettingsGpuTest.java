@@ -142,6 +142,14 @@ final class GdxFrontendSettingsGpuTest {
         session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
         verifyZoomTracks(screen, screen, screen::render, (java.util.Properties) field(screen, "initialProperties"));
         verifyAngleTrack(screen, screen, screen::render, (java.util.Properties) field(screen, "initialProperties"));
+        invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, GdxSettingsContract.appearanceGraphicsPageIndex());
+        var modes = presentation.cardRenderingModes();
+        assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH), modes);
+        for (int mode : List.of(GdxCardSmaaRenderer.RENDERING_SMOOTH, GdxCardSmaaRenderer.RENDERING_BALANCED)) {
+            var point = pressOption(screen, "CARD_RENDERING", modes.indexOf(mode));
+            assertEquals(mode, presentation.requestedCardRenderingMode());
+            screen.touchUp((int) point.x, (int) point.y, 0, Input.Buttons.LEFT);
+        }
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
         for (String felt : List.of("azul", "verde", "azul", "verde", "azul")) {
             chooseFelt(screen, presentation, felt);
@@ -274,6 +282,31 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals("SETTINGS", field(screen, "surface").toString());
     }
 
+    private static void verifyMixedDeckProportions(CoronaPokerGdxTable table,
+            GdxGamePresentationSettings settings) throws Exception {
+        String faceDeck = settings.deck(), cardBack = settings.cardBack();
+        try {
+            settings.selectDeck("goliat", false);
+            settings.selectCardBack("coronapoker", false);
+            invoke(table, "synchronizeSelectedDeck", new Class<?>[0]);
+            table.render();
+            Texture back = (Texture) invoke(table, "activeCardBack", new Class<?>[0]);
+            float faceRatio = 1242f / 923f;
+            assertNotEquals(faceRatio, back.getHeight() / (float) back.getWidth(), .000001f);
+            var seats = (Object[]) field(table, "seats");
+            for (int index : new int[]{0, 1}) {
+                Object card = invoke(table, "liveHolePlacement", new Class<?>[]{seats[index].getClass(), int.class},
+                        seats[index], 0);
+                assertEquals(faceRatio, (float) field(card, "height") / (float) field(card, "width"), .000001f);
+            }
+            assertEquals(faceRatio, (float) invoke(table, "deckCardHeight", new Class<?>[]{float.class}, 1f), .000001f);
+        } finally {
+            settings.selectDeck(faceDeck, false);
+            settings.selectCardBack(cardBack, false);
+            invoke(table, "synchronizeSelectedDeck", new Class<?>[0]);
+        }
+    }
+
     private static void verifyLiveTable(PreferencesService preferences,
             GdxGamePresentationSettings presentation) throws Exception {
         var player = new TableSnapshot.PlayerSnapshot("human", 20d, 0d, 20d,
@@ -290,6 +323,7 @@ final class GdxFrontendSettingsGpuTest {
             table.acceptEvent(new TableVisualEvent.PreparationStatus(2L,
                     TableVisualEvent.PreparationStatus.Phase.READY), ready);
             ready.join();
+            verifyMixedDeckProportions(table, presentation);
             invoke(table, "openSettings", new Class<?>[0]);
             var session = (GdxSettingsSession) field(table, "settingsSession");
             session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));

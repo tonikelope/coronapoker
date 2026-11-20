@@ -416,15 +416,17 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void retiredArtworkModesCannotOverrideTableSampling() {
-        for (String old : java.util.List.of("0", "1", "2")) {
-            var properties = new java.util.Properties();
-            properties.setProperty("gdx_card_smaa_quality", old);
-            assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties,
-                    GdxSettingsContract.appearanceGraphicsPageIndex(), false));
-            assertFalse(GdxSettingsContract.PREFERENCE_KEYS.contains("gdx_card_smaa_quality"));
-            assertEquals(GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSampling.GAME_MODE);
+    void cardRenderingAllowsLiveComparisonAndMapsRetiredNativeToBalanced() {
+        var properties = new java.util.Properties();
+        int balanced = GdxCardSmaaRenderer.RENDERING_BALANCED, smooth = GdxCardSmaaRenderer.RENDERING_SMOOTH;
+        for (String saved : java.util.List.of("0", "bogus", "2")) {
+            properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, saved);
+            assertEquals(balanced, GdxSettingsContract.cardRenderingMode(properties));
+            assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, GdxSettingsContract.appearanceGraphicsPageIndex(), false));
         }
+        properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY, "1");
+        assertEquals(smooth, GdxSettingsContract.cardRenderingMode(properties));
+        assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties, GdxSettingsContract.appearanceGraphicsPageIndex(), false));
     }
 
     @Test
@@ -485,6 +487,8 @@ final class GdxGamePresentationSettingsTest {
         assertEquals("goliat", settings.selectNextCardBack(false));
         assertEquals("azul", settings.selectNextFelt(false));
         assertEquals(8, settings.selectNextMsaaSamples(false));
+        assertEquals(GdxCardSmaaRenderer.RENDERING_BALANCED,
+                settings.selectCardRenderingMode(GdxCardSmaaRenderer.RENDERING_BALANCED, false));
         assertEquals("coronapoker", preferences.properties()
                 .getProperty("baraja"));
         preferences.close();

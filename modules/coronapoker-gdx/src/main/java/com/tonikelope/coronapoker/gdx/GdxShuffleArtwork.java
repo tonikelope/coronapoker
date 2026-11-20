@@ -19,7 +19,7 @@ final class GdxShuffleArtwork implements Disposable {
         return Gdx.files.internal("images/decks/" + deck);
     }
 
-    /** Read the selected face dimensions without decoding or uploading a face in overhead view. */
+    /** Read the artwork dimensions from the header, including when a table shows only backs. */
     static float cardAspect(FileHandle file) {
         try (var source = file.read();
                 var input = new javax.imageio.stream.MemoryCacheImageInputStream(source)) {
@@ -34,7 +34,7 @@ final class GdxShuffleArtwork implements Disposable {
                 }
             }
         } catch (java.io.IOException | com.badlogic.gdx.utils.GdxRuntimeException ex) {
-            Gdx.app.error("Shuffle", "Could not read the card dimensions from " + file, ex);
+            Gdx.app.error("Cards", "Could not read the card dimensions from " + file, ex);
         }
         return GdxShuffleGeometry.STANDARD_ASPECT;
     }

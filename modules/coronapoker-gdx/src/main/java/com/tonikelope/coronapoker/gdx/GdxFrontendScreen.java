@@ -505,6 +505,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private ShaderProgram avatarShader;
     private ShaderProgram roundedTextureShader;
     private ShaderProgram handCardShader;
+    private int handCardMode = -1;
     private GdxModalBackdropBlur modalBackdropBlur;
     private GdxModalBackdropBlur nestedModalBackdropBlur;
     private boolean loadingBackdropCached;
@@ -5972,7 +5973,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawHandGeneratorCards() {
         GdxHandGeneratorModel.Example example = handGenerator.current();
         batch.setColor(Color.WHITE);
-        int mode = GdxCardSampling.GAME_MODE;
+        int mode = presentationSettings.requestedCardRenderingMode();
+        if (handCardMode != mode) {
+            batch.flush();
+            for (Texture texture : handGeneratorCardTextures.values()) GdxCardSampling.bind(texture, 0, mode);
+            handCardMode = mode;
+        }
         batch.setShader(handCardShader);
         handCardShader.setUniformf("u_artworkSmooth", GdxCardSampling.shaderValue(mode));
         handCardShader.setUniformf("u_artworkLodBias", CoronaPokerGdxTable.cardArtworkLodBias(mode));
@@ -5983,15 +5989,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         handCardShader.setUniformf("u_flipAngle", 0f);
         handCardShader.setUniformf("u_perspective", 0f);
         handCardShader.setUniformf("u_overlay", 0f, 0f, 0f, 0f);
-        handCardShader.setUniformf("u_cardAspect", HAND_GENERATOR_CARD_HEIGHT / HAND_GENERATOR_CARD_WIDTH);
         float canvas = CoronaPokerGdxTable.cardShaderCanvasScale();
         handCardShader.setUniformf("u_canvasScale", canvas);
         for (int index = 0; index < example.cards().size(); index++) {
+            Texture texture = handGeneratorCardTexture(example.cards().get(index));
             Rectangle bounds = handGeneratorCardBounds(example.cards().size(), index);
-            float width = bounds.width * canvas, height = bounds.height * canvas;
-            batch.draw(handGeneratorCardTexture(example.cards().get(index)),
-                    bounds.x - (width - bounds.width) * .5f, bounds.y - (height - bounds.height) * .5f,
-                    width, height);
+            float scale = Math.min(bounds.width / texture.getWidth(), bounds.height / texture.getHeight());
+            float width = texture.getWidth() * scale * canvas, height = texture.getHeight() * scale * canvas;
+            batch.draw(texture, bounds.x + (bounds.width - width) * .5f,
+                    bounds.y + (bounds.height - height) * .5f, width, height);
         }
         batch.flush();
         batch.setShader(null);
@@ -6021,7 +6027,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Texture texture = new Texture(source.external()
                     ? Gdx.files.absolute(source.externalPath().toString())
                     : Gdx.files.internal(source.internalPath()), true);
-            GdxCardSampling.bind(texture, 0, GdxCardSampling.GAME_MODE);
+            GdxCardSampling.bind(texture, 0, presentationSettings.requestedCardRenderingMode());
             return texture;
         });
     }
@@ -9946,7 +9952,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     groups, 1f);
             String[] keys = {"gdx_window_mode", "auto_fullscreen",
                 "gdx_vsync", "gdx_fps_limit", GdxSettingsContract.MSAA_KEY,
-                "gdx_show_fps",
+                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
                 "gpu_renderer"};
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
@@ -10003,6 +10009,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                                     Integer.toString(GdxSettingsContract.DEFAULT_MSAA_SAMPLES)))),
                             msaaStatusDetail(), Dropdown.MSAA, true);
                 } else if (row == 5) {
+                    settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
+                            bounds.height,
+                            uppercase(gameText.translate(
+                                    "gdx.settings.row.antialiasing_cards")),
+                            GdxSettingsContract.markDefault(
+                                    cardRenderingSettingLabel(),
+                                    presentationSettings.requestedCardRenderingMode() == GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE),
+                            Dropdown.CARD_RENDERING, true);
+                } else if (row == 6) {
                     settingsBooleanToggle(bounds.x, bounds.y, bounds.width,
                             uppercase(gameText.translate(
                                     "gdx.settings.option.gdx_show_fps")),
@@ -11372,6 +11387,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
+    private String cardRenderingSettingLabel() {
+        return GdxSettingsContract.cardRenderingStatusLabel(
+                presentationSettings.requestedCardRenderingMode(), gameText);
+    }
 
     private String frameRateLimitSettingLabel() {
         return GdxSettingsContract.frameRateLimitLabel(
@@ -14717,6 +14736,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     presentationSettings.requestedFrameRateLimit());
             case MSAA -> presentationSettings.msaaLevels().indexOf(
                     presentationSettings.requestedMsaaSamples());
+            case CARD_RENDERING -> presentationSettings.cardRenderingModes()
+                    .indexOf(presentationSettings.requestedCardRenderingMode());
             case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null ? -1
                     : GdxAppearanceOptions.selectedIndex(
                             dropdownAppearanceChoice, initialProperties);
@@ -14830,6 +14851,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case MSAA -> presentationSettings.msaaLevels().stream()
                     .map(samples -> GdxSettingsContract.msaaSelectedLabel(
                             samples, gameText)).toList();
+            case CARD_RENDERING -> presentationSettings.cardRenderingModes()
+                    .stream().map(mode -> GdxSettingsContract
+                            .cardRenderingStatusLabel(mode, gameText)).toList();
             case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null
                     ? List.of() : java.util.stream.IntStream.range(0,
                             dropdownAppearanceChoice.values().size())
@@ -14926,6 +14950,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 List<Integer> values = presentationSettings.msaaLevels();
                 if (option >= 0 && option < values.size()) {
                     presentationSettings.selectMsaaSamples(
+                            values.get(option), false);
+                }
+            }
+            case CARD_RENDERING -> {
+                List<Integer> values = presentationSettings.cardRenderingModes();
+                if (option >= 0 && option < values.size()) {
+                    presentationSettings.selectCardRenderingMode(
                             values.get(option), false);
                 }
             }
@@ -18691,7 +18722,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         NONE, PROFILE, BLIND_STRUCTURE, BLIND_LEVEL, BLIND_STRUCTURE_EDITOR,
         DECK, CARD_BACK, FELT, HOST_ADDRESS, SERVER_HISTORY, LANGUAGE,
         AUDIO_OUTPUT, AUDIO_CAPTURE, VOICE_RETENTION, WINDOW_MODE, FPS_LIMIT,
-        MSAA,
+        MSAA, CARD_RENDERING,
         APPEARANCE_CHOICE, BLIND_UNIT, ANTE_MODE, REBUY_CAP, BOT_DIFFICULTY, RABBIT,
         CUSTOM_BOT_DIFFICULTY, CUSTOM_BOT_PERSONALITY
     }

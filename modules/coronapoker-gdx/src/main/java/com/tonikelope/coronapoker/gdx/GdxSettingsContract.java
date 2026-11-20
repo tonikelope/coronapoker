@@ -32,6 +32,7 @@ final class GdxSettingsContract {
     static final String MSAA_KEY = "gdx_msaa_samples";
     static final int DEFAULT_MSAA_SAMPLES = 4;
     /** Persisted under its legacy SMAA key to preserve existing preferences. */
+    static final String CARD_RENDERING_KEY = "gdx_card_smaa_quality";
     static final String HALO_EFFECT_KEY = "efecto_halos";
     static final String MODAL_BLUR_KEY = "efecto_desenfoque";
     static final String GLASS_EFFECT_KEY = "efecto_relieve";
@@ -47,6 +48,8 @@ final class GdxSettingsContract {
     static final String STACK_BET_PREVIEW_KEY = "gdx_stack_bet_preview";
     static final String FINAL_SUMMARY_CARDS_ANIMATION_KEY =
             "animacion_tarjetas_fin_timba";
+    static final int DEFAULT_CARD_RENDERING_MODE =
+            GdxCardSmaaRenderer.RENDERING_BALANCED;
     static final int APPEARANCE_TABLE_VIEW_ROW = 0;
     static final int APPEARANCE_DECK_ROW = 1;
     static final int APPEARANCE_CARD_BACK_ROW = 2;
@@ -62,7 +65,7 @@ final class GdxSettingsContract {
             default -> null;
         };
     }
-    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 7;
+    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
     static final int BLIND_STRUCTURE_ROW = 0;
@@ -734,7 +737,7 @@ final class GdxSettingsContract {
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
             "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
             "gdx_fps_limit",
-            MSAA_KEY,
+            MSAA_KEY, CARD_RENDERING_KEY,
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
             "modo_auto_confirm", "auto_call_enabled", "auto_call_max",
@@ -766,7 +769,7 @@ final class GdxSettingsContract {
         return switch (key) {
             case "animaciones", POKER_VIDEOS_KEY, "animacion_barajado",
                     MODAL_BLUR_KEY, "animacion_apuestas",
-                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY,
+                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY, CARD_RENDERING_KEY,
                     "gdx_fps_limit" -> PerformanceImpact.HIGH;
             case "cinematicas", "cinematicas_accion", "cinematicas_allin",
                     "cinematicas_gameover", "animacion_reparto",
@@ -1101,6 +1104,17 @@ final class GdxSettingsContract {
             int windowRequest, int actual) {
         return openedRequested != requested && requested != windowRequest
                 && requested != actual;
+    }
+
+    static int cardRenderingMode(Properties properties) {
+        return Integer.toString(GdxCardSmaaRenderer.RENDERING_SMOOTH).equals(properties.getProperty(CARD_RENDERING_KEY))
+                ? GdxCardSmaaRenderer.RENDERING_SMOOTH : DEFAULT_CARD_RENDERING_MODE;
+    }
+
+    static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
+        return rendering == GdxCardSmaaRenderer.RENDERING_SMOOTH
+                ? translatedUpper(text, "gdx.settings.value.smooth", "SUAVE") + " 16×"
+                : translatedUpper(text, "gdx.settings.value.balanced", "EQUILIBRADO");
     }
 
     private static String antialiasingValue(String technique, int samples,
@@ -1471,6 +1485,8 @@ final class GdxSettingsContract {
             properties.setProperty("gdx_fps_limit",
                     Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
             properties.setProperty("gdx_show_fps", "false");
+            properties.setProperty(CARD_RENDERING_KEY,
+                    Integer.toString(DEFAULT_CARD_RENDERING_MODE));
             if (includeStartupGraphics) {
                 properties.setProperty(GdxWindowMode.PREFERENCE_KEY,
                         GdxWindowMode.BORDERLESS.persistedValue());
@@ -1521,7 +1537,8 @@ final class GdxSettingsContract {
                     DEFAULT_VSYNC)
                     && stringAtDefault(properties, "gdx_fps_limit",
                             Integer.toString(DEFAULT_FRAME_RATE_LIMIT))
-                    && booleanAtDefault(properties, "gdx_show_fps", false);
+                    && booleanAtDefault(properties, "gdx_show_fps", false)
+                    && cardRenderingMode(properties) == DEFAULT_CARD_RENDERING_MODE;
             return runtime && (!includeStartupGraphics
                     || stringAtDefault(properties,
                             GdxWindowMode.PREFERENCE_KEY,

@@ -1811,7 +1811,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxCardZoomSlider cardZoomSlider = new GdxCardZoomSlider();
     private final Matrix4 shuffleProjection = new Matrix4();
     private final GdxShuffleOverlayCamera tiltedShuffleCamera = new GdxShuffleOverlayCamera();
-    private final Map<String, Float> shuffleCardAspects = new HashMap<>();
+    private final Map<String, Float> deckCardAspects = new HashMap<>();
+    private int appliedCardMode = -1;
     private final List<LiveCardFlight> liveCardFlights = new ArrayList<>();
     private int liveHoleDealCount;
     private LiveHoleSwap liveHoleSwap;
@@ -4474,7 +4475,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void configureCardTexture(Texture texture) {
-        GdxCardSampling.bind(texture, 0, GdxCardSampling.GAME_MODE);
+        GdxCardSampling.bind(texture, 0, requestedCardRenderingMode());
+    }
+
+    private void synchronizeCardSampling() {
+        int mode = requestedCardRenderingMode();
+        if (mode == appliedCardMode) return;
+        appliedCardMode = mode;
+        if (defaultCardBack != null) configureCardTexture(defaultCardBack);
+        if (rabbitCardBack != null) configureCardTexture(rabbitCardBack);
+        for (Texture t : liveCardFaces.values()) configureCardTexture(t);
+        for (Texture t : liveCardBacks.values()) configureCardTexture(t);
     }
 
     private Sound gameSound(String resource) {
@@ -7100,6 +7111,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shuffleAngleSlider.hide();
         cardZoomSlider.hide();
         finishScreenshotReadback(false);
+        synchronizeCardSampling();
         GdxPixelText.beginFrame();
         deferredTooltip = null;
         refreshFontQualityIfDue();
@@ -8060,9 +8072,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float width = viewport.getWorldWidth();
         float tableW = Math.min(1510f, width * 0.78f);
-        Texture cardBack = activeCardBack();
         float cardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableW / 10f);
-        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+        float cardH = deckCardHeight(cardW);
         float gap = cardW + 18f;
         float firstX = tableCenterX - gap * 2f - cardW / 2f;
         float cardY = tableCenterY - cardH * 0.36f;
@@ -8114,9 +8125,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return false;
         }
         float tableW = Math.min(1510f, viewport.getWorldWidth() * 0.78f);
-        Texture cardBack = activeCardBack();
         float cardW = Math.min(COMMUNITY_CARD_MAX_WIDTH, tableW / 10f);
-        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+        float cardH = deckCardHeight(cardW);
         float gap = cardW + 18f;
         float firstX = tableCenterX - gap * 2f - cardW / 2f;
         float cardY = tableCenterY - cardH * 0.36f;
@@ -11936,6 +11946,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 presentationSettings.actualMsaaSamples(), gameText);
     }
 
+    private String tableCardRenderingSettingLabel() {
+        if (presentationSettings == null) {
+            return uppercase(gameText.translate(
+                    "gdx.settings.value.unavailable"));
+        }
+        return GdxSettingsContract.cardRenderingStatusLabel(
+                presentationSettings.requestedCardRenderingMode(), gameText);
+    }
+
     private String tableFrameRateLimitSettingLabel() {
         if (presentationSettings == null) {
             return uppercase(gameText.translate(
@@ -11990,14 +12009,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (perspectiveActive) {
             perspectiveRenderer();
-            Texture back = activeCardBack();
             float cardWidth = Math.min(COMMUNITY_CARD_MAX_WIDTH,
                     Math.min(1510f, width * 0.78f) / 10f);
-            float cardHeight = cardWidth * back.getHeight() / back.getWidth();
+            float cardHeight = deckCardHeight(cardWidth);
             perspectiveTable.preparePocket(cardHeight / cardWidth);
             perspectiveTable.layout(width, height, height * 0.52f + cardHeight * 0.14f);
             perspectiveTable.moveCamera(perspectiveBlend);
-            perspectiveTable.setArtworkMode(GdxCardSampling.GAME_MODE);
+            perspectiveTable.setArtworkMode(requestedCardRenderingMode());
             perspectiveTable.drawBackdrop(batch, feltTexture, secretFeltTexture, feltTileSpan,
                     Math.max(1, Gdx.graphics.getBackBufferWidth()),
                     Math.max(1, Gdx.graphics.getBackBufferHeight()), perspectiveBlend);
@@ -12134,7 +12152,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Texture cardBack = defaultCardBack;
         Texture cardFace = introCardFaces[placement.card()];
         float cardW = MathUtils.clamp(width * 0.082f, 118f, 192f);
-        float cardH = cardW * cardBack.getHeight() / cardBack.getWidth();
+        float cardH = deckCardHeight(cardW);
         float targetX = logoX + placement.xNormalised() * logoWidth;
         float targetY = logoY + placement.yNormalised()
                 * Math.max(logoHeight * 0.90f, cardH * 1.32f);
@@ -12245,7 +12263,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawTableScene() {
         Objects.requireNonNull(liveState,
                 "A table scene requires authoritative live state");
-        Texture cardBack = activeCardBack();
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         float tableCx = width / 2f;
@@ -12254,7 +12271,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         tableCenterX = tableCx;
         tableCenterY = tableCy;
         float boardCardW = communityCardWidth(tableW);
-        float boardCardH = communityCardLength(boardCardW, cardBack);
+        float boardCardH = deckCardHeight(boardCardW);
         // The pot owns the central axis, clearly above the upper edge of the
         // community row. It is never painted on top of a card.
         potCenterX = tableCx;
@@ -12605,8 +12622,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Same visual language as CoronaPoker's DynamicTablePanel: seats are
         // distributed around the felt, not arranged around a casino oval. Every
         // rival is one fixed unit: avatar left, private cards right, HUD below.
-        Texture cardBack = activeCardBack();
-        float cardAspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        float cardAspect = 1f / deckCardAspect(liveDeck);
         int visibleCount = livePlayerCount();
         boolean stableLayout = !liveSeatEntryAnimationEnabled();
         if (stableLayout && cachedSeatLayoutValid
@@ -15008,8 +15024,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return layoutSeatChatImage(localSeatChatImageTarget(seat.x, seat.y),
                     image.getWidth(), image.getHeight(), false);
         }
-        Texture cardBack = activeCardBack();
-        float cardAspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        float cardAspect = 1f / deckCardAspect(liveDeck);
         Rectangle target = remoteSeatChatImageTarget(seat.podX, seat.y, seat.podY,
                 viewport.getWorldWidth(), viewport.getWorldHeight(), cardAspect);
         return layoutSeatChatImage(target, image.getWidth(), image.getHeight(), true);
@@ -15019,8 +15034,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (seat.index == 0) {
             return localIdentityTarget(viewport.getWorldWidth());
         }
-        Texture cardBack = activeCardBack();
-        float cardAspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        float cardAspect = 1f / deckCardAspect(liveDeck);
         return remoteSeatChatNoticeTarget(seat.podX, seat.y, seat.podY,
                 viewport.getWorldWidth(), viewport.getWorldHeight(), cardAspect);
     }
@@ -15798,8 +15812,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private LiveCardPlacement liveHolePlacement(Seat seat, int slot) {
-        Texture cardBack = activeCardBack();
-        float aspect = cardBack.getHeight() / (float) cardBack.getWidth();
+        float aspect = 1f / deckCardAspect(liveDeck);
         if (cachedSeatLayoutValid
                 && Float.compare(cachedSeatCardAspect, aspect) == 0
                 && slot >= 0 && slot < 2) {
@@ -16343,8 +16356,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return Math.min(COMMUNITY_CARD_MAX_WIDTH, tableWidth / 10f);
     }
 
-    private static float communityCardLength(float cardWidth, Texture cardBack) {
-        return cardWidth * cardBack.getHeight() / cardBack.getWidth();
+    private float deckCardHeight(float width) {
+        return width / deckCardAspect(liveDeck);
     }
 
     private void drawHoleCards(boolean foregroundRevealFlights) {
@@ -16363,9 +16376,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean pocketInFlight = liveHoleReveal != null
                 && usesPerspectivePocket(livePlayer(liveHoleReveal.event.nickname()));
         if (perspectiveActive && foregroundRevealFlights == pocketInFlight) {
-            Texture back = activeCardBack();
             float cardWidth = localCardWidth(true);
-            drawPerspectivePocket(cardWidth, cardWidth * back.getHeight() / back.getWidth());
+            drawPerspectivePocket(cardWidth, deckCardHeight(cardWidth));
         }
         drawLiveHoleCards(foregroundRevealFlights);
         if (antialiased) finishCardSmaaLayer();
@@ -16418,7 +16430,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean beginCardSmaaLayer() {
-        int quality = GdxCardSampling.GAME_MODE;
+        int quality = presentationSettings == null
+                ? GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE
+                : presentationSettings.requestedCardRenderingMode();
         int postProcessMode = cardSmaaEnabled(quality)
                 ? quality : GdxCardSmaaRenderer.RENDERING_NATIVE;
         return cardSmaaRenderer.begin(Gdx.graphics.getBackBufferWidth(),
@@ -16730,7 +16744,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 "Board rendering requires authoritative live state");
         Texture cardBack = activeCardBack();
         float cardW = communityCardWidth(tableWidth);
-        float cardH = communityCardLength(cardW, cardBack);
+        float cardH = deckCardHeight(cardW);
         float gap = cardW + COMMUNITY_CARD_GAP;
         float boardWidth = communityBoardWidth(cardW);
         float firstX = cx - boardWidth / 2f;
@@ -17509,9 +17523,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         liveState.snapshot().localNickname()))) {
             return;
         }
-        Texture cardBack = activeCardBack();
         float cardW = communityCardWidth(tableWidth);
-        float cardH = communityCardLength(cardW, cardBack);
+        float cardH = deckCardHeight(cardW);
         float gap = cardW + COMMUNITY_CARD_GAP;
         float firstX = cx - communityBoardWidth(cardW) / 2f;
         float cardY = cy - cardH * 0.36f;
@@ -18110,7 +18123,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void useRoundedCardShader(Texture cardBack, boolean extraArtworkSampling) {
         configureCardShader(cardBack, cardBack, 0f, false,
-                cardBack.getHeight() / (float) cardBack.getWidth(), extraArtworkSampling);
+                1f / deckCardAspect(liveDeck), extraArtworkSampling);
     }
 
     private void usePerspectiveCardShader(Texture front, float angle, float aspect) {
@@ -18140,7 +18153,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         rabbitPeelShader.setUniformf("u_extraArtworkSampling",
                 perspectiveBoardArtwork ? 0f : 1f);
         rabbitPeelShader.setUniformf("u_projectedArtwork", perspectiveBoardArtwork
-                ? (float) rabbitCardBack.getHeight() / rabbitCardBack.getWidth() : 0f);
+                ? 1f / deckCardAspect(liveDeck) : 0f);
         rabbitPeelShader.setUniformf("u_artworkLodBias",
                 cardArtworkLodBiasValue());
         rabbitPeelShader.setUniformf("u_highlight", 1f, 0.925f, 0f,
@@ -18221,12 +18234,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float cardArtworkSmoothValue() {
-        int mode = GdxCardSampling.GAME_MODE;
+        int mode = requestedCardRenderingMode();
         return GdxCardSampling.shaderValue(mode);
     }
 
     private float cardArtworkLodBiasValue() {
-        return cardArtworkLodBias(GdxCardSampling.GAME_MODE);
+        return cardArtworkLodBias(requestedCardRenderingMode());
+    }
+
+    private int requestedCardRenderingMode() {
+        return presentationSettings == null
+                ? GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE
+                : presentationSettings.requestedCardRenderingMode();
     }
 
     private void setCardShowdownOverlay(boolean highlighted) {
@@ -18487,7 +18506,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         com.badlogic.gdx.math.Vector3 point;
         if (liveShuffleAnimationEnabled()) {
             float aspect = liveShuffle != null && liveShuffle.presentationStarted
-                    ? liveShuffle.cardAspect : shuffleCardAspect(availableDeck(liveDeck));
+                    ? liveShuffle.cardAspect : deckCardAspect(availableDeck(liveDeck));
             perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY,
                     shuffleLength(aspect, true), aspect, shuffleAngle());
             point = perspectiveTable.shuffleMarkerToScreen(x, y, diameter,
@@ -19485,7 +19504,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!active.presentationStarted) {
             if (active.animationEnabled) {
                 if (riffle == null) riffle = new GdxRiffleShuffle();
-                active.cardAspect = shuffleCardAspect(active.deck);
+                active.cardAspect = deckCardAspect(active.deck);
                 activeCardBack();
                 if (active.tiltedOnFlatTable || GdxAppearanceOptions.perspectiveTable(tableSettingsProperties())) active.faces(0);
             }
@@ -20740,8 +20759,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return communityCardWidth() * (shuffleZoom(table3D) / 100f) / aspect;
     }
 
-    private float shuffleCardAspect(String deck) {
-        return shuffleCardAspects.computeIfAbsent(deck, selected ->
+    private float deckCardAspect(String deck) {
+        return deckCardAspects.computeIfAbsent(deck, selected ->
                 GdxShuffleArtwork.cardAspect(deckCardFile(selected, GdxShuffleArtwork.code(0) + ".jpg")));
     }
 
@@ -20779,18 +20798,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         restoreParentFramebufferAfterNestedPass();
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
-        riffle.drawOnTable(shuffleProjection, back, faces, GdxCardSampling.GAME_MODE);
+        riffle.drawOnTable(shuffleProjection, back, faces, requestedCardRenderingMode());
         if (active.showFirstEnd) active.firstEndPresented = true;
     }
 
     private void drawTextOnlyShuffleOverlay(LiveShuffle active,
             float worldWidth) {
-        Texture cardBack = activeCardBack();
         float tableWidth = Math.min(1510f, worldWidth * 0.78f);
         float cardWidth = Math.min(COMMUNITY_CARD_MAX_WIDTH,
                 tableWidth / 10f);
-        float cardHeight = cardWidth * cardBack.getHeight()
-                / cardBack.getWidth();
+        float cardHeight = deckCardHeight(cardWidth);
         float gap = cardWidth + 18f;
         float boardWidth = cardWidth + 4f * gap;
         float cardBottom = tableCenterY - cardHeight * 0.36f;
@@ -23995,7 +24012,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 SettingsSelectionList.FPS_LIMIT);
                     } else if (row == 4 && presentationSettings != null) {
                         openSettingsSelectionList(SettingsSelectionList.MSAA);
-                    } else if (row == 5) {
+                    } else if (row == 5 && presentationSettings != null) {
+                        openSettingsSelectionList(
+                                SettingsSelectionList.CARD_RENDERING);
+                    } else if (row == 6) {
                         toggleTablePreference("gdx_show_fps", false);
                     }
                     return;
@@ -27278,6 +27298,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         WINDOW_MODE,
         FPS_LIMIT,
         MSAA,
+        CARD_RENDERING,
         APPEARANCE_CHOICE,
         BLIND_UNIT,
         ANTE_MODE,
@@ -27479,7 +27500,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             settingsAppearanceScroll);
             String[] keys = {"gdx_window_mode", "auto_fullscreen",
                 "gdx_vsync", "gdx_fps_limit", GdxSettingsContract.MSAA_KEY,
-                "gdx_show_fps",
+                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_show_fps",
                 "gpu_renderer"};
             for (int row = rows.firstIndex();
                     row < rows.lastExclusive(); row++) {
@@ -28119,7 +28140,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         row < rows.lastExclusive(); row++) {
                     Rectangle bounds = settingsAppearanceGraphicsRowBounds(x,
                             width, rows, row);
-                    if (row == 0 || row == 3 || row == 4) {
+                    if (row == 0 || row == 3 || row == 4 || row == 5) {
                         drawSettingsDropdownShape(bounds.x, bounds.y,
                                 bounds.width, row == 0
                                         || presentationSettings != null,
@@ -28135,7 +28156,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 bounds.width, presentationSettings != null
                                         && presentationSettings.vsyncEnabled(),
                                 presentationSettings != null, alpha);
-                    } else if (row == 5) {
+                    } else if (row == 6) {
                         drawSettingsToggleShape(bounds.x, bounds.y,
                                 bounds.width,
                                 tablePreference("gdx_show_fps", false),
@@ -29115,6 +29136,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 tableMsaaStatusDetail(),
                                 presentationSettings != null, alpha);
                     } else if (row == 5) {
+                        boolean isDefault = requestedCardRenderingMode() == GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE;
+                        drawSettingsChoiceText(bounds.x, bounds.y,
+                                bounds.width, uppercase(gameText.translate(
+                                        "gdx.settings.row.antialiasing_cards")),
+                                GdxSettingsContract.markDefault(
+                                        tableCardRenderingSettingLabel(),
+                                        isDefault),
+                                presentationSettings != null, alpha);
+                    } else if (row == 6) {
                         boolean showFps = booleanPreference(
                                 tableSettingsProperties(), "gdx_show_fps",
                                 false);
@@ -30166,6 +30196,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                     .msaaSelectedLabel(samples,
                                             gameText))
                             .toList();
+            case CARD_RENDERING -> presentationSettings == null ? List.of()
+                    : presentationSettings.cardRenderingModes().stream()
+                            .map(mode -> GdxSettingsContract
+                                    .cardRenderingStatusLabel(mode, gameText))
+                            .toList();
             case APPEARANCE_CHOICE ->
                 settingsSelectionAppearanceChoice == null ? List.of()
                         : java.util.stream.IntStream.range(0,
@@ -30218,6 +30253,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case MSAA -> presentationSettings == null ? -1
                     : presentationSettings.msaaLevels().indexOf(
                             presentationSettings.requestedMsaaSamples());
+            case CARD_RENDERING -> presentationSettings == null ? -1
+                    : presentationSettings.cardRenderingModes().indexOf(
+                            presentationSettings.requestedCardRenderingMode());
             case APPEARANCE_CHOICE ->
                 settingsSelectionAppearanceChoice == null ? -1
                         : GdxAppearanceOptions.selectedIndex(
@@ -30308,7 +30346,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 };
                 yield settingsAppearanceTableRowBounds(x, width, rows, row);
             }
-            case WINDOW_MODE, FPS_LIMIT, MSAA -> {
+            case WINDOW_MODE, FPS_LIMIT, MSAA, CARD_RENDERING -> {
                 if (settingsContentPage() != 1
                         || !GdxSettingsContract.isAppearanceGraphicsPage(
                                 settingsAppearancePage)) yield null;
@@ -30596,6 +30634,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 List<Integer> values = presentationSettings.msaaLevels();
                 if (option >= 0 && option < values.size()) {
                     presentationSettings.selectMsaaSamples(
+                            values.get(option), false);
+                }
+            }
+            case CARD_RENDERING -> {
+                if (presentationSettings == null) break;
+                List<Integer> values = presentationSettings
+                        .cardRenderingModes();
+                if (option >= 0 && option < values.size()) {
+                    presentationSettings.selectCardRenderingMode(
                             values.get(option), false);
                 }
             }

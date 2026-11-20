@@ -29,9 +29,9 @@ final class GdxSettingsNavigationContractTest {
         String shapes = source.substring(start, end);
 
         assertTrue(shapes.contains(
-                "row == 0 || row == 3 || row == 4"));
+                "row == 0 || row == 3 || row == 4 || row == 5"));
         assertTrue(shapes.contains("drawSettingsDropdownShape(bounds.x"));
-        assertTrue(shapes.contains("else if (row == 5)"));
+        assertTrue(shapes.contains("else if (row == 6)"));
         assertTrue(shapes.contains(
                 "drawSettingsInfoShape(bounds.x, bounds.y"));
     }

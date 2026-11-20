@@ -63,7 +63,7 @@ final class GdxCinematicPresentationContractTest {
         assertTrue(start >= 0 && end > start);
         String method = source.substring(start, end);
 
-        assertTrue(method.contains("riffle.drawOnTable(shuffleProjection, back, faces, GdxCardSampling.GAME_MODE)"));
+        assertTrue(method.contains("riffle.drawOnTable(shuffleProjection, back, faces, requestedCardRenderingMode())"));
         assertFalse(method.contains("drawRoundedCinematicFrame("),
                 "transparent shuffle artwork must not pay for a redundant mask");
     }

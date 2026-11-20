@@ -18,7 +18,7 @@ final class GdxNestedModalOwnershipContractTest {
                 "private GdxModalBackdropBlur nestedModalBackdropBlur;"));
         assertTrue(source.contains("private void renderNestedFrontendModal()"));
         assertTrue(source.contains("modalBackdropBlur.drawCached("));
-        assertTrue(source.contains("nestedModalBackdropBlur.endCaptureAndDraw("));
+        assertTrue(source.contains("nestedModalBackdropBlur.blurPresentedScene("));
         assertTrue(source.contains("private void clearModalCompositionState()"));
         assertTrue(source.contains("hits.clear();")
                 && source.contains("secondaryHits.clear();")
@@ -54,7 +54,7 @@ final class GdxNestedModalOwnershipContractTest {
         assertTrue(method.contains("uiLayer != UI_NONE"),
                 "a popup must blur chat and the floating game log too");
         assertTrue(source.contains("private void renderNestedTableModal()"));
-        assertTrue(source.contains("nestedModalBackdropBlur.endCaptureAndDraw("));
+        assertTrue(source.contains("nestedModalBackdropBlur.blurPresentedScene("));
         assertTrue(source.contains("private boolean blockingTablePointerSurface()"));
         int mouseMoved = source.indexOf(
                 "public boolean mouseMoved(int screenX, int screenY)");

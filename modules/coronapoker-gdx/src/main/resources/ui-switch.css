@@ -1,0 +1,38 @@
+.ui-switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 2.35rem;
+  aspect-ratio: 66 / 38;
+  border-radius: 100vmax;
+  background: #253248;
+  transition: background-color .38s ease-out;
+}
+.ui-switch::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 7.576%;
+  width: 42.424%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #8290a4;
+  transform: translate(0, -50%);
+  transition: transform .38s cubic-bezier(.18, .56, .45, 1), background-color .38s ease-out;
+}
+[role="switch"][aria-checked="true"] > .ui-switch,
+input:checked + .ui-switch {
+  background: #20c765;
+}
+[role="switch"][aria-checked="true"] > .ui-switch::after,
+input:checked + .ui-switch::after {
+  background: #b8ffc5;
+  transform: translate(100%, -50%);
+}
+input:focus-visible + .ui-switch {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-switch, .ui-switch::after { transition: none; }
+}

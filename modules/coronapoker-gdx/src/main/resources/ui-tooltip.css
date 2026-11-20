@@ -13,6 +13,9 @@
   font-size: .85rem;
   line-height: 1.35;
   white-space: pre-wrap;
+  text-wrap-style: pretty;
   overflow-wrap: anywhere;
+  text-align: justify;
+  text-align-last: start;
   pointer-events: none;
 }

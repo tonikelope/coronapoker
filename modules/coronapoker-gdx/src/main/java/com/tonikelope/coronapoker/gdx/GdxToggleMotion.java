@@ -2,7 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.math.MathUtils;
 
-/** Frame-rate independent motion shared by every GDX settings switch. */
+/** Frame-rate independent motion shared by GDX switches. */
 final class GdxToggleMotion {
 
     /** Roughly 95% of the travel is completed in 0.37 seconds. */

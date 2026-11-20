@@ -429,6 +429,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Map<String, Float> toggleAnimations = new HashMap<>();
     private final GdxToggleTransitionStore settingsToggleTransitions =
             new GdxToggleTransitionStore();
+    private final GdxToggleTransitionStore footerToggleTransitions =
+            new GdxToggleTransitionStore();
     private final Map<String, Float> hoverAnimations = new HashMap<>();
     private final GlyphLayout glyph = new GlyphLayout();
     private final Vector2 pointer = new Vector2();
@@ -1371,9 +1373,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (!loadingOverlay || !backdropBlurActive) {
             loadingBackdropCached = false;
         } else if (loadingBackdropCached
-                && modalBackdropBlur.hasCachedFrame(
-                        Gdx.graphics.getBackBufferWidth(),
-                        Gdx.graphics.getBackBufferHeight())) {
+                && modalBackdropBlur.hasCachedFrame(viewport)) {
             applyFrontendSystemCursor(Cursor.SystemCursor.Arrow);
             renderCachedLoadingFrame();
             return;
@@ -1392,16 +1392,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float rulesPointerX = pointer.x;
         float rulesPointerY = pointer.y;
         if (rulesWindow.isOpen()) pointer.set(-10_000f, -10_000f);
-        if (blurModalBackdrop) {
-            modalBackdropBlur.beginCapture(Gdx.graphics.getBackBufferWidth(),
-                    Gdx.graphics.getBackBufferHeight());
-        }
         ScreenUtils.clear(BACKGROUND);
         viewport.apply();
-        if (blurModalBackdrop) {
-            Gdx.gl.glViewport(0, 0, modalBackdropBlur.captureWidth(),
-                    modalBackdropBlur.captureHeight());
-        }
         viewport.getCamera().update();
         shapes.setProjectionMatrix(viewport.getCamera().combined);
         batch.setProjectionMatrix(viewport.getCamera().combined);
@@ -1517,25 +1509,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         if (blurModalBackdrop) {
             try {
-                if (loadingOverlay) {
-                    modalBackdropBlur.endCaptureAndCache(viewport, batch,
-                            viewport.getCamera().combined, BACKGROUND);
-                    loadingBackdropCached = true;
-                } else if (nestedFrontendModal) {
-                    // Keep the first modal level as a reusable
-                    // native-resolution image. The nested pass adds the
-                    // parent dialog and applies a second Gaussian blur before
-                    // the child popup is composited.
-                    modalBackdropBlur.endCaptureAndCache(viewport, batch,
-                            viewport.getCamera().combined, BACKGROUND);
-                } else {
-                    modalBackdropBlur.endCaptureAndDraw(viewport, batch,
-                            viewport.getCamera().combined, BACKGROUND);
-                }
+                modalBackdropBlur.blurPresentedScene(viewport, batch, loadingOverlay || nestedFrontendModal);
+                loadingBackdropCached = loadingOverlay;
             } finally {
-                // Keep the live backdrop, but never inherit framebuffer,
-                // viewport, shader or tint state from its blur passes. The
-                // table already applies this same restoration contract.
                 restoreDefaultFrontendRenderState();
             }
             drawUnifiedModalBackdrop();
@@ -1784,8 +1760,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltipHits.clear();
         tooltipDelay.clear();
 
-        modalBackdropBlur.drawCached(viewport, batch,
-                viewport.getCamera().combined, BACKGROUND);
+        modalBackdropBlur.drawCached(viewport, batch, BACKGROUND);
         drawUnifiedModalBackdrop();
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
@@ -1835,11 +1810,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             drawNestedModalChild();
             return;
         }
-        nestedModalBackdropBlur.beginCapture(
-                Gdx.graphics.getBackBufferWidth(),
-                Gdx.graphics.getBackBufferHeight());
-        modalBackdropBlur.drawCached(viewport, batch,
-                viewport.getCamera().combined, BACKGROUND);
+        modalBackdropBlur.drawCached(viewport, batch, BACKGROUND);
         drawUnifiedModalBackdrop();
 
         clearModalCompositionState();
@@ -1865,8 +1836,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
 
         try {
-            nestedModalBackdropBlur.endCaptureAndDraw(viewport, batch,
-                    viewport.getCamera().combined, BACKGROUND);
+            nestedModalBackdropBlur.blurPresentedScene(viewport, batch, false);
         } finally {
             restoreDefaultFrontendRenderState();
         }
@@ -2074,10 +2044,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 !videoOwnsHover && footerSoundContains(pointer), soundPressed);
         shapes.end();
         batch.begin();
-        UiImageItem image = footerSoundImage(outputAvailable);
-        batch.setColor(image.tint);
-        batch.draw(image.texture, image.x, image.y, image.width, image.height);
-        batch.setColor(Color.WHITE);
+        GdxUiButtonStyle.drawToggleIcon(batch, muteIcon, soundIcon,
+                footerSound.x, footerSound.y, footerSound.width, footerSound.height,
+                outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED,
+                footerSoundMotion(outputAvailable), 1f);
         batch.end();
         if (!videoOwnsHover) addFooterSoundTooltip(outputAvailable);
         drawPokerVideoTopLayer();
@@ -3024,7 +2994,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private GdxUiDialogStyle.ConfirmationLayout drawConfirmationChrome(
             String title, String message) {
         GdxUiDialogStyle.ConfirmationLayout layout =
-                GdxUiDialogStyle.confirmationLayout(WIDTH, HEIGHT);
+                GdxUiDialogStyle.confirmationLayout(WIDTH, HEIGHT,
+                        GdxUiDialogStyle.singleLineWidth(glyph, actionFont, message));
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
@@ -3041,7 +3012,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private GdxUiDialogStyle.NoticeLayout drawNoticeChrome(String title,
             String message, boolean error) {
         GdxUiDialogStyle.NoticeLayout layout =
-                GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT);
+                GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT,
+                        GdxUiDialogStyle.singleLineWidth(glyph, smallFont, message));
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
@@ -11402,7 +11374,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 footerSoundHit.y, footerSoundHit.width, footerSoundHit.height),
                 pressed(footerSoundHit.x, footerSoundHit.y,
                         footerSoundHit.width, footerSoundHit.height));
-        uiImages.add(footerSoundImage(outputAvailable));
+        float audio = footerSoundMotion(outputAvailable);
+        if (audio < 1f) {
+            uiImages.add(footerSoundImage(muteIcon,
+                    outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED, 1f - audio));
+        }
+        if (audio > 0f) {
+            uiImages.add(footerSoundImage(soundIcon, Color.WHITE, audio));
+        }
         hit(footerSoundHit.x, footerSoundHit.y, footerSoundHit.width,
                 footerSoundHit.height, this::toggleMasterSound);
         addFooterSoundTooltip(outputAvailable);
@@ -11417,11 +11396,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 outputAvailable && hover && pressed, 1f);
     }
 
-    private UiImageItem footerSoundImage(boolean outputAvailable) {
-        return new UiImageItem(outputAvailable && audioControl.enabled()
-                ? soundIcon : muteIcon, footerSound.x, footerSound.y,
+    private float footerSoundMotion(boolean outputAvailable) {
+        float progress = footerToggleTransitions.sample("audio",
+                outputAvailable && audioControl.enabled() ? 1f : 0f, System.nanoTime());
+        return outputAvailable ? progress : 0f;
+    }
+
+    private UiImageItem footerSoundImage(Texture icon, Color tint, float alpha) {
+        return new UiImageItem(icon, footerSound.x, footerSound.y,
                 footerSound.width, footerSound.height,
-                outputAvailable ? Color.WHITE : AUDIO_UNAVAILABLE_RED);
+                alpha == 1f ? tint : new Color(tint.r, tint.g, tint.b, alpha));
     }
 
     private void addFooterSoundTooltip(boolean outputAvailable) {
@@ -14340,13 +14324,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (!tooltipDelay.ready(hovered.identity())) return;
         String value = gameText.translate(hovered.key, hovered.arguments);
-        int maxLines = (int) ((HEIGHT - 48f) / 22f);
-        List<String> lines = wrapText(tinyFont, value, maxTextWidth, maxLines);
-        float widest = 0f;
-        for (String line : lines) widest = Math.max(widest,
-                textWidth(tinyFont, line));
-        float boxW = Math.min(maxTextWidth + 34f, Math.max(190f, widest + 34f));
-        float boxH = 24f + lines.size() * 22f;
+        boolean standard = hovered.performanceImpact
+                == GdxSettingsContract.PerformanceImpact.NONE;
+        Color accent = performanceImpactColor(hovered.performanceImpact);
+        GdxUiDialogStyle.layoutTooltip(glyph, tinyFont, value,
+                standard ? Color.WHITE : accent, maxTextWidth, WIDTH - 58f, HEIGHT - 56f);
+        float boxW = Math.max(190f, glyph.width + 34f);
+        float boxH = Math.max(46f, glyph.height + 32f);
         Rectangle bounds = GdxSettingsTooltips.bounds(pointer, boxW, boxH,
                 WIDTH, HEIGHT, popup);
         float x = bounds.x;
@@ -14354,23 +14338,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        Color accent = performanceImpactColor(hovered.performanceImpact);
-        outerBox(x, y, boxW, boxH,
-                hovered.performanceImpact
-                        == GdxSettingsContract.PerformanceImpact.NONE
-                                ? CYAN_DARK : accent,
+        outerBox(x, y, boxW, boxH, standard ? CYAN_DARK : accent,
                 GdxUiDialogStyle.TOOLTIP_FILL);
         shapes.end();
         batch.begin();
-        tinyFont.setColor(hovered.performanceImpact
-                == GdxSettingsContract.PerformanceImpact.NONE
-                        ? Color.WHITE : accent);
-        float baseline = y + boxH - 16f;
-        for (String line : lines) {
-            GdxPixelText.draw(tinyFont, batch, line, x + 17f, baseline,
-                    viewport);
-            baseline -= 22f;
-        }
+        GdxPixelText.draw(tinyFont, batch, glyph, x + 17f,
+                y + (boxH + glyph.height) / 2f, viewport);
         batch.end();
     }
 

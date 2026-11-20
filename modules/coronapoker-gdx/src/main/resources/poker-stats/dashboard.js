@@ -298,7 +298,7 @@ function tooltip() {
     backgroundColor:'#0b1423', borderColor:paint.axis,
     textStyle:{color:'#edf5f1', fontSize:chartFont(.86)}, padding:12,
     transitionDuration:0, hideDelay:0,
-    extraCssText:'white-space:pre-wrap;overflow-wrap:anywhere;'};
+    extraCssText:'white-space:pre-wrap;overflow-wrap:anywhere;text-align:justify;text-align-last:start;'};
 }
 
 function addChartResize(plot) {

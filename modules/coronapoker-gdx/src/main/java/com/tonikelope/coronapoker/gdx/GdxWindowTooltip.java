@@ -10,7 +10,6 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 /** Hover help painted above the chrome and Chromium texture of a floating window. */
@@ -27,10 +26,13 @@ final class GdxWindowTooltip {
             return;
         }
         if (!delay.ready(text)) return;
-        glyph.setText(font, text, Color.WHITE, 400f, Align.left, true);
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        GdxUiDialogStyle.layoutTooltip(glyph, font, text, Color.WHITE,
+                Math.min(400f, worldWidth - 52f), worldHeight - 44f);
         Rectangle box = GdxSettingsTooltips.bounds(pointer.set(x, y),
                 glyph.width + 28f, Math.max(36f, glyph.height + 20f),
-                viewport.getWorldWidth(), viewport.getWorldHeight(), null);
+                worldWidth, worldHeight, null);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);

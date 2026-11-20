@@ -74,13 +74,13 @@ final class GdxCircularCoverageContractTest {
         String settings = source("GdxSettingsStyle.java");
         assertTrue(settings.contains(
                 "GdxAntialiasedRoundedRect.fillCircle(shapes,"));
-        assertTrue(settings.contains("TOGGLE_KNOB_RADIUS);"));
+        assertTrue(settings.contains("TOGGLE_KNOB_RADIUS * scale);"));
         assertFalse(settings.contains("TOGGLE_KNOB_RADIUS, 32);"));
 
         String table = source("CoronaPokerGdxTable.java");
         assertTrue(table.contains(
-                "quickChatAutoClose ? switchX + 28f : switchX + 10f,"));
-        assertTrue(table.contains("switchY + 10f, 7f);"));
+                "GdxSettingsStyle.drawSwitch(shapes, switchX, switchY,"));
+        assertTrue(table.contains("LIGHT_SWITCH_SCALE, lightsToggle,"));
     }
 
     private static String source(String name) throws Exception {

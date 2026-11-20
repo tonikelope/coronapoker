@@ -68,12 +68,12 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(blur.contains("boolean prepareNextBuffer("));
         assertTrue(blur.contains("backdrop = createBuffer(width, height)"));
         assertTrue(blur.contains("scratch = createBuffer(width, height)"));
-        assertTrue(blur.contains("void endCaptureAndCache("));
+        assertTrue(blur.contains("void blurPresentedScene("));
         assertTrue(blur.contains("boolean hasCachedFrame("));
 
         String frontend = source("GdxFrontendScreen.java");
         assertTrue(frontend.contains("renderCachedLoadingFrame()"));
-        assertTrue(frontend.contains("modalBackdropBlur.endCaptureAndCache("));
+        assertTrue(frontend.contains("modalBackdropBlur.blurPresentedScene("));
         assertTrue(frontend.contains("modalBackdropBlur.hasCachedFrame("));
 
         String shell = source("GdxApplicationShell.java");
@@ -162,9 +162,11 @@ final class GdxRenderThreadBudgetWiringTest {
                 "private void reconcileShufflePreload()",
                 "private void deferShufflePreloadAfterDeckChange()");
 
-        assertTrue(deckChanged.contains("liveDeck = selectedDeck;\n"
-                + "                    // ChangeDeck is also emitted by right-clicking any table\n"
-                + "                    // card."));
+        assertTrue(deckChanged.indexOf("liveDeck = selectedDeck;")
+                < deckChanged.indexOf("deferShufflePreloadAfterDeckChange();"));
+        String deckMenu = method(table, "private void selectTableDeckOption(",
+                "private void selectTableCardBackOption(");
+        assertTrue(deckMenu.contains("if (!inSettings) deferShufflePreloadAfterDeckChange();"));
         assertTrue(deckChanged.contains(
                 "deferShufflePreloadAfterDeckChange();"));
         assertTrue(deferred.contains("cancelShufflePreparation();"));

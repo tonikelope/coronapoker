@@ -1796,6 +1796,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private LiveShuffle liveShuffle;
     private GdxRiffleShuffle riffle;
     private final Matrix4 shuffleProjection = new Matrix4();
+    private final Map<String, Float> shuffleCardAspects = new HashMap<>();
     private int appliedCardMode = -1;
     private final List<LiveCardFlight> liveCardFlights = new ArrayList<>();
     private int liveHoleDealCount;
@@ -19440,6 +19441,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!active.presentationStarted) {
             if (active.animationEnabled) {
                 if (riffle == null) riffle = new GdxRiffleShuffle();
+                active.cardAspect = shuffleCardAspects.computeIfAbsent(active.deck, deck ->
+                        GdxShuffleArtwork.cardAspect(deckCardFile(deck, GdxShuffleArtwork.code(0) + ".jpg")));
                 activeCardBack();
                 if (GdxAppearanceOptions.perspectiveTable(tableSettingsProperties())) active.faces(0);
             }
@@ -20701,20 +20704,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (riffle == null || !active.presentationStarted) return;
-        float width = perspectiveBoardCardWidth();
-        float length = width * 88f / 63f;
+        int pixelsWide = Gdx.graphics.getBackBufferWidth();
+        int pixelsHigh = Gdx.graphics.getBackBufferHeight();
+        if (pixelsWide <= 0 || pixelsHigh <= 0) return;
+        float restWidth = GdxRiffleShuffle.restWidthPixels(pixelsWide, pixelsHigh)
+                * worldWidth / pixelsWide;
         boolean inPerspective = perspectiveActive && perspectiveTable != null;
-        float halfDepth = inPerspective ? length * .82f : width * .5f;
-        float y = Math.max(tableCenterY, localPositionMarkerY()
-                + localPositionMarkerDiameter(width) * .5f + halfDepth + width * .15f);
         if (inPerspective) {
-            // The centre rack and pot occupy the strip immediately behind the
-            // board. Place the full opening span beside the pot, on the felt.
-            float x = potCenterX - POT_PANEL_WIDTH * .5f - length * 1.12f;
-            perspectiveTable.shuffleProjection(shuffleProjection, x, y + width * .28f, length);
+            perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY, restWidth, active.cardAspect);
         } else {
-            shuffleProjection.set(camera.combined).translate(tableCenterX, y, -1f)
-                    .rotate(com.badlogic.gdx.math.Vector3.X, 90f).scale(length, .5f, length);
+            shuffleProjection.set(camera.combined).translate(tableCenterX, tableCenterY, -1f)
+                    .rotate(com.badlogic.gdx.math.Vector3.X, 90f).scale(restWidth, .5f, restWidth);
         }
         float elapsed = active.elapsedSeconds(renderFrameNanos);
         int cycle = active.cycleAt(elapsed);
@@ -20722,7 +20722,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float pose = active.showFirstEnd ? active.cycleSeconds : elapsed - cycle * active.cycleSeconds;
         Texture[] faces = inPerspective ? active.faces(cycle) : null;
         riffle.prepare(pose, inPerspective ? GdxRiffleShuffle.View.PERSPECTIVE : GdxRiffleShuffle.View.OVERHEAD,
-                GdxShuffleGeometry.Motion.MID_BRIDGE);
+                GdxShuffleGeometry.Motion.MID_BRIDGE, active.cardAspect);
         restoreParentFramebufferAfterNestedPass();
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
@@ -34071,6 +34071,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private final class LiveShuffle {
+        float cardAspect;
 
         final String deck;
         final String backDeck;

@@ -129,6 +129,7 @@ final class GdxRiffleShuffle implements Disposable {
     private final OrthographicCamera overhead = new OrthographicCamera();
     private final OrthographicCamera front = new OrthographicCamera();
     private float meshTime = Float.NaN;
+    private float meshAspect;
     private boolean shadowReady;
     private GdxShuffleGeometry.Motion meshMotion;
 
@@ -174,14 +175,15 @@ final class GdxRiffleShuffle implements Disposable {
     }
 
     void prepare(float elapsed, View view) {
-        prepare(elapsed, view, GdxShuffleGeometry.Motion.ORIGINAL);
+        prepare(elapsed, view, GdxShuffleGeometry.Motion.ORIGINAL, GdxShuffleGeometry.STANDARD_ASPECT);
     }
 
-    void prepare(float elapsed, View view, GdxShuffleGeometry.Motion motion) {
+    void prepare(float elapsed, View view, GdxShuffleGeometry.Motion motion, float aspect) {
         float time = view == View.FRONT ? motion.duration() : elapsed;
-        if (meshTime != time || meshMotion != motion) {
+        if (meshTime != time || meshMotion != motion || meshAspect != aspect) {
+            meshAspect = aspect;
             meshMotion = motion;
-            geometry.update(time, motion);
+            geometry.update(time, motion, aspect);
             mesh.setVertices(geometry.vertices);
             meshTime = time;
             shadowReady = false;
@@ -236,6 +238,13 @@ final class GdxRiffleShuffle implements Disposable {
             }
         }
         end();
+    }
+
+    /** All six Blender decks had a 540-pixel resting silhouette on a 960-pixel canvas. */
+    static float restWidthPixels(int width, int height) {
+        int canvas = height >= 1080 ? 960 : Math.max(1,
+                Math.min(Math.round(960f * height / 1080f), Math.round(width * .78f)));
+        return canvas * (540f / 960f);
     }
 
     /** The caller supplies the same camera and board plane used by the live table. */

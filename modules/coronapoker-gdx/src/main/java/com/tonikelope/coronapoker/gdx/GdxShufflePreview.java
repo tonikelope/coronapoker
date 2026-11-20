@@ -300,7 +300,8 @@ public final class GdxShufflePreview extends ApplicationAdapter {
         int nativeHeight = Math.round(nativePanel.height * viewport.getScreenHeight() / 720f);
         int nativeX = viewport.getScreenX() + Math.round(nativePanel.x * viewport.getScreenWidth() / 1280f);
         int nativeY = viewport.getScreenY() + Math.round(nativePanel.y * viewport.getScreenHeight() / 720f);
-        riffle.prepare(elapsed, view, motion);
+        Texture face = faces.face(0);
+        riffle.prepare(elapsed, view, motion, (float) face.getWidth() / face.getHeight());
         int left = viewport.getScreenX() + Math.round(referencePanel.x * viewport.getScreenWidth() / 1280f);
         riffle.draw(left, nativeY, nativeWidth, nativeHeight, back, faces, view, true, frontCard, SCALES[scaleIndex]);
         riffle.draw(nativeX, nativeY, nativeWidth, nativeHeight, back, faces, view, false, frontCard, SCALES[scaleIndex]);

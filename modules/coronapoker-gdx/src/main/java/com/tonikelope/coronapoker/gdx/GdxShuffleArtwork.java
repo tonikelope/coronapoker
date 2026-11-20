@@ -19,6 +19,26 @@ final class GdxShuffleArtwork implements Disposable {
         return Gdx.files.internal("images/decks/" + deck);
     }
 
+    /** Read the selected face dimensions without decoding or uploading a face in overhead view. */
+    static float cardAspect(FileHandle file) {
+        try (var source = file.read();
+                var input = new javax.imageio.stream.MemoryCacheImageInputStream(source)) {
+            var readers = javax.imageio.ImageIO.getImageReaders(input);
+            if (readers.hasNext()) {
+                var reader = readers.next();
+                try {
+                    reader.setInput(input, true, true);
+                    return (float) reader.getWidth(0) / reader.getHeight(0);
+                } finally {
+                    reader.dispose();
+                }
+            }
+        } catch (java.io.IOException | com.badlogic.gdx.utils.GdxRuntimeException ex) {
+            Gdx.app.error("Shuffle", "Could not read the card dimensions from " + file, ex);
+        }
+        return GdxShuffleGeometry.STANDARD_ASPECT;
+    }
+
     static Texture back(FileHandle file) {
         return new Texture(file, true);
     }

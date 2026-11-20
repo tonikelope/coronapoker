@@ -2,6 +2,9 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector3;
 
 /** Finite-thickness shuffle mesh. One world unit is the 88 mm length of a card. */
 final class GdxShuffleGeometry {
@@ -75,7 +78,7 @@ final class GdxShuffleGeometry {
 
     private static final int PUSH_START = 65;
     private static final int PUSH_END = FRAME_COUNT - 1;
-    private static final float WIDTH = 63f / 88f;
+    static final float STANDARD_ASPECT = 63f / 88f;
     private static final float THICKNESS = .27f / 88f;
     private static final float CORNER = 3.2f / 88f;
     private static final float HELD_BEND = 1.39f;
@@ -87,19 +90,41 @@ final class GdxShuffleGeometry {
     static final int FLOATS_PER_VERTEX = 7;
 
     final float[] vertices = new float[CARDS * VERTICES_PER_CARD * FLOATS_PER_VERTEX];
-    private final float[] alongCard = new float[STRIPS + 1];
-    private final float[] halfWidths = new float[STRIPS + 1];
+    private static final float[] alongCard = new float[STRIPS + 1];
+    private static final float[] halfWidths = new float[STRIPS + 1];
     private int writeOffset;
+    private float widthScale = 1f;
 
-    GdxShuffleGeometry() {
+    static {
         for (int s = 0; s <= STRIPS; s++) {
             int end = Math.min(s, STRIPS - s);
             float arc = end * MathUtils.HALF_PI / ROUND_STRIPS;
             float u = end < ROUND_STRIPS ? CORNER * (1f - MathUtils.cos(arc))
                     : MathUtils.lerp(CORNER, .5f, (end - ROUND_STRIPS) / (STRIPS * .5f - ROUND_STRIPS));
             alongCard[s] = s <= STRIPS / 2 ? u : 1f - u;
-            halfWidths[s] = end < ROUND_STRIPS ? WIDTH * .5f - CORNER * (1f - MathUtils.sin(arc)) : WIDTH * .5f;
+            halfWidths[s] = end < ROUND_STRIPS ? STANDARD_ASPECT * .5f - CORNER * (1f - MathUtils.sin(arc)) : STANDARD_ASPECT * .5f;
         }
+    }
+
+    /** Screen bounds of the two outer rims of the squared deck in a given table projection. */
+    static void projectRestBounds(Matrix4 projection, float width, float height, float aspect,
+            Rectangle bounds, Vector3 point) {
+        float widthScale = aspect / STANDARD_ASPECT;
+        float left = Float.POSITIVE_INFINITY, bottom = Float.POSITIVE_INFINITY;
+        float right = Float.NEGATIVE_INFINITY, top = Float.NEGATIVE_INFINITY;
+        for (int s = 0; s <= STRIPS; s++) {
+            for (int side = -1; side <= 1; side += 2) {
+                for (int rim = 0; rim < 2; rim++) {
+                    point.set(.5f - alongCard[s], rim * CARDS * THICKNESS, side * halfWidths[s] * widthScale).prj(projection);
+                    left = Math.min(left, point.x);
+                    right = Math.max(right, point.x);
+                    bottom = Math.min(bottom, point.y);
+                    top = Math.max(top, point.y);
+                }
+            }
+        }
+        bounds.set((left + 1f) * width * .5f, (bottom + 1f) * height * .5f,
+                (right - left) * width * .5f, (top - bottom) * height * .5f);
     }
 
     static short[] indices() {
@@ -127,6 +152,13 @@ final class GdxShuffleGeometry {
     }
 
     void update(float elapsed, Motion motion) {
+        update(elapsed, motion, STANDARD_ASPECT);
+    }
+
+    void update(float elapsed, Motion motion, float aspect) {
+        // Only the transverse dimension follows the artwork. Both the bend
+        // along the 88 mm edge and each sheet's 0.27 mm thickness stay physical.
+        widthScale = aspect / STANDARD_ASPECT;
         float leadFrame = elapsed / FRAME_SECONDS;
         if (leadFrame < motion.leadFrames) {
             writeOpening(leadFrame);
@@ -267,8 +299,8 @@ final class GdxShuffleGeometry {
         float half = THICKNESS * .5f;
         float nx = direction * sin * half;
         float ny = cos * half;
-        float z = direction * halfWidths[s];
-        float inset = .5f - halfWidths[s] / WIDTH;
+        float z = direction * halfWidths[s] * widthScale;
+        float inset = .5f - halfWidths[s] / STANDARD_ASPECT;
         float shade = .84f + (left ? -.13f : .22f) * sin;
         float faceShade = .54f + .49f * sin;
         vertex(x + nx, y + ny, -z, inset, u, -1, shade);

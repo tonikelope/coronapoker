@@ -43,6 +43,7 @@ final class GdxSettingsContract {
     static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
+    static final String SHUFFLE_SIZE_KEY = "barajado_tamano";
     static final String COMMUNITY_DEAL_STYLE_KEY = "community_deal_style";
     static final String COLLECT_HAND_CARDS_KEY = "animacion_recoger_cartas";
     static final String STACK_BET_PREVIEW_KEY = "gdx_stack_bet_preview";
@@ -637,6 +638,7 @@ final class GdxSettingsContract {
                     animationToggle("cinematicas_gameover"),
                     animationToggle("animacion_barajado"),
                     new AppearanceAnimationRow(null, null, true),
+                    animationChoice(SHUFFLE_SIZE_KEY),
                     animationToggle("animacion_reparto"),
                     animationChoice("reparto_velocidad"),
                     animationChoice(COMMUNITY_DEAL_STYLE_KEY),
@@ -713,7 +715,7 @@ final class GdxSettingsContract {
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
             "animacion_barajado",
-            GdxShuffleAngle.KEY, "animacion_reparto",
+            GdxShuffleAngle.KEY, SHUFFLE_SIZE_KEY, "animacion_reparto",
             "animacion_destape", COLLECT_HAND_CARDS_KEY, "animacion_ciegas_dealer",
             "animacion_apuestas", FLYING_CHIP_SHADOW_QUALITY_KEY, STACK_BET_PREVIEW_KEY,
             "animacion_contadores",

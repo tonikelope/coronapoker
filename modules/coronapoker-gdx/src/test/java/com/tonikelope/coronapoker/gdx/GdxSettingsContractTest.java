@@ -717,8 +717,8 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(20, page.options().size());
-        assertEquals(7, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(28, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(8, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(29, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -726,7 +726,7 @@ final class GdxSettingsContractTest {
                 "efecto_relieve",
                 "cinematicas_allin",
                 "cinematicas_gameover",
-                "animacion_barajado", GdxShuffleAngle.KEY,
+                "animacion_barajado", GdxShuffleAngle.KEY, GdxSettingsContract.SHUFFLE_SIZE_KEY,
                 "animacion_reparto",
                 "reparto_velocidad",
                 GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
@@ -750,6 +750,24 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
+    }
+
+    @Test
+    void shuffleSizeUsesOnlyTheThreeCommunityCardMultipliers() {
+        var settings = new Properties();
+        var size = GdxAppearanceOptions.SHUFFLE_SIZE;
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(size.key()));
+        assertEquals(java.util.List.of("1", "2", "3"), size.values());
+        assertEquals("animacion_barajado", GdxAppearanceOptions.parentKey(size));
+        assertEquals(0, GdxAppearanceOptions.selectedIndex(size, settings));
+        GdxAppearanceOptions.select(size, settings, 2);
+        assertEquals("COMUNITARIAS ×3", GdxAppearanceOptions.selectedLabel(size, settings, new GdxGameText("es")));
+        settings.setProperty("animacion_barajado", "false");
+        assertFalse(GdxAppearanceOptions.enabled(size, settings));
+        GdxSettingsContract.restoreAppearancePageDefaults(settings, 1, true);
+        assertEquals(0, GdxAppearanceOptions.selectedIndex(size, settings));
+        settings.setProperty(size.key(), "4");
+        assertEquals(0, GdxAppearanceOptions.selectedIndex(size, settings));
     }
 
     @Test

@@ -280,11 +280,23 @@ final class GdxFrontendSettingsGpuTest {
         assertTrue(input.touchDown(Math.round(start.x), touchY, 0, Input.Buttons.LEFT));
         int initialAngle = GdxShuffleAngle.value(properties);
         assertTrue(initialAngle > 60 && initialAngle < 80);
+        var size = GdxAppearanceOptions.SHUFFLE_SIZE;
+        var selectArgs = new Class<?>[]{GdxAppearanceOptions.Choice.class, int.class};
+        var openArgs = new Class<?>[]{GdxAppearanceOptions.Choice.class};
+        invoke(table, "selectTableAppearanceChoice", selectArgs, size, 1);
+        invoke(table, "openSettingsAppearanceSelectionList", openArgs, size);
+        assertEquals("APPEARANCE_CHOICE", field(table, "settingsSelectionList").toString());
         var started = new CompletableFuture<Void>();
         table.acceptEvent(new TableVisualEvent.Shuffle(3, "goliat", TableVisualEvent.Shuffle.Phase.START), started);
         assertTrue(started.isDone());
         var shuffle = field(table, "liveShuffle");
         assertEquals(initialAngle, field(shuffle, "angle"));
+        assertEquals(2, field(shuffle, "sizeMultiplier"));
+        assertEquals("NONE", field(table, "settingsSelectionList").toString());
+        invoke(table, "openSettingsAppearanceSelectionList", openArgs, size);
+        assertEquals("NONE", field(table, "settingsSelectionList").toString());
+        invoke(table, "selectTableAppearanceChoice", selectArgs, size, 2);
+        assertEquals("2", properties.getProperty(size.key()));
         input.touchDragged(Math.round(end.x), touchY, 0);
         input.touchUp(Math.round(end.x), touchY, 0, Input.Buttons.LEFT);
         table.render();
@@ -293,6 +305,10 @@ final class GdxFrontendSettingsGpuTest {
         invoke(table, "restoreTableAppearanceDefaults", new Class<?>[0]);
         assertEquals(HEIGHT, Gdx.graphics.getHeight(), "Resetting animations must preserve the window size");
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));
+        assertEquals("2", properties.getProperty(size.key()));
+        properties.setProperty(size.key(), "1");
+        assertEquals(2, invoke(table, "shuffleSizeMultiplier", new Class<?>[0]));
+        properties.setProperty(size.key(), "2");
         // Cancelling uncommitted settings may restore the next hand's preference.
         properties.setProperty(GdxShuffleAngle.KEY, "15");
         assertEquals(initialAngle, invoke(table, "shuffleAngle", new Class<?>[0]));
@@ -315,6 +331,8 @@ final class GdxFrontendSettingsGpuTest {
         table.render();
         assertTrue(finished.isDone());
         assertNull(field(table, "liveShuffle"));
+        invoke(table, "selectTableAppearanceChoice", selectArgs, size, 2);
+        assertEquals("3", properties.getProperty(size.key()));
         assertTrue(hit.width > 0f);
         assertTrue(input.touchDown((int) end.x, touchY, 0, Input.Buttons.LEFT));
         input.touchUp((int) end.x, touchY, 0, Input.Buttons.LEFT);

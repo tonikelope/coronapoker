@@ -52,7 +52,7 @@ final class GdxAppearanceOptions {
     static final Choice SHUFFLE_VIEW = exact("vista_barajado", "VISTA DE BARAJADO", "table",
             new String[]{"table", "3d"}, new String[]{"MISMA QUE LA MESA", "3D"});
 
-    static final Choice SHUFFLE_DURATION = exact("duracion_barajado", "DURACIÓN", "full",
+    static final Choice SHUFFLE_DURATION = exact("duracion_barajado", "DURACIÓN", "medium",
             new String[]{"full", "medium", "short"}, new String[]{"COMPLETA", "MEDIA", "CORTA"});
 
     static GdxShuffleGeometry.Motion shuffleMotion(Properties properties) {

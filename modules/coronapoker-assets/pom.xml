@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.tonikelope</groupId>
         <artifactId>coronapoker-modules</artifactId>
-        <version>27.91</version>
+        <version>27.92</version>
     </parent>
     <artifactId>coronapoker-assets</artifactId>
     <name>CoronaPoker shared assets</name>
@@ -17,6 +17,7 @@
                 <directory>${project.basedir}/../../src/main/resources</directory>
                 <excludes>
                     <exclude>images/emoji_chat/*.png</exclude>
+                    <exclude>images/old/**</exclude>
                 </excludes>
             </resource>
             <resource>

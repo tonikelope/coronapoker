@@ -41,6 +41,9 @@ final class GdxShuffleAudioSynchronizationTest {
         java.util.Arrays.fill(source, (byte) 79);
         var settings = new java.util.Properties();
         var choice = GdxAppearanceOptions.SHUFFLE_DURATION;
+        org.junit.jupiter.api.Assertions.assertEquals(GdxShuffleGeometry.Motion.FULL_DECK,
+                GdxAppearanceOptions.shuffleMotion(settings));
+        settings.setProperty(choice.key(), "full");
         org.junit.jupiter.api.Assertions.assertEquals(GdxShuffleGeometry.Motion.MID_BRIDGE,
                 GdxAppearanceOptions.shuffleMotion(settings));
         for (int i = 1; i <= 2; i++) {

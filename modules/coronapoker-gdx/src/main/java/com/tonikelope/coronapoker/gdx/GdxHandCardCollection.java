@@ -11,6 +11,7 @@ import java.util.concurrent.CompletableFuture;
 final class GdxHandCardCollection {
     static final int RIVER_SLOT = 4;
     static final float HAND_FADE_SECONDS = .34f;
+    static final float BOARD_RESTORE_SECONDS = .10f;
     private static final float RUNOUT_FADE_SECONDS = .18f;
     private static final float SWEEP_DURATION_SCALE = .45f;
 
@@ -20,6 +21,7 @@ final class GdxHandCardCollection {
     final boolean wholeHand;
     final CompletableFuture<Void> barrier;
     private final GdxCardDealMotion.FrameClock clock = new GdxCardDealMotion.FrameClock();
+    private final float boardDelaySeconds;
     private final float sweepSeconds;
 
     GdxHandCardCollection(List<BoardCard> board, int speedPercent,
@@ -27,6 +29,7 @@ final class GdxHandCardCollection {
         this.board = List.copyOf(board);
         this.wholeHand = wholeHand;
         this.barrier = barrier;
+        boardDelaySeconds = wholeHand && !board.isEmpty() ? BOARD_RESTORE_SECONDS : 0f;
         // The outer flop card crosses two gaps during the spread. Scale that
         // cadence by the distance to the river, then tighten the collection.
         sweepSeconds = board.isEmpty() ? 0f : (RIVER_SLOT - board.get(0).slot())
@@ -37,7 +40,7 @@ final class GdxHandCardCollection {
 
     float boardPosition() {
         if (sweepSeconds == 0f) return RIVER_SLOT;
-        float progress = MathUtils.clamp(clock.elapsedSeconds() / sweepSeconds, 0f, 1f);
+        float progress = MathUtils.clamp(boardElapsedSeconds() / sweepSeconds, 0f, 1f);
         return MathUtils.lerp(board.get(0).slot(), RIVER_SLOT, Interpolation.smooth.apply(progress));
     }
 
@@ -45,7 +48,7 @@ final class GdxHandCardCollection {
         if (board.isEmpty() || finished()) return 0;
         // Retire the covered sheets before the first fade frame, even while
         // opacity still rounds to 1. Keep board intact for the top elevation.
-        return clock.elapsedSeconds() < sweepSeconds ? board.size() : 1;
+        return boardElapsedSeconds() < sweepSeconds ? board.size() : 1;
     }
 
     float cardElevation(int index, float position, float width, float gap) {
@@ -62,7 +65,7 @@ final class GdxHandCardCollection {
     }
 
     float opacity() {
-        return fadeOpacity(clock.elapsedSeconds() - sweepSeconds, boardFadeSeconds());
+        return fadeOpacity(boardElapsedSeconds() - sweepSeconds, boardFadeSeconds());
     }
 
     float holeCardOpacity() {
@@ -78,5 +81,9 @@ final class GdxHandCardCollection {
         return 1f - Interpolation.smooth.apply(progress);
     }
 
-    boolean finished() { return clock.elapsedSeconds() >= sweepSeconds + boardFadeSeconds(); }
+    private float boardElapsedSeconds() {
+        return clock.elapsedSeconds() - boardDelaySeconds;
+    }
+
+    boolean finished() { return boardElapsedSeconds() >= sweepSeconds + boardFadeSeconds(); }
 }

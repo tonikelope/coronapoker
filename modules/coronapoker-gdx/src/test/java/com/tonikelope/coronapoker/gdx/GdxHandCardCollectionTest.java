@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class GdxHandCardCollectionTest {
+    private static final long RESTORE_NANOS = Math.round(GdxHandCardCollection.BOARD_RESTORE_SECONDS * 1e9);
     @Test
     void collectsLeftToRightAtAnIncreasedSpeedAndKeepsTheFirstCardOnTop() {
         for (int speed : List.of(60, 100, 150)) {
@@ -18,11 +19,15 @@ final class GdxHandCardCollectionTest {
             for (int index = 0; index < sweep.board.size(); index++) {
                 assertEquals(0f, sweep.cardElevation(index, sweep.board.get(index).slot(), 140f, 158f));
             }
-            sweep.advance(end / 4);
+            sweep.advance(RESTORE_NANOS - 1_000L);
+            assertEquals(0f, sweep.boardPosition());
+            assertEquals(5, sweep.visibleBoardCardCount());
+            assertEquals(1f, sweep.opacity());
+            sweep.advance(RESTORE_NANOS + end / 4);
             assertTrue(sweep.boardPosition() > 0f && sweep.boardPosition() < 1f);
-            sweep.advance(end / 2);
+            sweep.advance(RESTORE_NANOS + end / 2);
             assertEquals(2f, sweep.boardPosition(), .001f);
-            sweep.advance(end);
+            sweep.advance(RESTORE_NANOS + end);
             assertEquals(4f, sweep.boardPosition(), .001f);
             for (int index = 0; index < sweep.board.size(); index++) {
                 assertEquals((4 - index) * GdxPlasticCard.thickness(140f),
@@ -30,9 +35,9 @@ final class GdxHandCardCollectionTest {
             }
             assertEquals(1f, sweep.opacity(), .001f);
             assertFalse(sweep.finished());
-            sweep.advance(end + 170_000_000L);
+            sweep.advance(RESTORE_NANOS + end + 170_000_000L);
             assertEquals(.5f, sweep.opacity(), .001f);
-            sweep.advance(end + 341_000_000L);
+            sweep.advance(RESTORE_NANOS + end + 341_000_000L);
             assertEquals(0f, sweep.opacity());
             assertTrue(sweep.finished());
         }
@@ -51,7 +56,7 @@ final class GdxHandCardCollectionTest {
     }
 
     @Test
-    void playersCardsFadeDuringTheSweepAndTheBoardFadesAfterward() {
+    void playersCardsFadeOnScheduleAndTheBoardFadesAfterItsSweep() {
         var sweep = sequence(100, 0, 1, 2, 3, 4);
         sweep.advance(0L);
         assertEquals(1f, sweep.holeCardOpacity());
@@ -62,7 +67,7 @@ final class GdxHandCardCollectionTest {
         assertEquals(0f, sweep.holeCardOpacity());
         assertEquals(1f, sweep.opacity());
         assertFalse(sweep.finished());
-        sweep.advance(638_000_000L);
+        sweep.advance(RESTORE_NANOS + 638_000_000L);
         assertEquals(.5f, sweep.opacity(), .001f);
     }
 
@@ -85,11 +90,11 @@ final class GdxHandCardCollectionTest {
         var sweep = sequence(100, 0, 1, 2, 3, 4);
         sweep.advance(0L);
         assertEquals(5, sweep.visibleBoardCardCount());
-        sweep.advance(467_990_000L);
+        sweep.advance(RESTORE_NANOS + 467_990_000L);
         assertEquals(5, sweep.visibleBoardCardCount());
         assertEquals(1f, sweep.opacity());
 
-        sweep.advance(468_010_000L);
+        sweep.advance(RESTORE_NANOS + 468_010_000L);
         assertEquals(4f, sweep.boardPosition(), .0001f);
         assertEquals(1f, sweep.opacity(), .0001f);
         assertEquals(1, sweep.visibleBoardCardCount(),
@@ -99,10 +104,10 @@ final class GdxHandCardCollectionTest {
                 sweep.cardElevation(0, 4f, 140f, 158f), .0001f,
                 "Retiring the lower sheets must not move the surviving card");
 
-        sweep.advance(638_000_000L);
+        sweep.advance(RESTORE_NANOS + 638_000_000L);
         assertEquals(.5f, sweep.opacity(), .001f);
         assertEquals(1, sweep.visibleBoardCardCount());
-        sweep.advance(810_000_000L);
+        sweep.advance(RESTORE_NANOS + 810_000_000L);
         assertEquals(0, sweep.visibleBoardCardCount());
     }
 
@@ -111,14 +116,14 @@ final class GdxHandCardCollectionTest {
         var partial = sequence(100, 2, 4);
         partial.advance(0L);
         assertEquals(2, partial.visibleBoardCardCount());
-        partial.advance(234_010_000L);
+        partial.advance(RESTORE_NANOS + 234_010_000L);
         assertEquals(1, partial.visibleBoardCardCount());
         assertEquals(2, partial.board.get(0).slot());
 
         var riverOnly = sequence(100, 4);
         riverOnly.advance(0L);
         assertEquals(1, riverOnly.visibleBoardCardCount());
-        riverOnly.advance(170_000_000L);
+        riverOnly.advance(RESTORE_NANOS + 170_000_000L);
         assertEquals(1, riverOnly.visibleBoardCardCount());
         assertEquals(.5f, riverOnly.opacity(), .001f);
 

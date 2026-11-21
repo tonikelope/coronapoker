@@ -15920,12 +15920,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawLiveRestingCard(TableSnapshot.CardSnapshot card,
             LiveCardPlacement placement, Texture cardBack, String nickname,
             int slot, boolean communityCard) {
-        drawLiveRestingCard(card, placement, cardBack, nickname, slot, communityCard, 0f);
-    }
-
-    private void drawLiveRestingCard(TableSnapshot.CardSnapshot card,
-            LiveCardPlacement placement, Texture cardBack, String nickname,
-            int slot, boolean communityCard, float elevation) {
         boolean rabbitCard = communityCard && liveState.isRabbitCard(slot);
         // Rabbit cards are deliberate, actionable cards. Swing never applies
         // the disabled/showdown fade to them, even though their core snapshot
@@ -15944,7 +15938,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveRabbitCard(card, placement, 1f, showdownTint);
         } else {
             drawLiveRestingCard(card, placement, cardBack,
-                    1f, alpha, showdownTint && alpha >= 1f, elevation);
+                    1f, alpha, showdownTint && alpha >= 1f);
         }
     }
 
@@ -16586,26 +16580,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawCollectedBoard(float cardY, float cardW, float cardH,
             float gap, float firstX, Texture back) {
         float sweep = handCardCollection.boardPosition();
+        boolean wholeHand = handCardCollection.wholeHand;
+        float opacity = wholeHand ? 1f : handCardCollection.opacity();
         float lastPosition = Float.POSITIVE_INFINITY;
         // Later slots are underneath. Painting them first also preserves
         // the ordering in 2D, where the sheets have no physical thickness.
         // Once stacked, only the first collected card survives the fade.
-        // Its disabled/showdown alpha must never reveal the printing below it.
         for (int index = handCardCollection.visibleBoardCardCount() - 1; index >= 0; index--) {
             var item = handCardCollection.board.get(index);
             float position = Math.max(item.slot(), sweep);
             var card = new LiveCardPlacement(firstX + cardW * .5f + gap * position,
                     cardY + cardH * .5f, cardW, cardH, 0f);
             float elevation = handCardCollection.cardElevation(index, position, cardW, gap);
-            if (handCardCollection.wholeHand) {
-                if (perspectiveActive && position != lastPosition) drawBoardContactShadow(back, card, 1f);
-                drawLiveRestingCard(item.card(), card, back, "", item.slot(), true, elevation);
+            if (perspectiveActive && position != lastPosition) {
+                drawBoardContactShadow(back, card, opacity);
+            }
+            if (wholeHand && liveState.isRabbitCard(item.slot())) {
+                drawLiveRabbitCard(item.card(), card, 1f, false);
             } else {
-                float opacity = handCardCollection.opacity();
-                if (perspectiveActive && position != lastPosition) drawBoardContactShadow(back, card, opacity);
-                drawLiveRestingCard(item.card(), card, back, 1f,
-                        liveRestingCardAlpha(item.card(), "", item.slot(), true, card) * opacity,
-                        false, elevation);
+                // The final sweep starts with the whole board at full intensity.
+                float alpha = wholeHand ? 1f
+                        : liveRestingCardAlpha(item.card(), "", item.slot(), true, card) * opacity;
+                drawLiveRestingCard(item.card(), card, back, 1f, alpha, false, elevation);
             }
             lastPosition = position;
         }

@@ -85,12 +85,13 @@ final class GdxCardSmaaGpuCertificationTest {
         GdxCardSmaaRenderer renderer = new GdxCardSmaaRenderer();
         try {
             int artworkChanged = countChangedPixels(
-                    renderProductCard(batch, card, projection, 0f),
-                    renderProductCard(batch, card, projection, 1f));
+                    renderProductCard(batch, card, projection, 0f, 13f, false),
+                    renderProductCard(batch, card, projection, 1f, 13f, false));
             assertTrue(artworkChanged >= 12,
                     () -> "Smooth card artwork prefilter was effectively a "
                     + "no-op: only " + artworkChanged
                     + " framebuffer pixels changed");
+            verifyRemoteSilhouette(batch, card, projection);
             byte[] direct = renderNative(renderer, batch, card, projection);
             byte[] antialiased = renderSmaa(renderer, batch, card, projection, null);
             assertArrayEquals(antialiased, renderSmaa(renderer, batch, card,
@@ -115,6 +116,38 @@ final class GdxCardSmaaGpuCertificationTest {
         }
     }
 
+    private static void verifyRemoteSilhouette(SpriteBatch batch, Texture card, Matrix4 projection) {
+        for (float angle : new float[]{7f, -7f}) {
+            byte[] regular = renderProductCard(batch, card, projection, 1f, angle, false);
+            byte[] remote = renderProductCard(batch, card, projection, 1f, angle, true);
+            // The white border of the diagnostic card meets a black background.
+            assertTrue(maxRightEdgeStep(regular) > 200);
+            assertTrue(maxRightEdgeStep(remote) < 125,
+                    "The outer edge must blend across adjacent physical pixels");
+            for (int y = 44; y < 84; y++) {
+                int start = (y * WIDTH + 60) * 4;
+                int end = start + 40 * 4;
+                assertTrue(java.util.Arrays.equals(regular, start, end, remote, start, end),
+                        "The opaque artwork must retain its original samples");
+            }
+        }
+    }
+
+    private static int maxRightEdgeStep(byte[] image) {
+        int maximum = 0;
+        for (int y = 44; y < 84; y++) {
+            int previous = 0;
+            for (int x = WIDTH - 1; x >= WIDTH / 2; x--) {
+                int red = unsigned(image[(y * WIDTH + x) * 4]);
+                maximum = Math.max(maximum, red - previous);
+                previous = red;
+                if (red >= 250) break;
+            }
+            assertTrue(previous >= 250, "The scan must reach the opaque white border");
+        }
+        return maximum;
+    }
+
     private static void verifyCardTextureModes(Texture card) {
         float maximum = Texture.getMaxAnisotropicFilterLevel();
         for (int mode : new int[]{GdxCardSmaaRenderer.RENDERING_BALANCED,
@@ -132,7 +165,7 @@ final class GdxCardSmaaGpuCertificationTest {
     }
 
     private static byte[] renderProductCard(SpriteBatch batch, Texture card,
-            Matrix4 projection, float artworkSmooth) {
+            Matrix4 projection, float artworkSmooth, float angle, boolean remoteSeat) {
         clearBackBuffer();
         ShaderProgram shader = new ShaderProgram(
                 CoronaPokerGdxTable.CARD_VERTEX_SHADER,
@@ -153,10 +186,11 @@ final class GdxCardSmaaGpuCertificationTest {
             shader.setUniformf("u_canvasScale",
                     CoronaPokerGdxTable.cardShaderCanvasScale());
             shader.setUniformf("u_artworkSmooth", artworkSmooth);
+            shader.setUniformf("u_remoteSeat", remoteSeat ? 1f : 0f);
             shader.setUniformf("u_overlay", 1f, 1f, 1f, 0f);
             batch.setColor(Color.WHITE);
             batch.draw(card, 27.5f, 4f, 52.5f, 60f, 105f, 120f,
-                    1f, 1f, 13f, 0, 0, card.getWidth(), card.getHeight(),
+                    1f, 1f, angle, 0, 0, card.getWidth(), card.getHeight(),
                     false, false);
             batch.end();
             Gdx.gl.glFinish();

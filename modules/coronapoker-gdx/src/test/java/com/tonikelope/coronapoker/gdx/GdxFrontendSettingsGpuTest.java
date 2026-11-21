@@ -636,6 +636,7 @@ final class GdxFrontendSettingsGpuTest {
             verifyZoomTracks(table, table.inputProcessor(), table::render, preferences.properties());
             verifyAngleTrack(table, table.inputProcessor(), table::render, preferences.properties());
             verifyShuffleAngleLock(table, preferences.properties());
+            verifyDealerDeparture(table, preferences.properties());
             invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
             for (String felt : List.of("azul", "verde", "azul", "verde", "azul")) {
                 invoke(table, "selectTableFeltOption", new Class<?>[]{int.class},
@@ -663,6 +664,7 @@ final class GdxFrontendSettingsGpuTest {
     }
 
     private static void verifyShuffleAngleLock(CoronaPokerGdxTable table, java.util.Properties properties) throws Exception {
+        properties.setProperty(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY, "false");
         var slider = field(table, "shuffleAngleSlider");
         var track = (Rectangle) field(slider, "track");
         var hit = (Rectangle) field(slider, "hit");
@@ -735,6 +737,42 @@ final class GdxFrontendSettingsGpuTest {
         input.touchUp((int) end.x, touchY, 0, Input.Buttons.LEFT);
         assertEquals(-180, GdxShuffleAngle.value(properties));
         GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
+    }
+
+    private static void verifyDealerDeparture(CoronaPokerGdxTable table, java.util.Properties properties) throws Exception {
+        properties.remove(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY);
+        var started = new CompletableFuture<Void>();
+        var finished = new CompletableFuture<Void>();
+        table.acceptEvent(new TableVisualEvent.Shuffle(5, "goliat", TableVisualEvent.Shuffle.Phase.START), started);
+        table.render();
+        Object shuffle = field(table, "liveShuffle");
+        assertTrue(started.isDone());
+        assertEquals(true, field(shuffle, "flyToDealer"));
+        table.acceptEvent(new TableVisualEvent.Shuffle(6, "goliat", TableVisualEvent.Shuffle.Phase.FINISH), finished);
+        setLong(shuffle, "startedAtNanos", System.nanoTime() - (long) (((float) field(shuffle, "cycleSeconds") + 1f) * 1e9));
+        table.render();
+        assertEquals(true, field(shuffle, "firstEndPresented"));
+        table.render();
+        assertEquals(true, field(shuffle, "departing"));
+        assertFalse(finished.isDone());
+        // Even a late frame must present the opaque deck at the seat before the fade starts.
+        setLong(shuffle, "departureStart", System.nanoTime() - 2_000_000_000L);
+        table.render();
+        assertEquals(true, field(shuffle, "landingPresented"));
+        assertFalse(finished.isDone());
+        setLong(shuffle, "landingNanos", System.nanoTime() - 200_000_000L);
+        table.render();
+        assertEquals(true, field(shuffle, "departurePresented"));
+        assertFalse(finished.isDone());
+        table.render();
+        assertTrue(finished.isDone());
+        assertNull(field(table, "liveShuffle"));
+    }
+
+    private static void setLong(Object owner, String name, long value) throws ReflectiveOperationException {
+        var field = owner.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.setLong(owner, value);
     }
 
     private static void assertEnlargedFrame(GdxImagePreview preview) throws InterruptedException {

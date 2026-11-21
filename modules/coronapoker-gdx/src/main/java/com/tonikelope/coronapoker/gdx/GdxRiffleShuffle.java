@@ -76,6 +76,7 @@ final class GdxRiffleShuffle implements Disposable {
             uniform float u_frontView;
             uniform sampler2D u_shadow;
             uniform float u_shadowTexel;
+            uniform float u_feltOpacity;
             varying vec3 v_light;
             varying vec2 v_uv;
             varying vec2 v_material;
@@ -101,7 +102,7 @@ final class GdxRiffleShuffle implements Disposable {
             void main() {
                 float id = v_material.x;
                 if (id < -3.5) {
-                    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.30 * (1.0 - visibility()));
+                    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.30 * u_feltOpacity * (1.0 - visibility()));
                     return;
                 }
                 vec3 color;
@@ -131,6 +132,7 @@ final class GdxRiffleShuffle implements Disposable {
     private final PerspectiveCamera perspective = new PerspectiveCamera();
     private final OrthographicCamera overhead = new OrthographicCamera();
     private final OrthographicCamera front = new OrthographicCamera();
+    private float meshGather;
     private float meshTime = Float.NaN;
     private float meshAspect;
     private boolean meshPerspective;
@@ -183,13 +185,18 @@ final class GdxRiffleShuffle implements Disposable {
     }
 
     void prepare(float elapsed, View view, GdxShuffleGeometry.Motion motion, float aspect) {
+        prepare(elapsed, view, motion, aspect, 0f);
+    }
+
+    void prepare(float elapsed, View view, GdxShuffleGeometry.Motion motion, float aspect, float gather) {
         float time = view == View.FRONT ? motion.duration() : elapsed;
         boolean perspectiveCorners = view == View.PERSPECTIVE;
-        if (meshTime != time || meshMotion != motion || meshAspect != aspect || meshPerspective != perspectiveCorners) {
+        if (meshGather != gather || meshTime != time || meshMotion != motion || meshAspect != aspect || meshPerspective != perspectiveCorners) {
             meshPerspective = perspectiveCorners;
             meshAspect = aspect;
             meshMotion = motion;
-            geometry.update(time, motion, aspect, perspectiveCorners);
+            meshGather = gather;
+            geometry.update(time, motion, aspect, perspectiveCorners, gather);
             mesh.setVertices(geometry.vertices);
             meshTime = time;
             shadowReady = false;
@@ -248,16 +255,28 @@ final class GdxRiffleShuffle implements Disposable {
 
     /** The caller supplies the same camera and board plane used by the live table. */
     void drawOnTable(com.badlogic.gdx.math.Matrix4 projection, Texture back, Texture[] faces, int mode) {
+        drawOnTable(projection, back, faces, mode, 1f, true);
+    }
+
+    void drawOnTable(com.badlogic.gdx.math.Matrix4 projection, Texture back, Texture[] faces, int mode,
+            float feltOpacity, boolean drawDeck) {
         begin(back, faces == null ? View.OVERHEAD : View.PERSPECTIVE, mode);
         shader.setUniformMatrix("u_camera", projection);
-        mesh.unbind(shader);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFuncSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA,
                 GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        Gdx.gl.glDepthMask(false);
-        felt.render(shader, GL20.GL_TRIANGLES);
-        Gdx.gl.glDepthMask(true);
-        mesh.bind(shader);
+        if (feltOpacity > 0f) {
+            mesh.unbind(shader);
+            shader.setUniformf("u_feltOpacity", feltOpacity);
+            Gdx.gl.glDepthMask(false);
+            felt.render(shader, GL20.GL_TRIANGLES);
+            Gdx.gl.glDepthMask(true);
+            mesh.bind(shader);
+        }
+        if (!drawDeck) {
+            end();
+            return;
+        }
         if (faces == null) {
             // The orthographic overhead view sees only backs and edges.
             back.bind(1);

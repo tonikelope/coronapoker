@@ -97,6 +97,7 @@ final class GdxShuffleGeometry {
     private int writeOffset;
     private float widthScale = 1f;
     private float thickness;
+    private float gather;
 
     static {
         for (int s = 0; s <= STRIPS; s++) {
@@ -179,6 +180,11 @@ final class GdxShuffleGeometry {
     }
 
     void update(float elapsed, Motion motion, float aspect, boolean perspective) {
+        update(elapsed, motion, aspect, perspective, 0f);
+    }
+
+    void update(float elapsed, Motion motion, float aspect, boolean perspective, float gather) {
+        this.gather = gather;
         float radius = perspective ? perspectiveCornerLength(aspect) : GdxPlasticCard.CORNER_FRACTION;
         if (radius != cornerLength) {
             for (int s = 0; s <= STRIPS; s++) alongCard[s] = stripPosition(s, radius);
@@ -275,6 +281,12 @@ final class GdxShuffleGeometry {
         float direction = (order & 1) != 0 ? -1f : 1f;
         // Concentric sheets with their own radii slide over each other while
         // bending. Using arc length as the coordinate preserves the length of every sheet.
+        curvature *= 1f - gather;
+        if (curvature < .0001f) {
+            writeBentCard(order, base, .5f + spread, 0f);
+            return;
+        }
+        spread *= 1f - gather;
         float radius = 1f / curvature + base;
         float halfAngle = support * curvature * .5f;
         float rise = 2f / curvature * (float) Math.pow(Math.sin(halfAngle), 2);
@@ -303,6 +315,11 @@ final class GdxShuffleGeometry {
     }
 
     private void writeBentCard(int order, float base, float outer, float bend) {
+        if (gather > 0f) {
+            base = MathUtils.lerp(base, riffleHeight(order), gather);
+            outer = MathUtils.lerp(outer, .5f, gather);
+            bend *= 1f - gather;
+        }
         boolean left = (order & 1) != 0;
         float direction = left ? -1f : 1f;
         for (int s = 0; s <= STRIPS; s++) {

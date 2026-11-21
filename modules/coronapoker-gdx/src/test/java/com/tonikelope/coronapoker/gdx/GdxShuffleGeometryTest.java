@@ -8,6 +8,20 @@ import org.junit.jupiter.api.Test;
 final class GdxShuffleGeometryTest {
     private final GdxShuffleGeometry mesh = new GdxShuffleGeometry();
 
+    @Test void interruptedRepeatsCanSquareIntoTheSameRestingDeck() {
+        float aspect = .62f;
+        for (Motion motion : new Motion[]{Motion.ORIGINAL, Motion.FULL_DECK, Motion.MID_BRIDGE}) {
+            for (boolean perspective : new boolean[]{false, true}) {
+                mesh.update(motion.duration(), motion, aspect, perspective);
+                float[] squared = mesh.vertices.clone();
+                for (float time : new float[]{.12f, .8f, 1.65f, 2.45f, 3.4f}) {
+                    mesh.update(time, motion, aspect, perspective, 1f);
+                    assertArrayEquals(squared, mesh.vertices, .00001f);
+                }
+            }
+        }
+    }
+
     @Test void selectedArtworkKeepsTheSameGaugeAsACommunityCard() {
         for (float aspect : new float[]{.60f, STANDARD_ASPECT, .80f}) {
             float millimetresPerMeshUnit = 63f / aspect;

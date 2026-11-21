@@ -1709,6 +1709,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float tableCenterY;
     private String handDealerNickname;
     private boolean dealerSourceLocated;
+    private float dealerAvatarX;
+    private boolean dealerIsLocal;
     private float dealerSourceX;
     private float dealerSourceY;
     private float dealerCardsX;
@@ -1811,6 +1813,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final ArrayDeque<PendingVisualEvent> deferredVisualEvents = new ArrayDeque<>();
     private LiveShuffle liveShuffle;
     private GdxRiffleShuffle riffle;
+    private GdxShuffleDealerFlight dealerFlight;
+    private float shufflePotRelief;
     private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
     private final GdxCardZoomSlider cardZoomSlider = new GdxCardZoomSlider();
     private final Matrix4 shuffleProjection = new Matrix4();
@@ -12710,6 +12714,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         Seat dealer = seatByNickname(handDealerNickname);
         if (dealer != null && dealer.geometryReady) {
+            dealerAvatarX = seatAvatarX(dealer);
+            dealerIsLocal = dealer.index == 0;
             dealerSourceX = dealer.x;
             dealerSourceY = dealer.y;
             if (perspectiveActive) {
@@ -13620,6 +13626,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float height = Math.max(0f, chipRackHeights[column]);
             float columnX = centerX + placement.offsets()[column];
             float columnY = centerY + placement.baseRises()[column];
+            if (impacts == flatPotChipImpacts && liveShuffle != null && liveShuffle.departing && height > 0f) {
+                shufflePotRelief = Math.max(shufflePotRelief, Math.max(0f, height - 1f) * fittedVerticalGap
+                        + stackChipPhysicalThickness(geometry.chipSize()));
+            }
             GdxStackChipLayout.Column chipColumn = layout.columns().get(column);
             int textureIndex = Math.floorMod(chipColumn.color(),
                     flyingChips.length);
@@ -17005,6 +17015,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void prepareTableChipRacks(float cardWidth) {
+        shufflePotRelief = 0f;
         float panelLeft = potCenterX - POT_PANEL_WIDTH * .5f;
         float panelBottom = potCenterY - POT_PANEL_HEIGHT * .5f;
         potPanelBounds.set(panelLeft, panelBottom, POT_PANEL_WIDTH, POT_PANEL_HEIGHT);
@@ -17245,11 +17256,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 perspectiveTable.addStandingChipPile(pot, slot, pileIndex, column, seed,
                         x, y, count, tableChipDiameter, thickness, depthSway, impact, previewCount);
                 float extent = tableChipDiameter * .53f;
+                float footY = 0f;
                 for (int corner = 0; corner < 8; corner++) {
                     var point = perspectiveTable.chipPointToScreen(
                             x + ((corner & 1) == 0 ? -extent : extent),
                             y + ((corner & 2) == 0 ? -extent : extent),
                             (corner & 4) == 0 ? 0f : count * thickness);
+                    if (pot && liveShuffle != null && liveShuffle.departing) {
+                        if (corner == 0) footY = point.y;
+                        if (corner == 4) shufflePotRelief = Math.max(shufflePotRelief, Math.abs(point.y - footY));
+                    }
                     if (!hasBounds) {
                         bounds.set(point.x, point.y, 0f, 0f);
                         hasBounds = true;
@@ -19533,6 +19549,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         active.showFirstEnd = false;
         if (active.finishBarrier != null && (active.animationEnabled ? active.firstEndPresented
                 : !active.soundEnabled || elapsed >= active.cycleSeconds)) {
+            if (active.flyToDealer && !active.departurePresented) {
+                if (!active.departing && dealerSourceLocated) {
+                    active.departing = true;
+                    active.departureStart = renderFrameNanos;
+                    stopShuffleSound();
+                }
+                if (active.departing) return;
+            }
             stopShuffleSound();
             liveShuffle = null;
             if (active.pendingDeck != null) liveDeck = active.pendingDeck;
@@ -20807,13 +20831,54 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int cycle = active.cycleAt(elapsed);
         if (active.showFirstEnd) cycle = 0;
         float pose = active.showFirstEnd ? active.cycleSeconds : elapsed - cycle * active.cycleSeconds;
+        float gather = 0f;
+        float flight = 0f;
+        if (active.departing) {
+            float age = Math.max(0L, renderFrameNanos - active.departureStart) * 1e-9f;
+            float gatherTime = active.lastCycle > 0 ? GdxShuffleDealerFlight.SQUARE_SECONDS : 0f;
+            if (active.landingPresented) {
+                float fade = Math.max(0L, renderFrameNanos - active.landingNanos) * 1e-9f;
+                if (fade >= GdxShuffleDealerFlight.FADE_SECONDS) {
+                    active.departurePresented = true;
+                    return;
+                }
+                flight = GdxShuffleDealerFlight.APPROACH_SECONDS + fade;
+            } else {
+                flight = MathUtils.clamp(age - gatherTime, 0f, GdxShuffleDealerFlight.APPROACH_SECONDS);
+            }
+            cycle = active.lastCycle;
+            if (age < gatherTime) {
+                pose = active.lastPose;
+                gather = com.badlogic.gdx.math.Interpolation.smooth.apply(age / gatherTime);
+            } else {
+                pose = active.cycleSeconds;
+            }
+        } else {
+            active.lastPose = pose;
+            active.lastCycle = cycle;
+        }
         Texture[] faces = tilted ? active.faces(cycle) : null;
         riffle.prepare(pose, tilted ? GdxRiffleShuffle.View.PERSPECTIVE : GdxRiffleShuffle.View.OVERHEAD,
-                active.motion, active.cardAspect);
+                active.motion, active.cardAspect, gather);
         restoreParentFramebufferAfterNestedPass();
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
-        riffle.drawOnTable(shuffleProjection, back, faces, requestedCardRenderingMode());
+        if (flight > 0f) {
+            if (dealerFlight == null) {
+                int samples = presentationSettings == null ? GdxApplicationShell.defaultFramebufferSamples()
+                        : presentationSettings.actualMsaaSamples();
+                dealerFlight = new GdxShuffleDealerFlight(samples);
+            }
+            dealerFlight.draw(riffle, shuffleProjection, back, faces, requestedCardRenderingMode(), active.cardAspect,
+                    worldWidth, viewport.getWorldHeight(), dealerAvatarX, dealerSourceY, AVATAR_SIZE, dealerIsLocal,
+                    shufflePotRelief, flight);
+            if (!active.landingPresented && flight >= GdxShuffleDealerFlight.APPROACH_SECONDS) {
+                active.landingPresented = true;
+                active.landingNanos = renderFrameNanos;
+            }
+        } else {
+            riffle.drawOnTable(shuffleProjection, back, faces, requestedCardRenderingMode());
+        }
         if (active.showFirstEnd) active.firstEndPresented = true;
     }
 
@@ -33172,6 +33237,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         tableGallery.close();
         rulesWindow.close();
         networkBlockCache.clear();
+        disposeSafely(dealerFlight);
+        dealerFlight = null;
         disposeSafely(riffle);
         riffle = null;
         cancelRecoveryPreparation();
@@ -33332,6 +33399,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         tableGallery.close();
         rulesWindow.close();
         networkBlockCache.clear();
+        disposeSafely(dealerFlight);
+        dealerFlight = null;
         disposeSafely(riffle);
         riffle = null;
         cancelRecoveryPreparation();
@@ -34205,6 +34274,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int minimumSoundCycle;
         int lastSoundAttempt = -1;
         boolean firstEndPresented;
+        final boolean flyToDealer;
+        boolean departing;
+        boolean landingPresented;
+        boolean departurePresented;
+        long departureStart;
+        long landingNanos;
+        int lastCycle;
+        float lastPose;
         boolean showFirstEnd;
         boolean soundStopped = true;
         String pendingDeck;
@@ -34221,6 +34298,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             zoom2D = GdxCardZoom.SHUFFLE_2D.percent(tableSettingsProperties());
             zoom3D = GdxCardZoom.SHUFFLE_3D.percent(tableSettingsProperties());
             this.animationEnabled = animationEnabled;
+            flyToDealer = animationEnabled && tablePreference(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY, true);
             this.soundEnabled = soundEnabled;
             cycleSeconds = animationEnabled ? motion.duration()
                     : shuffleSoundDurationSeconds;

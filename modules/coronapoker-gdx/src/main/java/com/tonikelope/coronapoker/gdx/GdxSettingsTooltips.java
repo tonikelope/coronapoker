@@ -297,6 +297,7 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.animation_shuffle";
             case "card_flip_direction" ->
                 "tooltip.cfg.card_flip_direction";
+            case GdxSettingsContract.SHUFFLE_TO_DEALER_KEY -> "gdx.settings.tooltip.shuffle_to_dealer";
             case "duracion_barajado" -> "gdx.settings.tooltip.shuffle_duration";
             case "vista_barajado" -> "gdx.settings.tooltip.shuffle_view";
             case GdxCardZoom.SHUFFLE_LABEL, "zoom_barajado_2d", "zoom_barajado_3d" -> "gdx.settings.tooltip.shuffle_zoom";

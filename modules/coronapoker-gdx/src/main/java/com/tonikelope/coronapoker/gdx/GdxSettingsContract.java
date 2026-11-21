@@ -43,6 +43,7 @@ final class GdxSettingsContract {
     static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
+    static final String SHUFFLE_TO_DEALER_KEY = "barajado_al_dealer";
     static final String COMMUNITY_DEAL_STYLE_KEY = "community_deal_style";
     static final String COLLECT_HAND_CARDS_KEY = "animacion_recoger_cartas";
     static final String STACK_BET_PREVIEW_KEY = "gdx_stack_bet_preview";
@@ -461,6 +462,7 @@ final class GdxSettingsContract {
                     Gate.ANIMATIONS),
             option("animacion_barajado", "BARAJADO", true,
                     Gate.ANIMATIONS),
+            option(SHUFFLE_TO_DEALER_KEY, "VUELO AL DEALER", true, Gate.ANIMATIONS, "animacion_barajado"),
             option("animacion_reparto", "REPARTO", true,
                     Gate.ANIMATIONS),
             option("animacion_destape", "DESTAPAR", true,
@@ -672,6 +674,7 @@ final class GdxSettingsContract {
                     animationChoice("vista_barajado"),
                     new AppearanceAnimationRow(null, null, GdxShuffleAngle.KEY),
                     new AppearanceAnimationRow(null, null, GdxCardZoom.SHUFFLE_LABEL),
+                    animationToggle(SHUFFLE_TO_DEALER_KEY),
                     animationToggle("animacion_reparto"),
                     animationChoice("reparto_velocidad"),
                     animationChoice(COMMUNITY_DEAL_STYLE_KEY),
@@ -750,7 +753,7 @@ final class GdxSettingsContract {
             "cinematicas",
             "cinematicas_accion",
             "cinematicas_allin", "cinematicas_gameover",
-            "animacion_barajado",
+            "animacion_barajado", SHUFFLE_TO_DEALER_KEY,
             GdxShuffleAngle.KEY, "vista_barajado", "duracion_barajado", GdxCardZoom.LEGACY_SHUFFLE_KEY,
             GdxCardZoom.SHUFFLE_2D.key, GdxCardZoom.SHUFFLE_3D.key,
             "animacion_reparto",
@@ -806,7 +809,7 @@ final class GdxSettingsContract {
                     "animacion_destape", COLLECT_HAND_CARDS_KEY,
                     "animacion_fuego_allin", "animacion_efecto_ganador",
                     HALO_EFFECT_KEY, GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
-            case POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
+            case SHUFFLE_TO_DEALER_KEY, POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
                     "animacion_ciegas_dealer", "animacion_contadores",
                     "animacion_entrada_asientos", "animacion_swap",
                     FINAL_SUMMARY_CARDS_ANIMATION_KEY, STACK_BET_PREVIEW_KEY,

@@ -108,12 +108,17 @@ final class GdxCardShell implements Disposable {
     }
 
     void endPair() {
+        endPair(1f);
+    }
+
+    void endPair(float opacity) {
         grouping = false;
-        flushPair();
+        if (groupHasCards) composite(groupWidth, groupHeight, opacity);
+        groupHasCards = false;
     }
 
     void flushPair() {
-        if (groupHasCards) composite(groupWidth, groupHeight);
+        if (groupHasCards) composite(groupWidth, groupHeight, 1f);
         groupHasCards = false;
     }
 
@@ -283,7 +288,7 @@ final class GdxCardShell implements Disposable {
                 gl.glScissor(x, y, (int) clip.width, (int) clip.height);
             }
             try {
-                composite(worldWidth, worldHeight);
+                composite(worldWidth, worldHeight, 1f);
             } finally {
                 if (clipped) gl.glDisable(GL20.GL_SCISSOR_TEST);
             }
@@ -346,13 +351,14 @@ final class GdxCardShell implements Disposable {
         return Math.min(limit, (needed + CROP_BLOCK_SIZE - 1) / CROP_BLOCK_SIZE * CROP_BLOCK_SIZE);
     }
 
-    private void composite(float worldWidth, float worldHeight) {
+    private void composite(float worldWidth, float worldHeight, float opacity) {
         if (composite == null) {
             composite = new SpriteBatch();
             composite.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA,
                     GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
         }
         composite.setProjectionMatrix(projection.setToOrtho2D(0f, 0f, worldWidth, worldHeight));
+        composite.setColor(opacity, opacity, opacity, opacity);
         composite.begin();
         if (regionWidth > 0) {
             // At 2x, linear sampling averages the four subpixels on the

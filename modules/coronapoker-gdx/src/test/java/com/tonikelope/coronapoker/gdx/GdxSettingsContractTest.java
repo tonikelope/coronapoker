@@ -705,7 +705,7 @@ final class GdxSettingsContractTest {
         assertTrue(keys.containsAll(java.util.List.of(
                 "cinematicas_allin", "cinematicas_gameover",
                 "animacion_barajado",
-                "animacion_reparto",
+                GdxSettingsContract.SHUFFLE_TO_DEALER_KEY, "animacion_reparto",
                 "animacion_destape", "animacion_ciegas_dealer",
                 "animacion_apuestas", "animacion_contadores",
                 "animacion_entrada_asientos", "animacion_swap",
@@ -741,9 +741,9 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.APPEARANCE_PAGES.get(0);
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
-        assertEquals(20, page.options().size());
+        assertEquals(21, page.options().size());
         assertEquals(9, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(30, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(31, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
                 "efecto_halos",
@@ -752,7 +752,7 @@ final class GdxSettingsContractTest {
                 "cinematicas_allin",
                 "cinematicas_gameover",
                 "animacion_barajado", "duracion_barajado", GdxShuffleAngle.KEY, GdxCardZoom.SHUFFLE_LABEL,
-                "animacion_reparto",
+                GdxSettingsContract.SHUFFLE_TO_DEALER_KEY, "animacion_reparto",
                 "reparto_velocidad",
                 GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY,
                 "animacion_destape",

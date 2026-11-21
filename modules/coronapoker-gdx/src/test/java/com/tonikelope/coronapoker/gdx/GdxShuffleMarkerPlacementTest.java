@@ -19,14 +19,27 @@ final class GdxShuffleMarkerPlacementTest {
         float aspect = .7f;
         placement.project(projection, aspect, 200f, 200f);
         var empty = new Rectangle();
+        var rows = new Rectangle[0];
         // The deck edge lies on y = x - 20 * aspect. The circle clears it by just over one pixel.
         var anchor = new Vector2(100f, 100f - 20f * aspect - 16f);
-        assertEquals(anchor, placement.place(anchor.x, anchor.y, 10f, 10f, empty, empty, empty, true));
+        assertEquals(anchor, placement.place(anchor.x, anchor.y, 10f, 10f, empty, empty, rows, empty, empty, true));
 
         var centre = new Vector2(100f, 100f);
-        assertNotEquals(centre, placement.place(100f, 100f, 10f, 10f, empty, empty, empty, true));
-        assertEquals(centre, placement.place(100f, 100f, 10f, 10f, empty, empty, empty, false));
+        assertNotEquals(centre, placement.place(100f, 100f, 10f, 10f, empty, empty, rows, empty, empty, true));
+        assertEquals(centre, placement.place(100f, 100f, 10f, 10f, empty, empty, rows, empty, empty, false));
         var bank = new Rectangle(104f, 80f, 50f, 40f);
-        assertEquals(new Vector2(94f, 100f), placement.place(100f, 100f, 10f, 10f, empty, bank, empty, false));
+        assertEquals(new Vector2(94f, 100f), placement.place(100f, 100f, 10f, 10f, empty, bank, rows, empty, empty, false));
+    }
+
+    @Test void centersTheMarkerWithClearanceWhenTheLaneIsNarrow() {
+        var placement = new GdxShuffleMarkerPlacement();
+        var empty = new Rectangle();
+        var pocket = new Rectangle(20f, 10f, 40f, 80f);
+        var bank = new Rectangle(86f, 10f, 30f, 80f);
+        var rows = new Rectangle[] {bank};
+        var peek = new Rectangle(70f, 18f, 16f, 12f);
+        assertEquals(new Vector2(73f, 50f),
+                placement.place(72f, 50f, 10f, 8f, empty, bank, rows, pocket, peek, false));
+        assertEquals(.8f, placement.scale(), .001f);
     }
 }

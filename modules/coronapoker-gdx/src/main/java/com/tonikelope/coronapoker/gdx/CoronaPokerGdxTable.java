@@ -1482,6 +1482,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxTableChipSlots perspectivePotRack = GdxTableChipSlots.pot();
     private final GdxTableChipSlots perspectiveLocalRack = GdxTableChipSlots.local();
     private final Rectangle perspectiveLocalRightChipBounds = new Rectangle();
+    private final Rectangle[] perspectiveLocalRightRows = {
+        new Rectangle(), new Rectangle(), new Rectangle()
+    };
     private GdxStackChipLayout.Layout localTableCapacityChecked;
     private GdxStackChipLayout.Layout lastCatalogPlacementStack;
     private final Rectangle lastCatalogPlacementArea = new Rectangle();
@@ -12321,6 +12324,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // The screen-space player pods own their labels even when a tall
         // physical pile projects into the same space as a remote seat.
         drawSeats();
+        // A foreground pocket reveal supplies its bounds for the next frame.
+        if (perspectiveActive) perspectiveTable.clearPositionMarkerPocket();
         drawCardsAndPot(tableCx, tableCy, tableW);
         drawHoleCards(true);
         drawRemoteRebuyOverlays();
@@ -17036,6 +17041,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         perspectivePotUpperChipBounds.set(0f, 0f, 0f, 0f);
         perspectiveLocalChipBounds.set(0f, 0f, 0f, 0f);
         perspectiveLocalRightChipBounds.set(0f, 0f, 0f, 0f);
+        for (Rectangle row : perspectiveLocalRightRows) row.set(0f, 0f, 0f, 0f);
         if (!perspectiveActive) {
             clearStackBetPreview();
             advanceChipPileImpacts(flatPotChipImpacts);
@@ -17260,6 +17266,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     };
                 }
                 boolean hasBounds = bounds.width > 0f || bounds.height > 0f;
+                Rectangle markerRow = !pot && !GdxTableChipRack.localLeft(slot)
+                        ? perspectiveLocalRightRows[slot / GdxTableChipSlots.LOCAL_SLOTS_PER_ROW] : null;
                 float x = tableChipPileX(pot, column, pileIndex);
                 float y = tableChipPileY(pot, column, pileIndex);
                 var impact = (pot ? potChipImpacts : localChipImpacts)[slot];
@@ -17284,6 +17292,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     } else {
                         bounds.merge(point.x, point.y);
                     }
+                }
+                if (markerRow != null) {
+                    perspectiveTable.includeMarkerRackPile(markerRow, x, y, extent, count * thickness);
                 }
             }
         }
@@ -18483,9 +18494,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Seat seat = seatByNickname(player.nickname());
             float presence = seat == null ? 0f : seatPresenceAlpha(seat.index);
             if (texture != null && seat != null && presence > 0f) {
-                Vector2 anchor = positionMarkerAnchor(seat);
+                PositionMarkerAnchor anchor = positionMarkerAnchor(seat);
                 drawTablePositionTexture(texture, anchor.x, anchor.y,
-                        POSITION_CHIP_SIZE, 0f, presence, seat.index == 0, 1f, 0f);
+                        POSITION_CHIP_SIZE, 0f, presence, seat.index == 0, 1f, 0f, anchor.scale);
             }
         }
         if (active == null) {
@@ -18506,27 +18517,28 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 continue;
             }
             Seat previous = seatByNickname(transfer.fromNickname());
-            float sourceX = transfer.fromCenter() || previous == null
-                    ? tableCenterX + (role - 1) * 34f : positionMarkerAnchor(previous).x;
-            float sourceY = transfer.fromCenter() || previous == null
-                    ? tableCenterY + 48f : positionMarkerAnchor(previous).y;
-            float middleX = (sourceX + positionMarkerAnchor(target).x) * 0.5f;
-            float middleY = (sourceY + positionMarkerAnchor(target).y) * 0.5f;
+            PositionMarkerAnchor from = transfer.fromCenter() || previous == null
+                    ? new PositionMarkerAnchor(tableCenterX + (role - 1) * 34f, tableCenterY + 48f, 1f)
+                    : positionMarkerAnchor(previous);
+            PositionMarkerAnchor to = positionMarkerAnchor(target);
+            float middleX = (from.x + to.x) * 0.5f;
+            float middleY = (from.y + to.y) * 0.5f;
             float inwardX = tableCenterX - middleX;
             float inwardY = tableCenterY - middleY;
             float inwardLength = Math.max(1f,
                     (float) Math.sqrt(inwardX * inwardX + inwardY * inwardY));
             float controlX = middleX + inwardX / inwardLength * 92f;
             float controlY = middleY + inwardY / inwardLength * 92f + 34f;
-            float x = bezier(sourceX, controlX, positionMarkerAnchor(target).x, progress);
-            float y = bezier(sourceY, controlY, positionMarkerAnchor(target).y, progress);
+            float x = bezier(from.x, controlX, to.x, progress);
+            float y = bezier(from.y, controlY, to.y, progress);
             float size = POSITION_CHIP_SIZE
                     * (transfer.fromCenter() ? 0.62f + progress * 0.38f : 1f);
             drawTablePositionTexture(texture, x, y, size,
                     (1f - progress) * (role - 1) * 320f,
                     seatPresenceAlpha(target.index), target.index == 0 || previous != null && previous.index == 0,
                     target.index == 0 ? progress : 1f - progress,
-                    communityCardWidth() * .09f * MathUtils.sin(MathUtils.PI * raw) * MathUtils.sin(MathUtils.PI * raw));
+                    communityCardWidth() * .09f * MathUtils.sin(MathUtils.PI * raw) * MathUtils.sin(MathUtils.PI * raw),
+                    target.index == 0 ? to.scale : from.scale);
         }
         alphaEdgeRenderer.end(batch);
         batch.end();
@@ -18546,18 +18558,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && positionChipKind(player.position()) == positionChipKind(transfer.position());
     }
 
-    private Vector2 positionMarkerAnchor(Seat seat) {
-        if (!perspectiveActive || seat.index != 0) return new Vector2(seat.positionX, seat.positionY);
+    private record PositionMarkerAnchor(float x, float y, float scale) { }
+
+    private PositionMarkerAnchor positionMarkerAnchor(Seat seat) {
+        if (!perspectiveActive || seat.index != 0) return new PositionMarkerAnchor(seat.positionX, seat.positionY, 1f);
         float cardWidth = communityCardWidth();
         float x = tableCenterX + cardWidth * 1.25f;
         float diameter = localPositionMarkerDiameter(cardWidth);
         float y = localPositionMarkerY();
-        boolean avoidShuffle = liveShuffleAnimationEnabled();
+        boolean avoidShuffle = liveShuffle != null && liveShuffle.animationEnabled
+                && liveShuffle.presentationStarted;
         if (avoidShuffle) {
-            float aspect = liveShuffle != null && liveShuffle.presentationStarted
-                    ? liveShuffle.cardAspect : deckCardAspect(availableDeck(liveDeck));
+            float aspect = liveShuffle.cardAspect;
             perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY,
-                    shuffleLength(aspect, true), aspect, shuffleAngle());
+                    shuffleLength(aspect, true), aspect, liveShuffle.angle);
         }
         // The peek button can appear as soon as the local cards become available.
         if (tablePreference(GdxSettingsContract.TABLE_PEEK_BUTTON_KEY, true)) {
@@ -18566,9 +18580,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             reservedPeekButton.set(0f, 0f, 0f, 0f);
         }
         var point = perspectiveTable.localMarkerToScreen(x, y, diameter,
-                perspectiveLocalChipBounds, perspectiveLocalRightChipBounds, reservedPeekButton, avoidShuffle);
-        return new Vector2(MathUtils.lerp(seat.positionX, point.x, perspectiveBlend),
-                MathUtils.lerp(seat.positionY, point.y, perspectiveBlend));
+                perspectiveLocalChipBounds, perspectiveLocalRightChipBounds,
+                perspectiveLocalRightRows, reservedPeekButton, avoidShuffle);
+        return new PositionMarkerAnchor(MathUtils.lerp(seat.positionX, point.x, perspectiveBlend),
+                MathUtils.lerp(seat.positionY, point.y, perspectiveBlend), point.z);
     }
 
     private float localPositionMarkerY() {
@@ -18583,7 +18598,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawTablePositionTexture(Texture texture, float x, float y,
-            float size, float rotation, float alpha, boolean local, float onTable, float lift) {
+            float size, float rotation, float alpha, boolean local, float onTable, float lift, float scale) {
         if (!perspectiveActive || !local) {
             drawPositionTexture(texture, x, y, size, rotation, alpha);
             return;
@@ -18591,7 +18606,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         alphaEdgeRenderer.end(batch);
         batch.end();
         float diameter = MathUtils.lerp(size, localPositionMarkerDiameter(communityCardWidth())
-                * size / POSITION_CHIP_SIZE, perspectiveBlend);
+                * scale * size / POSITION_CHIP_SIZE, perspectiveBlend);
         perspectiveTable.drawPositionMarker(texture, x, y, diameter, size, -rotation, alpha, onTable, lift);
         batch.begin();
         alphaEdgeRenderer.begin(batch);

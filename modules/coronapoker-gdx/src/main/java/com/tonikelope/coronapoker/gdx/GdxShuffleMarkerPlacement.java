@@ -7,8 +7,9 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.FloatArray;
+import java.util.Arrays;
 
-/** Keeps the local position marker near its seat, outside the shuffle and the two chip banks. */
+/** Centers the local position marker in the lane between the hand and the right chip bank. */
 final class GdxShuffleMarkerPlacement {
     private final ConvexHull hull = new ConvexHull();
     private final float[] corners = new float[24];
@@ -18,10 +19,12 @@ final class GdxShuffleMarkerPlacement {
     private float minY, maxY;
     private boolean reserveShuffle;
     private final Rectangle leftBank = new Rectangle(), rightBank = new Rectangle();
-    private final Rectangle peekButton = new Rectangle();
+    private final Rectangle pocket = new Rectangle(), peekButton = new Rectangle();
+    private Rectangle[] rightRows = new Rectangle[0];
     private final Vector2 result = new Vector2();
     private float baseX = Float.NaN, baseY, radiusX, radiusY;
-    private float lowX, highX, bestDistance;
+    private float lowX, highX, bestDistance, markerScale;
+    private static final float LANE_GAP = 5f;
 
     void project(Matrix4 model, float aspect, float width, float height) {
         // Outer packets lie flat at full spread. Only the inner tips rise as the cards bend.
@@ -44,11 +47,11 @@ final class GdxShuffleMarkerPlacement {
         baseX = Float.NaN;
     }
 
-    Vector2 place(float x, float y, float rx, float ry, Rectangle left, Rectangle right, Rectangle peek,
-            boolean avoidShuffle) {
+    Vector2 place(float x, float y, float rx, float ry, Rectangle left, Rectangle right,
+            Rectangle[] rows, Rectangle cards, Rectangle peek, boolean avoidShuffle) {
         if (baseX == x && baseY == y && radiusX == rx && radiusY == ry
                 && reserveShuffle == avoidShuffle && leftBank.equals(left) && rightBank.equals(right)
-                && peekButton.equals(peek)) return result;
+                && Arrays.equals(rightRows, rows) && pocket.equals(cards) && peekButton.equals(peek)) return result;
         if (avoidShuffle && (!reserveShuffle || Float.isNaN(baseX) || radiusX != rx || radiusY != ry)) {
             // Offset each edge by the support radius of the projected disc along its normal.
             for (int i = 2; i < outline.size; i += 2) {
@@ -59,24 +62,40 @@ final class GdxShuffleMarkerPlacement {
         }
         reserveShuffle = avoidShuffle;
         baseX = x; baseY = y; radiusX = rx; radiusY = ry;
-        leftBank.set(left); rightBank.set(right); peekButton.set(peek);
-        bestDistance = Float.POSITIVE_INFINITY;
-        considerRow(y);
-        if (bestDistance > 0f) {
-            // Search across the open felt, keeping the near edge clear of the player's HUD.
-            for (int step = 1; step <= 16; step++) {
-                float offset = step * ry * .25f;
-                considerRow(y + offset);
-                if (step <= 5) considerRow(y - offset);
-            }
-            if (right.width > 0f) considerRow(right.y + right.height + ry);
-            if (left.width > 0f) considerRow(left.y + left.height + ry);
-            if (peek.width > 0f) considerRow(peek.y + peek.height + ry);
+        leftBank.set(left); rightBank.set(right); pocket.set(cards); peekButton.set(peek);
+        if (rightRows.length != rows.length) {
+            rightRows = new Rectangle[rows.length];
+            Arrays.setAll(rightRows, index -> new Rectangle());
         }
+        for (int i = 0; i < rows.length; i++) rightRows[i].set(rows[i]);
+
+        result.set(x, y);
+        markerScale = 1f;
+        bestDistance = Float.POSITIVE_INFINITY;
+        if (pocket.width > 0f && rightBank.width > 0f) searchRows(true);
+        if (!Float.isFinite(bestDistance)) searchRows(false);
         return result;
     }
 
-    private void considerRow(float y) {
+    float scale() {
+        return markerScale;
+    }
+
+    private void searchRows(boolean centered) {
+        considerRow(baseY, centered);
+        // Stay beside the hand where possible, with room above it when the lane is narrow.
+        for (int step = 1; step <= 16 && bestDistance > 0f; step++) {
+            float offset = step * radiusY * .25f;
+            considerRow(baseY + offset, centered);
+            if (step <= 5) considerRow(baseY - offset, centered);
+        }
+        if (rightBank.width > 0f) considerRow(rightBank.y + rightBank.height + radiusY + LANE_GAP, centered);
+        if (leftBank.width > 0f) considerRow(leftBank.y + leftBank.height + radiusY, centered);
+        if (peekButton.width > 0f) considerRow(peekButton.y + peekButton.height + radiusY, centered);
+        if (pocket.width > 0f) considerRow(pocket.y + pocket.height + radiusY + LANE_GAP, centered);
+    }
+
+    private void considerRow(float y, boolean centered) {
         float dy = y - baseY;
         if (dy * dy >= bestDistance) return;
         lowX = Float.POSITIVE_INFINITY;
@@ -94,32 +113,60 @@ final class GdxShuffleMarkerPlacement {
                 else highX = Math.min(highX, limit);
             }
         }
+        if (centered) {
+            if (!crosses(pocket, y, radiusY + LANE_GAP)) return;
+            float innerEdge = Float.POSITIVE_INFINITY;
+            for (Rectangle row : rightRows) {
+                if (crosses(row, y, radiusY + LANE_GAP)) innerEdge = Math.min(innerEdge, row.x);
+            }
+            if (!Float.isFinite(innerEdge)) innerEdge = rightBank.x;
+            float cardEdge = pocket.x + pocket.width;
+            float scale = Math.min(1f, (innerEdge - cardEdge - 2f * LANE_GAP) / (2f * radiusX));
+            if (scale >= .65f) consider((cardEdge + innerEdge) * .5f, y, scale);
+            return;
+        }
         // On this row the nearest legal x is the original x or an obstacle boundary.
         consider(baseX, y);
         if (lowX <= highX) { consider(lowX, y); consider(highX, y); }
-        considerSides(leftBank, y);
-        considerSides(rightBank, y);
-        considerSides(peekButton, y);
+        considerSides(leftBank, y, 0f);
+        for (Rectangle row : rightRows) considerSides(row, y, LANE_GAP);
+        if (rightRows.length == 0) considerSides(rightBank, y, 0f);
+        considerSides(peekButton, y, 0f);
+        if (pocket.width > 0f) consider(pocket.x + pocket.width + radiusX + LANE_GAP, y);
     }
 
-    private void considerSides(Rectangle obstacle, float y) {
+    private void considerSides(Rectangle obstacle, float y, float gap) {
         if (obstacle.width <= 0f) return;
-        consider(obstacle.x - radiusX, y);
-        consider(obstacle.x + obstacle.width + radiusX, y);
+        consider(obstacle.x - radiusX - gap, y);
+        consider(obstacle.x + obstacle.width + radiusX + gap, y);
     }
 
     private void consider(float x, float y) {
-        if ((x > lowX && x < highX) || blocks(leftBank, x, y)
-                || blocks(rightBank, x, y) || blocks(peekButton, x, y)) return;
+        consider(x, y, 1f);
+    }
+
+    private void consider(float x, float y, float scale) {
+        float rx = radiusX * scale, ry = radiusY * scale;
+        if ((x > lowX && x < highX) || blocks(leftBank, x, y, rx, ry) || blocks(peekButton, x, y, rx, ry)
+                || (crosses(pocket, y, ry + LANE_GAP) && x + .001f < pocket.x + pocket.width + rx + LANE_GAP)) return;
+        for (Rectangle row : rightRows) {
+            if (blocks(row, x, y, rx + LANE_GAP, ry + LANE_GAP)) return;
+        }
+        if (rightRows.length == 0 && blocks(rightBank, x, y, rx, ry)) return;
         float distance = Vector2.dst2(x, y, baseX, baseY);
         if (distance < bestDistance) {
             bestDistance = distance;
             result.set(x, y);
+            markerScale = scale;
         }
     }
 
-    private boolean blocks(Rectangle bank, float x, float y) {
-        return bank.width > 0f && x > bank.x - radiusX && x < bank.x + bank.width + radiusX
-                && y > bank.y - radiusY && y < bank.y + bank.height + radiusY;
+    private static boolean blocks(Rectangle obstacle, float x, float y, float rx, float ry) {
+        return crosses(obstacle, y, ry)
+                && x > obstacle.x - rx + .001f && x < obstacle.x + obstacle.width + rx - .001f;
+    }
+
+    private static boolean crosses(Rectangle obstacle, float y, float ry) {
+        return obstacle.width > 0f && y > obstacle.y - ry && y < obstacle.y + obstacle.height + ry;
     }
 }

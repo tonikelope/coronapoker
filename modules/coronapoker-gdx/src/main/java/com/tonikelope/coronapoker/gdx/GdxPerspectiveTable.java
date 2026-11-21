@@ -229,8 +229,6 @@ final class GdxPerspectiveTable implements Disposable {
     private final Matrix4 board = new Matrix4();
     private final Matrix4 shuffleOnFelt = new Matrix4();
     private final Matrix4 shuffleModel = new Matrix4();
-    private final GdxShuffleMarkerPlacement shuffleMarker = new GdxShuffleMarkerPlacement();
-    private final Rectangle positionMarkerPocket = new Rectangle();
     private final Rectangle shuffleRestBounds = new Rectangle();
     private float shuffleCardLength = -1f;
     private float shuffleCenterY, shuffleAspect;
@@ -397,7 +395,6 @@ final class GdxPerspectiveTable implements Disposable {
             shuffleCardLength = cardLength;
             shuffleAspect = aspect;
             centerShuffle(centerY, cardLength, aspect, angle);
-            shuffleMarker.project(shuffleOnFelt, aspect, width, height);
         }
         result.set(shuffleOnFelt);
     }
@@ -419,40 +416,6 @@ final class GdxPerspectiveTable implements Disposable {
             x += dx;
             y += dy;
         }
-    }
-
-    void includeMarkerRackPile(Rectangle bounds, float x, float y, float radius, float height) {
-        boolean first = bounds.width == 0f;
-        for (int angle = 0; angle < 360; angle += 30) {
-            float ringX = x + radius * MathUtils.cosDeg(angle);
-            float ringY = y + radius * MathUtils.sinDeg(angle);
-            Vector3 point = chipPointToScreen(ringX, ringY, 0f);
-            if (first) {
-                bounds.set(point.x, point.y, 0f, 0f);
-                first = false;
-            } else {
-                bounds.merge(point.x, point.y);
-            }
-            point = chipPointToScreen(ringX, ringY, height);
-            bounds.merge(point.x, point.y);
-        }
-    }
-
-    void clearPositionMarkerPocket() {
-        positionMarkerPocket.set(0f, 0f, 0f, 0f);
-    }
-
-    Vector3 localMarkerToScreen(float x, float y, float diameter, Rectangle leftBank, Rectangle rightBank,
-            Rectangle[] rightRows, Rectangle peekButton, boolean avoidShuffle) {
-        float elevation = positionMarkerThickness(diameter) * .5f;
-        Vector3 center = chipPointToScreen(x, y, elevation);
-        float cx = center.x, cy = center.y;
-        float radius = diameter * .53f;
-        float rx = Math.abs(chipPointToScreen(x + radius, y, elevation).x - cx);
-        float ry = Math.abs(chipPointToScreen(x, y - radius, 0f).y - cy);
-        var position = shuffleMarker.place(cx, cy, rx, ry, leftBank, rightBank,
-                rightRows, positionMarkerPocket, peekButton, avoidShuffle);
-        return projectedPoint.set(position.x, position.y, shuffleMarker.scale());
     }
 
     Vector3 boardToScreen(float x, float y) {
@@ -679,7 +642,6 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     void beginPocketPair() {
-        clearPositionMarkerPocket();
         pocketAnchorZ = Float.NaN;
         for (GdxCardPickMesh pick : pocketPicks) pick.triangles.clear();
         activePocketSlot = -1;
@@ -698,9 +660,7 @@ final class GdxPerspectiveTable implements Disposable {
         // overlap during the bend use the same subpixel grid.
         resetCardBounds();
         for (int i = 0; i < pocketDrawCount; i++) {
-            PocketDraw draw = pocketDraws[i];
-            includeCardBounds(draw.vertices);
-            includePositionMarkerPocket(draw);
+            includeCardBounds(pocketDraws[i].vertices);
         }
         beginCroppedCardLayer(pocketShell);
         try {
@@ -713,27 +673,6 @@ final class GdxPerspectiveTable implements Disposable {
         } finally {
             pocketShell.endPair();
             pocketDrawCount = 0;
-        }
-    }
-
-    private void includePositionMarkerPocket(PocketDraw draw) {
-        // Use the mesh perimeter. A box around the rotated cards steals room from the marker.
-        float[] vertices = draw.vertices.items;
-        boolean first = positionMarkerPocket.width == 0f;
-        for (int row = 0; row < draw.rows; row++) {
-            int stride = row == 0 || row == draw.rows - 1 ? 1 : Math.max(1, draw.columns - 1);
-            for (int column = 0; column < draw.columns; column += stride) {
-                int end = (row * draw.columns + column + 1) * 36;
-                for (int at = end - 36; at < end; at += 6) {
-                    Vector3 point = projectWorld(cardBoundsCorner.set(vertices[at], vertices[at + 1], vertices[at + 2]));
-                    if (first) {
-                        positionMarkerPocket.set(point.x, point.y, 0f, 0f);
-                        first = false;
-                    } else {
-                        positionMarkerPocket.merge(point.x, point.y);
-                    }
-                }
-            }
         }
     }
 

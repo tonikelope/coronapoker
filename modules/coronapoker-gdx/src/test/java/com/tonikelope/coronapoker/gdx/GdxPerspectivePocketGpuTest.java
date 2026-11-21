@@ -321,6 +321,7 @@ final class GdxPerspectivePocketGpuTest {
 
             var renderer = (GdxPerspectiveTable) field(table, "perspectiveTable");
             var viewport = (Viewport) field(table, "viewport");
+            verifyFixedDealerDuringSort(table, viewport);
             var button = (Rectangle) field(table, "pocketPeekButton");
             var hitsButton = CoronaPokerGdxTable.class.getDeclaredMethod(
                     "pocketPeekSurfaceContains", float.class, float.class);
@@ -465,6 +466,29 @@ final class GdxPerspectivePocketGpuTest {
             Gdx.input = original;
             table.dispose();
         }
+    }
+
+    private static void verifyFixedDealerDuringSort(CoronaPokerGdxTable table, Viewport viewport) throws Exception {
+        Object seat = ((Object[]) field(table, "seats"))[0];
+        var anchor = CoronaPokerGdxTable.class.getDeclaredMethod("positionMarkerAnchor", seat.getClass());
+        anchor.setAccessible(true);
+        var fixed = new Vector2((Vector2) anchor.invoke(table, seat));
+        Vector2 center = viewport.project(new Vector2(fixed));
+        // The exchanging card passes under the left side of the dealer disc.
+        int x = Math.round(center.x) - WIDTH / 50;
+        int y = Math.round(center.y) - 2;
+        byte[] artwork = ScreenUtils.getFrameBufferPixels(x, y, 5, 5, false);
+        var order = (GdxPocketOrder) field(table, "pocketOrder");
+        order.deal(0, "A_C");
+        order.deal(1, "K_D");
+        assertTrue(order.busy());
+        for (int frame = 0; frame < 60 && order.busy(); frame++) {
+            order.update(true, true, 1f / 60f);
+            table.render();
+            assertEquals(fixed, anchor.invoke(table, seat));
+            assertArrayEquals(artwork, ScreenUtils.getFrameBufferPixels(x, y, 5, 5, false));
+        }
+        assertFalse(order.busy());
     }
 
     private static void verifyRabbitPocket(CoronaPokerGdxTable table,

@@ -42,17 +42,16 @@ final class GdxCardShell implements Disposable {
             uniform vec4 u_pixelBounds;
             void main() {
                 vec2 uv = v_texCoords;
-                vec2 lo = max(uv - u_pixelBounds.xy, 0.5 * u_pixelBounds.xy);
-                vec2 hi = min(uv + u_pixelBounds.xy, u_pixelBounds.zw);
+                // Sample inside this output pixel. At 2x, bilinear filtering
+                // reaches just the adjacent subtexel on either side of the footprint.
+                vec2 offset = 0.41 * u_pixelBounds.xy;
+                vec2 lo = max(uv - offset, 0.5 * u_pixelBounds.xy);
+                vec2 hi = min(uv + offset, u_pixelBounds.zw);
                 vec4 center = texture2D(u_texture, uv);
-                vec4 sides = texture2D(u_texture, vec2(lo.x, uv.y)) + texture2D(u_texture, vec2(hi.x, uv.y))
-                           + texture2D(u_texture, vec2(uv.x, lo.y)) + texture2D(u_texture, vec2(uv.x, hi.y));
-                vec4 corners = texture2D(u_texture, lo) + texture2D(u_texture, hi)
-                             + texture2D(u_texture, vec2(lo.x, hi.y)) + texture2D(u_texture, vec2(hi.x, lo.y));
-                // Separable weights (0.28, 0.44, 0.28) give a white edge the same
-                // gradual transition as the remote fan. Filter premultiplied RGBA
-                // together at a silhouette; keep the centre texel on solid surfaces.
-                vec4 edge = center * (0.44 * 0.44) + sides * (0.28 * 0.44) + corners * (0.28 * 0.28);
+                vec4 edge = 0.25 * (texture2D(u_texture, lo) + texture2D(u_texture, hi)
+                                  + texture2D(u_texture, vec2(lo.x, hi.y)) + texture2D(u_texture, vec2(hi.x, lo.y)));
+                // Premultiplied samples carry the mesh colour across a partial edge.
+                // Preserve the original artwork wherever its coverage is uniform.
                 gl_FragColor = v_color * (abs(edge.a - center.a) < 0.0001 ? center : edge);
             }
             """;
@@ -364,7 +363,7 @@ final class GdxCardShell implements Disposable {
         builder.addBasicColorTextureAttachment(Pixmap.Format.RGBA8888);
         if (multisampleTarget == 0) builder.addDepthRenderBuffer(GL30C.GL_DEPTH_COMPONENT24);
         layer = builder.build();
-        Texture.TextureFilter filter = resolutionScale > 1
+        Texture.TextureFilter filter = resolutionScale > 1 || resolve == Resolve.CARD_SILHOUETTE
                 ? Texture.TextureFilter.Linear : Texture.TextureFilter.Nearest;
         layer.getColorBufferTexture().setFilter(filter, filter);
         if (multisampleSamples != reportedSamples && multisampleSamples != requestedSamples) {

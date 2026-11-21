@@ -123,8 +123,7 @@ final class GdxCardSmaaGpuCertificationTest {
             byte[] remote = renderProductCard(batch, card, projection, 1f, angle, true);
             // The white border of the diagnostic card meets a black background.
             assertTrue(maxRightEdgeStep(regular) > 200);
-            assertTrue(maxRightEdgeStep(remote) < 125,
-                    "The outer edge must blend across adjacent physical pixels");
+            assertCompactRightEdge(regular, remote, angle);
             for (int y = 44; y < 84; y++) {
                 int start = (y * WIDTH + 60) * 4;
                 int end = start + 40 * 4;
@@ -137,8 +136,7 @@ final class GdxCardSmaaGpuCertificationTest {
     private static void verifyMeshSilhouette(SpriteBatch batch, Texture card, Matrix4 projection) {
         byte[] regular = renderShell(batch, card, projection, GdxCardShell.Resolve.SUPERSAMPLED);
         byte[] softened = renderShell(batch, card, projection, GdxCardShell.Resolve.CARD_SILHOUETTE);
-        assertTrue(maxRightEdgeStep(softened) < 0.7f * maxRightEdgeStep(regular),
-                "A resolved mesh edge must spread coverage over neighbouring output pixels");
+        assertCompactRightEdge(regular, softened, 13f);
         for (int y = 44; y < 84; y++) {
             int start = (y * WIDTH + 60) * 4;
             int end = start + 40 * 4;
@@ -160,6 +158,30 @@ final class GdxCardSmaaGpuCertificationTest {
         } finally {
             shell.dispose();
         }
+    }
+
+    private static void assertCompactRightEdge(byte[] regular, byte[] filtered, float angle) {
+        assertTrue(maxRightEdgeStep(filtered) < 0.85f * maxRightEdgeStep(regular),
+                "The card must still smooth the step across its white edge");
+
+        // Both fixtures draw a 70 x 80 card centred in the framebuffer. Measure
+        // only the black background just beyond its straight right side.
+        double cos = Math.cos(Math.toRadians(angle));
+        double sin = Math.sin(Math.toRadians(angle));
+        int sum = 0;
+        int count = 0;
+        for (int y = 44; y < 84; y++) {
+            for (int x = WIDTH / 2; x < WIDTH; x++) {
+                double outside = (x + 0.5 - WIDTH / 2.0) * cos
+                        + (y + 0.5 - HEIGHT / 2.0) * sin - 35.0;
+                if (outside >= 0.85 && outside <= 1.5) {
+                    sum += unsigned(filtered[(y * WIDTH + x) * 4]);
+                    count++;
+                }
+            }
+        }
+        assertTrue(count >= 20, "The exterior stripe must contain enough background pixels");
+        assertTrue(sum <= 8 * count, "Mean exterior brightness: " + sum / (float) count);
     }
 
     private static int maxRightEdgeStep(byte[] image) {

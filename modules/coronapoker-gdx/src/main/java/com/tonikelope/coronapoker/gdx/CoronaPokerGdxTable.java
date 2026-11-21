@@ -626,7 +626,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // Limit its UV radius to the mesh guard during a grazing flip.
             float softCardCoverage(vec2 uv, float guard) {
                 float d = cardDistanceAt(cardCorner(uv - 0.5));
-                float radius = clamp(1.75 * length(vec2(dFdx(d), dFdy(d))), 0.00001, guard);
+                // Keep the low-coverage fringe within roughly one output pixel.
+                float radius = clamp(1.10 * length(vec2(dFdx(d), dFdy(d))), 0.00001, guard);
                 return 1.0 - smoothstep(-radius, radius, d);
             }
             float roundedCardCoverage(vec2 uv) {

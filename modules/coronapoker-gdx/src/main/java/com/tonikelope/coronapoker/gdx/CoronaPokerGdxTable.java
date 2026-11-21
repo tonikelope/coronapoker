@@ -624,8 +624,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             float roundedCardCoverage(vec2 uv) {
                 vec2 p = uv - 0.5;
-                // A slightly wider reconstruction footprint softens steep colour transitions on angled edges.
-                vec2 dx = 1.4 * dFdx(p), dy = 1.4 * dFdy(p);
+                // Integrate over the native footprint of one screen pixel.
+                vec2 dx = dFdx(p), dy = dFdy(p);
                 float d = cardDistanceAt(cardCorner(p));
                 float extent = 0.5 * (length(dx) + length(dy));
                 if (abs(d) >= extent) return step(d, 0.0);

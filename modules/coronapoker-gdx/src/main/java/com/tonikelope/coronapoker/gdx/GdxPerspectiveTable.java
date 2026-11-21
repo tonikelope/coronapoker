@@ -831,7 +831,10 @@ final class GdxPerspectiveTable implements Disposable {
         float p = MathUtils.clamp(progress, 0f, 1f);
         float turn = GdxPlasticCard.uncoverTurn(uncoverStartPeek, p, motion);
         float lift = GdxPlasticCard.uncoverLift(uncoverStartPeek, p, motion);
-        Vector3 center = pocketAt(x, y, w, slot, turn);
+        // Open the fan mainly on the way down, after the hand has
+        // rolled the compact pair far enough to show the faces.
+        float spread = Interpolation.smooth.apply(turn * turn);
+        Vector3 center = pocketAt(x, y, w, slot, spread);
         float cx = center.x, cz = center.z + h * .06f * lift * (1f - turn);
         if (Float.isNaN(pocketAnchorZ)) pocketAnchorZ = cz;
         packetLayerHeight = pocketLayerHeight(slot, w);
@@ -840,7 +843,7 @@ final class GdxPerspectiveTable implements Disposable {
         float fanPulse = 4f * p * (1f - p);
         float fanScale = 1f + 0.70f * motion.corner() * fanPulse * fanPulse;
         float bendingFan = MathUtils.lerp(fan,
-                MathUtils.lerp(coveredFan(slot), fan, turn) * fanScale, cameraProgress);
+                MathUtils.lerp(coveredFan(slot), fan, spread) * fanScale, cameraProgress);
         float angle = Math.abs(bendingFan);
         float extent = .5f * (MathUtils.cosDeg(angle) + w / h * MathUtils.sinDeg(angle));
         uncoverShape.set(lift, turn, extent);

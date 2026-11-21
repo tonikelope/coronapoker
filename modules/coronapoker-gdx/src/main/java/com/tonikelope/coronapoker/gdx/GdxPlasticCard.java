@@ -95,7 +95,6 @@ final class GdxPlasticCard {
     static final class UncoverShape {
         private static final int STEPS = 256;
         private final PeekShape peek = new PeekShape();
-        private final PeekShape rollingProfile = new PeekShape();
         private final Vector3 point = new Vector3(), normal = new Vector3();
         private final double[] z = new double[STEPS + 1], y = new double[STEPS + 1];
         private final double[] angle = new double[STEPS + 1];
@@ -113,33 +112,42 @@ final class GdxPlasticCard {
             lastLift = lift;
             lastTurn = turn;
             peek.set(lift);
-            rollingProfile.set(1f);
-            // Advance the turnover ahead of the fan as the sheet starts to
-            // settle, leaving the last part of the gesture for horizontal motion.
-            float roll = turn + 0.44f * turn * turn * (1f - turn);
-            float advance = (1f - minimumV) * roll;
-            float tip = MathUtils.lerp(155f * lift, 180f,
-                    turn);
-            float release = Interpolation.smoother.apply(
-                    MathUtils.clamp((turn - 0.84f) / 0.15f, 0f, 1f));
+            // The hand turns both cards together. Their stored peek curvature
+            // relaxes as the wrist turns, with just a shallow bow under load.
+            if (turn == 0f) return;
+            double phase = Math.min(1.0, turn / .90);
+            double travel = gripTravel(phase);
+            // The free edge describes an ellipse: it travels farther per
+            // degree near the felt than when upright. Ease the wrist there.
+            double pitch = Math.PI * travel - .13 * Math.sin(2.0 * Math.PI * travel);
+            double grip = (1.0 - phase) * (1.0 - phase);
+            double load = Math.sin(Math.PI * phase);
+            double bow = Math.toRadians(33) * load * load;
             floor = 0.0;
-            z[0] = -extent * (1.0 - 2.0 * turn);
+            z[0] = -extent * Math.cos(pitch);
             y[0] = 0.0;
             for (int i = 0; i <= STEPS; i++) {
-                // Roll the broad bend along the material instead of lifting
-                // the whole sheet into a nearly vertical panel at mid-turn.
-                rollingProfile.sample(point, normal, 1f, 1f, .5f,
-                        minimumV + range * i / STEPS + advance);
-                double tangent = Math.atan2(-normal.z, normal.y) * tip / 155.0;
-                // Let the remaining curl unwind while the fan is still
-                // opening, so the last edge meets the felt with little speed.
-                angle[i] = tangent + (Math.PI - tangent) * release;
+                double v = minimumV + range * i / STEPS;
+                peek.sample(point, normal, 1f, 1f, .5f, (float) v);
+                double heldAngle = Math.atan2(-normal.z, normal.y);
+                double along = Math.max(0.0, Math.min(1.0, v));
+                angle[i] = pitch + grip * heldAngle + bow * (along - .5);
                 if (i > 0) {
                     z[i] = z[i - 1] + (Math.cos(angle[i - 1]) + Math.cos(angle[i])) * range / (2.0 * STEPS);
                     y[i] = y[i - 1] + (Math.sin(angle[i - 1]) + Math.sin(angle[i])) * range / (2.0 * STEPS);
                     floor = Math.min(floor, y[i]);
                 }
             }
+        }
+
+        private static double gripTravel(double phase) {
+            double ramp = .09;
+            if (phase < ramp) return phase * phase / (2.0 * ramp * (1.0 - ramp));
+            if (phase > 1.0 - ramp) {
+                double remaining = 1.0 - phase;
+                return 1.0 - remaining * remaining / (2.0 * ramp * (1.0 - ramp));
+            }
+            return (phase - ramp * .5) / (1.0 - ramp);
         }
 
         float sample(Vector3 out, Vector3 outNormal, float width, float height, float u, float v) {
@@ -158,19 +166,16 @@ final class GdxPlasticCard {
     }
 
     static float uncoverLift(float initial, float progress, Motion motion) {
-        float gripHeight = Math.max(initial, 0.994f + (motion.bend() - 1f) * 0.045f);
-        float liftEnd = 0.56f + motion.tempo() * 0.35f;
+        // A covered pair needs only a small purchase to turn. A pair
+        // already lifted for a private peek starts from that exact grip.
+        float gripHeight = Math.max(initial, .20f * motion.bend());
         return MathUtils.lerp(initial, gripHeight, Interpolation.smoother.apply(
-                MathUtils.clamp(progress / liftEnd, 0f, 1f)));
+                MathUtils.clamp(progress / (.73f + motion.tempo()), 0f, 1f)));
     }
 
     static float uncoverTurn(float initial, float progress, Motion motion) {
-        float covered = 1f - initial;
-        float lead = (0.30f + motion.tempo() * 0.40f)
-                * covered * (1f - 0.56f * initial);
-        float roll = MathUtils.clamp((progress - lead) / (1f - lead), 0f, 1f);
-        return MathUtils.lerp(Interpolation.smoother.apply(roll),
-                Interpolation.smooth.apply(roll), 0.45f * covered * covered);
+        float lead = (.010f + motion.tempo() * .20f) * (1f - initial);
+        return MathUtils.clamp((progress - lead) / (1f - lead), 0f, 1f);
     }
 
     static float uncoverSeconds(float configuredFlipSeconds) {

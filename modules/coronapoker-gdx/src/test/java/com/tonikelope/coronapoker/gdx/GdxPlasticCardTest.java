@@ -336,8 +336,10 @@ final class GdxPlasticCardTest {
                 shape.set(lift,turn,.55f);
                 for(int row=0;row<=100;row++) {
                     shape.sample(point,normal,100f,140f,.5f,row/100f);
-                    assertTrue(point.y>=-.001f && point.y<140f*.67f,
-                            "The packet jumps up as a nearly vertical panel");
+                    // With the pair braced on its short edge, its tip can rise to
+                    // the material distance from that contact during the turnover.
+                    assertTrue(point.y >= -.001f && point.y <= (.55f + .5f) * 140f + .001f,
+                            "The packet moved below the felt or beyond its physical reach");
                     point.z+=140f*.06f*lift*(1-turn);
                     if(previous[row]!=null) maxStep=Math.max(maxStep,point.dst(previous[row]));
                     else previous[row]=new Vector3();
@@ -354,6 +356,29 @@ final class GdxPlasticCardTest {
         assertTrue(GdxPlasticCard.uncoverLift(0f,.42f,motion)
                         < GdxPlasticCard.uncoverLift(0f,1f,motion),
                 "Lifting and rolling must overlap instead of stopping between phases");
+    }
+
+    @Test void coveredShowdownPairTurnsWithOnlyAShallowElasticBow() {
+        var shape = new GdxPlasticCard.UncoverShape();
+        var point = new Vector3();
+        var supported = new Vector3();
+        var tip = new Vector3();
+        for (long seed = 0; seed < 24; seed++) {
+            var motion = GdxPlasticCard.motion(seed);
+            float peakBend = 0f;
+            for (int frame = 0; frame <= 90; frame++) {
+                float progress = frame / 90f;
+                shape.set(GdxPlasticCard.uncoverLift(0f, progress, motion),
+                        GdxPlasticCard.uncoverTurn(0f, progress, motion), .55f);
+                shape.sample(point, supported, 100f, 140f, .5f, 0f);
+                shape.sample(point, tip, 100f, 140f, .5f, 1f);
+                double cosine = Math.max(-1f, Math.min(1f, supported.dot(tip)));
+                float bend = (float) Math.toDegrees(Math.acos(cosine));
+                peakBend = Math.max(peakBend, bend);
+                if (frame == 90) assertEquals(0f, bend, .01f);
+            }
+            assertTrue(peakBend > 25f && peakBend < 45f, "Peak bend in degrees: " + peakBend);
+        }
     }
 
     @Test void pocketUncoverSettlesBeforeTheFanStopsAcrossGestureVariations() {

@@ -10,7 +10,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
-/** Turns the squared mesh on the felt, then carries it into the dealer's avatar. */
+/** Turns the squared mesh on the felt, then carries it into the centre of the dealer's seat. */
 final class GdxShuffleDealerFlight implements Disposable {
     static final float SQUARE_SECONDS = .18f;
     static final float TURN_SECONDS = .18f;
@@ -87,7 +87,7 @@ final class GdxShuffleDealerFlight implements Disposable {
 
     private float landingScale(float width, float height, float aspect, float midHeight,
             float avatarSize, boolean local) {
-        // Fit the projected corners inside the circular avatar even at maximum shuffle zoom.
+        // Keep the landing footprint proportional to the HUD scale at any shuffle zoom.
         float radiusSquared = 0f;
         for (int corner = 0; corner < 8; corner++) {
             along.set((corner & 1) == 0 ? -.5f : .5f, (corner & 2) == 0 ? 0f : midHeight * 2f,

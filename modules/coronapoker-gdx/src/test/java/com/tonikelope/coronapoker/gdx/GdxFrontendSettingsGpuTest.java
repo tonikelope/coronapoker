@@ -759,6 +759,9 @@ final class GdxFrontendSettingsGpuTest {
         setLong(shuffle, "departureStart", System.nanoTime() - 2_000_000_000L);
         table.render();
         assertEquals(true, field(shuffle, "landingPresented"));
+        Object local = ((Object[]) field(table, "seats"))[0];
+        assertEquals(field(local, "x"), field(table, "dealerSeatCenterX"));
+        assertEquals(field(local, "y"), field(table, "dealerSeatCenterY"));
         assertFalse(finished.isDone());
         setLong(shuffle, "landingNanos", System.nanoTime() - 200_000_000L);
         table.render();

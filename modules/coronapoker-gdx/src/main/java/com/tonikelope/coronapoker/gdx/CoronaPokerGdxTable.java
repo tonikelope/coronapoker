@@ -1709,7 +1709,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float tableCenterY;
     private String handDealerNickname;
     private boolean dealerSourceLocated;
-    private float dealerAvatarX;
+    private float dealerSeatCenterX, dealerSeatCenterY;
     private boolean dealerIsLocal;
     private float dealerSourceX;
     private float dealerSourceY;
@@ -12714,8 +12714,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         Seat dealer = seatByNickname(handDealerNickname);
         if (dealer != null && dealer.geometryReady) {
-            dealerAvatarX = seatAvatarX(dealer);
             dealerIsLocal = dealer.index == 0;
+            // The local identity unit is centred under the hand. A rival's seat
+            // is anchored at the avatar, with its information panel below it.
+            dealerSeatCenterX = dealerIsLocal ? dealer.x : dealer.podX + PLAYER_POD_WIDTH * .5f;
+            dealerSeatCenterY = dealerIsLocal ? dealer.y : dealer.podY + PLAYER_POD_HEIGHT * .5f;
             dealerSourceX = dealer.x;
             dealerSourceY = dealer.y;
             if (perspectiveActive) {
@@ -20870,7 +20873,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 dealerFlight = new GdxShuffleDealerFlight(samples);
             }
             dealerFlight.draw(riffle, shuffleProjection, back, faces, requestedCardRenderingMode(), active.cardAspect,
-                    worldWidth, viewport.getWorldHeight(), dealerAvatarX, dealerSourceY, AVATAR_SIZE, dealerIsLocal,
+                    worldWidth, viewport.getWorldHeight(), dealerSeatCenterX, dealerSeatCenterY, AVATAR_SIZE, dealerIsLocal,
                     shufflePotRelief, flight);
             if (!active.landingPresented && flight >= GdxShuffleDealerFlight.APPROACH_SECONDS) {
                 active.landingPresented = true;

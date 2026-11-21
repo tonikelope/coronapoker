@@ -17695,6 +17695,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 preparationStatusText(preparationPhase, gameText),
                 layout.centerX(), layout.statusY(), layout.labelWidth(),
                 GdxUiDialogStyle.PREPARATION_STATUS, 1f);
+        if (lobby != null && !tableHost) {
+            drawFittedCentered(settingsTinyFont, gameText.translate("gdx.newgame.fair_play"),
+                    layout.centerX(), layout.track().y - 16f, layout.labelWidth(),
+                    GdxUiDialogStyle.PREPARATION_STATUS, 1f);
+        }
         batch.end();
     }
 

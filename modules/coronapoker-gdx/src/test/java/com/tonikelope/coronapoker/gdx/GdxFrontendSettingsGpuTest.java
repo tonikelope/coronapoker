@@ -155,7 +155,8 @@ final class GdxFrontendSettingsGpuTest {
         verifyAngleTrack(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, GdxSettingsContract.appearanceGraphicsPageIndex());
         var modes = presentation.cardRenderingModes();
-        assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_BALANCED, GdxCardSmaaRenderer.RENDERING_SMOOTH_AF), modes);
+        assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_PERFORMANCE, GdxCardSmaaRenderer.RENDERING_BALANCED,
+                GdxCardSmaaRenderer.RENDERING_SMOOTH_AF), modes);
         for (int mode : modes) {
             var point = pressOption(screen, "CARD_RENDERING", modes.indexOf(mode));
             assertEquals(mode, presentation.requestedCardRenderingMode());

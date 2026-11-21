@@ -302,7 +302,7 @@ final class GdxRiffleShuffle implements Disposable {
         shader.setUniformf("u_shadowTexel", 1f / SHADOW_SIZE);
         shader.setUniformi("u_back", 0);
         shader.setUniformi("u_face", 1);
-        shader.setUniformf("u_gameFilter", mode == GdxCardSmaaRenderer.RENDERING_BALANCED ? 0f : 1f);
+        shader.setUniformf("u_gameFilter", GdxCardSampling.shaderValue(mode) < 0f ? 0f : 1f);
         shader.setUniformf("u_frontView", view == View.FRONT ? 1f : 0f);
         shader.setUniformf("u_artworkSmooth", GdxCardSampling.shaderValue(mode));
         shader.setUniformf("u_artworkLodBias", CoronaPokerGdxTable.cardArtworkLodBias(mode));

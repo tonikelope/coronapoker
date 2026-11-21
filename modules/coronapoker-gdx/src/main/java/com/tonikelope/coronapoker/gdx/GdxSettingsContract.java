@@ -1140,12 +1140,17 @@ final class GdxSettingsContract {
     }
 
     static int cardRenderingMode(Properties properties) {
-        // A saved direct trilinear selection remains valid. Retired modes use the current default.
-        return Integer.toString(GdxCardSmaaRenderer.RENDERING_BALANCED).equals(properties.getProperty(CARD_RENDERING_KEY))
-                ? GdxCardSmaaRenderer.RENDERING_BALANCED : DEFAULT_CARD_RENDERING_MODE;
+        int saved = integer(properties, CARD_RENDERING_KEY, DEFAULT_CARD_RENDERING_MODE);
+        return switch (saved) {
+            case GdxCardSmaaRenderer.RENDERING_PERFORMANCE, GdxCardSmaaRenderer.RENDERING_BALANCED -> saved;
+            default -> DEFAULT_CARD_RENDERING_MODE;
+        };
     }
 
     static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
+        if (rendering == GdxCardSmaaRenderer.RENDERING_PERFORMANCE) {
+            return text == null ? "Máximo rendimiento" : text.translate("gdx.settings.value.card_performance");
+        }
         if (rendering == GdxCardSmaaRenderer.RENDERING_BALANCED) {
             return text == null ? "TRILINEAL + AF(x16)" : text.translate("gdx.settings.value.card_trilinear");
         }

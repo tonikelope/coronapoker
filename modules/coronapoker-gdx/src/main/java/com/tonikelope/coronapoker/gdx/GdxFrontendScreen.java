@@ -478,6 +478,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String loadedFelt;
     private boolean loadedSecretFelt;
     private Texture logo;
+    private Texture pegi18;
+    private TextureRegion krustySeal;
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture selectedAvatarTexture;
@@ -952,6 +954,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture = loadFeltTexture();
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        pegi18 = filteredTexture("images/pegi18.png");
+        // The bundled 100 px seal has a two-pixel transparent margin.
+        krustySeal = new TextureRegion(filteredTexture("images/krusty.png"), 2, 2, 96, 96);
         avatarDefault = filteredTexture("images/avatar_default.png");
         avatarBot = filteredTexture("images/avatar_bot.png");
         soundIcon = filteredTexture("images/sound.png");
@@ -1478,6 +1483,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
 
         batch.begin();
+        if (surface == Surface.MENU && !hasVisibleFrontendModal()) {
+            float height = 120f;
+            float width = height * pegi18.getWidth() / pegi18.getHeight();
+            float x = GdxProductVersionBrand.X;
+            float y = GdxProductVersionBrand.BASELINE_Y + 10f;
+            batch.setColor(Color.WHITE);
+            batch.draw(pegi18, x, y, width, height);
+            batch.draw(krustySeal, x + width + 10f, y, height, height);
+        }
         drawLobbyAvatarsInCurrentBatch();
         drawUiImagesInCurrentBatch();
         for (TextItem item : texts) {
@@ -8261,6 +8275,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 : pendingLanguage.label();
         textFit(smallFont, detail, layout.centerX(), layout.statusY(),
                 GdxUiDialogStyle.PREPARATION_STATUS, true, layout.labelWidth());
+        if (pendingLanguage == null && lobby != null && !lobby.host()) {
+            textFit(tinyFont, gameText.translate("gdx.newgame.fair_play"), layout.centerX(),
+                    layout.track().y - 16f, MUTED, true, layout.labelWidth());
+        }
     }
 
     float preparationAnimationTime() {
@@ -8269,27 +8287,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawNewGameSubmissionOverlay() {
 
+        boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
         float panelX = 610f;
-        float panelY = 384f;
         float panelW = 700f;
-        float panelH = 270f;
+        float panelH = joining ? 310f : 270f;
+        float panelY = 519f - panelH / 2f;
         GdxUiDialogStyle.drawPanel(shapes, panelX, panelY, panelW, panelH,
                 CYAN_DARK, 1f);
 
-        String statusKey = connection.mode()
-                == NewGameConnectionDraft.Mode.CREATE
-                        ? "gdx.newgame.preparing_waiting_room"
-                        : "gdx.newgame.connecting_waiting_room";
+        String statusKey = joining ? "gdx.newgame.connecting_waiting_room"
+                : "gdx.newgame.preparing_waiting_room";
         textFit(headingFont, uppercase(gameText.translate(statusKey)),
-                WIDTH / 2f, panelY + 190f, GOLD, true, panelW - 80f);
+                WIDTH / 2f, panelY + panelH - 80f, GOLD, true, panelW - 80f);
 
         float trackX = panelX + 80f;
-        float trackY = panelY + 116f;
+        float trackY = panelY + panelH - 154f;
         float trackW = panelW - 160f;
         float trackH = 16f;
         drawIndeterminateProgressBar(trackX, trackY, trackW, trackH,
                 150f, 0.58f, 8f);
 
+        if (joining) {
+            textFit(tinyFont, gameText.translate("gdx.newgame.fair_play"), WIDTH / 2f,
+                    trackY - 18f, MUTED, true, panelW - 64f);
+        }
         themedButton(panelX + 200f, panelY + 28f, 300f, 62f,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL, this::cancelOrReturnToMenu, true);
@@ -18105,6 +18126,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.dispose();
         feltTexture.dispose();
         logo.dispose();
+        pegi18.dispose();
+        krustySeal.getTexture().dispose();
         avatarDefault.dispose();
         avatarBot.dispose();
         disposeCustomBotAvatarTextures();

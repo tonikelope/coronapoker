@@ -17,7 +17,8 @@ final class GdxCardSampling {
 
     static float shaderValue(int mode) {
         if (smoothArtwork(mode)) return 1f;
-        return mode == GdxCardSmaaRenderer.RENDERING_BALANCED ? -1f : 0f;
+        return mode == GdxCardSmaaRenderer.RENDERING_BALANCED
+                || mode == GdxCardSmaaRenderer.RENDERING_PERFORMANCE ? -1f : 0f;
     }
 
     static void bind(Texture texture, int unit, int mode) {

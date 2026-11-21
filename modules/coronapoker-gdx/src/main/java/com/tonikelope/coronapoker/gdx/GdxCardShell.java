@@ -97,6 +97,7 @@ final class GdxCardShell implements Disposable {
     private int nativeHeight;
     private int regionX, regionY, regionWidth, regionHeight;
     private int resolutionScale = 1;
+    private boolean supersamplingAllowed = true;
     GdxCardPickMesh pickTarget;
 
     GdxCardShell(int requestedSamples) {
@@ -323,6 +324,13 @@ final class GdxCardShell implements Disposable {
         }
     }
 
+    void setSupersamplingAllowed(boolean enabled) {
+        if (supersamplingAllowed != enabled) {
+            supersamplingAllowed = enabled;
+            nativeWidth = 0; // Reallocate at the new scale on the next draw.
+        }
+    }
+
     private void ensureLayer(int w, int h) {
         boolean cropped = regionWidth > 0;
         int neededWidth = cropped ? regionWidth : w;
@@ -347,13 +355,13 @@ final class GdxCardShell implements Disposable {
             layer = null;
         }
         resolutionScale = 1;
-        if (resolve != Resolve.NATIVE && cropped && width <= maximum / 2 && height <= maximum / 2) {
+        if (supersamplingAllowed && resolve != Resolve.NATIVE && cropped && width <= maximum / 2 && height <= maximum / 2) {
             var limits = BufferUtils.newIntBuffer(2);
             GL11C.glGetIntegerv(GL20.GL_MAX_VIEWPORT_DIMS, limits);
             if (w <= limits.get(0) / 2 && h <= limits.get(1) / 2) resolutionScale = 2;
         }
         createMultisample(width * resolutionScale, height * resolutionScale);
-        if (!cropped && requestedSamples > 0 && multisampleTarget == 0
+        if (supersamplingAllowed && !cropped && requestedSamples > 0 && multisampleTarget == 0
                 && w <= maximum / 2 && h <= maximum / 2) {
             resolutionScale = 2;
         }

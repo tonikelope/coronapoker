@@ -201,14 +201,15 @@ final class GdxCardSmaaGpuCertificationTest {
 
     private static void verifyCardTextureModes(Texture card) {
         float maximum = Texture.getMaxAnisotropicFilterLevel();
-        for (int mode : new int[]{GdxCardSmaaRenderer.RENDERING_BALANCED,
+        for (int mode : new int[]{GdxCardSmaaRenderer.RENDERING_PERFORMANCE, GdxCardSmaaRenderer.RENDERING_BALANCED,
                 GdxCardSmaaRenderer.RENDERING_SMOOTH_AF, GdxCardSmaaRenderer.RENDERING_SMOOTH}) {
             GdxCardSampling.bind(card, 0, mode);
-            boolean smoothOnly = mode == GdxCardSmaaRenderer.RENDERING_SMOOTH;
-            assertEquals(smoothOnly ? GL11.GL_LINEAR_MIPMAP_NEAREST : GL11.GL_LINEAR_MIPMAP_LINEAR,
+            boolean bilinear = mode == GdxCardSmaaRenderer.RENDERING_SMOOTH
+                    || mode == GdxCardSmaaRenderer.RENDERING_PERFORMANCE;
+            assertEquals(bilinear ? GL11.GL_LINEAR_MIPMAP_NEAREST : GL11.GL_LINEAR_MIPMAP_LINEAR,
                     GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER));
             if (maximum > 1f) {
-                assertEquals(smoothOnly ? 1f : Math.min(16f, maximum),
+                assertEquals(bilinear ? 1f : Math.min(16f, maximum),
                         GL11.glGetTexParameterf(GL11.GL_TEXTURE_2D,
                                 EXTTextureFilterAnisotropic.GL_TEXTURE_MAX_ANISOTROPY_EXT), .001f);
             }

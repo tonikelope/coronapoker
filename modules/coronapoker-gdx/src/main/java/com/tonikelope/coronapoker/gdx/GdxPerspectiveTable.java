@@ -476,6 +476,9 @@ final class GdxPerspectiveTable implements Disposable {
 
     void setArtworkMode(int mode) {
         artworkSampling = GdxCardSampling.shaderValue(mode);
+        boolean supersample = mode != GdxCardSmaaRenderer.RENDERING_PERFORMANCE;
+        pocketShell.setSupersamplingAllowed(supersample);
+        boardShell.setSupersamplingAllowed(supersample);
     }
 
     float peekAmount() { return peek; }

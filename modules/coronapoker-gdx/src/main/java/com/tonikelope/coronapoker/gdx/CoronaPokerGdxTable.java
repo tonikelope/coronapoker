@@ -622,6 +622,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 area = clamp(area, 0.0, 0.5);
                 return d < 0.0 ? 1.0 - area : area;
             }
+            // The centre of the wider transition stays on the geometric outline.
+            // Limit its UV radius to the mesh guard during a grazing flip.
+            float softCardCoverage(vec2 uv, float guard) {
+                float d = cardDistanceAt(cardCorner(uv - 0.5));
+                float radius = clamp(1.75 * length(vec2(dFdx(d), dFdy(d))), 0.00001, guard);
+                return 1.0 - smoothstep(-radius, radius, d);
+            }
             float roundedCardCoverage(vec2 uv) {
                 vec2 p = uv - 0.5;
                 // Integrate over the native footprint of one screen pixel.
@@ -750,19 +757,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + "        float facing = flipAngle > 1.5707963 ? -horizontal : horizontal;\n"
             + "        sourceUv.x = facing * 0.5 + 0.5;\n"
             + "    }\n"
-            // On the small fan a one-pixel box filter leaves a conspicuous step
-            // every eight pixels along the 7-degree sides. Use a symmetric cubic
-            // transition in framebuffer pixels. The 50% contour stays in place.
-            + "    float mask;\n"
-            + "    if (u_remoteSeat > 0.5) {\n"
-            + "        float d = cardDistanceAt(cardCorner(sourceUv - 0.5));\n"
-            + "        float radius = 1.75 * length(vec2(dFdx(d), dFdy(d)));\n"
-            // The inverse flip projection has a finite guard band at grazing angles.
-            + "        radius = clamp(radius, 0.00001, " + CARD_EDGE_GUARD_UV + ");\n"
-            + "        mask = 1.0 - smoothstep(-radius, radius, d);\n"
-            + "    } else {\n"
-            + "        mask = roundedCardCoverage(sourceUv);\n"
-            + "    }\n"
+            + "    float mask = u_remoteSeat > 0.5 || u_projectedArtwork > 0.0\n"
+            + "        ? softCardCoverage(sourceUv, " + CARD_EDGE_GUARD_UV + ") : roundedCardCoverage(sourceUv);\n"
             + "    if (mask <= 0.001) discard;\n"
             + "    vec4 pixel;\n"
             + "    if (abs(u_flipAngle) > 1.5707963) {\n"
@@ -793,7 +789,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             + ROUNDED_CARD_COVERAGE_GLSL
             + CARD_ARTWORK_SAMPLING_GLSL
             + "void main() {\n"
-            + "    float rounded = roundedCardCoverage(v_texCoords);\n"
+            + "    float rounded = u_projectedArtwork > 0.0\n"
+            + "        ? softCardCoverage(v_texCoords, " + CARD_EDGE_GUARD_UV + ") : roundedCardCoverage(v_texCoords);\n"
             + "    if (rounded <= 0.001) discard;\n"
             + "    vec4 covered = sampleCardArtwork(u_texture, v_texCoords);\n"
             + "    float undersideLight = 0.47 + 0.37 * smoothstep(0.10, 0.37, v_lift)\n"
@@ -1436,6 +1433,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float configuredCardShaderAspect;
     private float configuredCardShaderArtworkSmooth;
     private FlatCardSurface configuredCardSurface;
+    private boolean configuredCardShaderProjectedArtwork;
     private float configuredCardShaderOverlayAlpha = Float.NaN;
     private ShaderProgram avatarShader;
     private ShaderProgram cinematicShader;
@@ -18219,6 +18217,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float artworkSmooth = cardArtworkSmoothValue();
         if (batch.getShader() == roundedCardShader
                 && configuredCardSurface == surface
+                && configuredCardShaderProjectedArtwork == perspectiveBoardArtwork
                 && sameCardShaderConfiguration(
                         configuredCardShaderFront, configuredCardShaderBack,
                         configuredCardShaderAngle,
@@ -18262,6 +18261,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         configuredCardShaderAspect = aspect;
         configuredCardShaderArtworkSmooth = artworkSmooth;
         configuredCardSurface = surface;
+        configuredCardShaderProjectedArtwork = perspectiveBoardArtwork;
         configuredCardShaderOverlayAlpha = 0f;
     }
 

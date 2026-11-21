@@ -310,11 +310,11 @@ final class GdxPerspectiveTable implements Disposable {
 
     GdxPerspectiveTable(int msaaSamples) {
         shell = new GdxCardShell(msaaSamples);
-        pocketShell = new GdxCardShell(msaaSamples);
-        boardShell = new GdxCardShell(msaaSamples);
+        pocketShell = new GdxCardShell(msaaSamples, GdxCardShell.Resolve.CARD_SILHOUETTE);
+        boardShell = new GdxCardShell(msaaSamples, GdxCardShell.Resolve.CARD_SILHOUETTE);
         chipShell = new GdxCardShell(msaaSamples);
         // Keep airborne shadows on their own single-sample, native-resolution target.
-        flightShadowShell = new GdxCardShell(0, false);
+        flightShadowShell = new GdxCardShell(0, GdxCardShell.Resolve.NATIVE);
     }
 
     private final GdxPlasticCard.UncoverShape uncoverShape = new GdxPlasticCard.UncoverShape();
@@ -1691,23 +1691,21 @@ final class GdxPerspectiveTable implements Disposable {
                 draw.opacity = opacity;
                 draw.highlight = highlight;
                 draw.pickTarget = pick;
-            } else if (boardCardPass) {
+            } else {
+                // A local deal flight is drawn before its resting pair.
+                GdxCardShell target = boardCardPass ? boardShell : pocketShell;
                 // Resolve each card in paint order so a translucent or
                 // airborne card still composites over the cards below it.
                 resetCardBounds();
                 includeCardBounds(cardVertices);
-                beginCroppedCardLayer(boardShell);
+                beginCroppedCardLayer(target);
                 try {
-                    drawShell(boardShell, cardVertices, meshColumns, meshRows,
+                    drawShell(target, cardVertices, meshColumns, meshRows,
                             material, top, bottom, cardWorldWidth, aspect, opacity,
-                            highlight, null);
+                            highlight, boardCardPass ? null : pick);
                 } finally {
-                    boardShell.endPair();
+                    target.endPair();
                 }
-            } else {
-                drawShell(shell, cardVertices,
-                        meshColumns, meshRows, material, top, bottom,
-                        cardWorldWidth, aspect, opacity, highlight, pick);
             }
             return;
         }

@@ -92,6 +92,7 @@ final class GdxCardSmaaGpuCertificationTest {
                     + "no-op: only " + artworkChanged
                     + " framebuffer pixels changed");
             verifyRemoteSilhouette(batch, card, projection);
+            verifyMeshSilhouette(batch, card, projection);
             byte[] direct = renderNative(renderer, batch, card, projection);
             byte[] antialiased = renderSmaa(renderer, batch, card, projection, null);
             assertArrayEquals(antialiased, renderSmaa(renderer, batch, card,
@@ -130,6 +131,34 @@ final class GdxCardSmaaGpuCertificationTest {
                 assertTrue(java.util.Arrays.equals(regular, start, end, remote, start, end),
                         "The opaque artwork must retain its original samples");
             }
+        }
+    }
+
+    private static void verifyMeshSilhouette(SpriteBatch batch, Texture card, Matrix4 projection) {
+        byte[] regular = renderShell(batch, card, projection, GdxCardShell.Resolve.SUPERSAMPLED);
+        byte[] softened = renderShell(batch, card, projection, GdxCardShell.Resolve.CARD_SILHOUETTE);
+        assertTrue(maxRightEdgeStep(softened) < 0.7f * maxRightEdgeStep(regular),
+                "A resolved mesh edge must spread coverage over neighbouring output pixels");
+        for (int y = 44; y < 84; y++) {
+            int start = (y * WIDTH + 60) * 4;
+            int end = start + 40 * 4;
+            assertTrue(java.util.Arrays.equals(regular, start, end, softened, start, end),
+                    "The mesh composite must preserve opaque printed detail");
+        }
+    }
+
+    private static byte[] renderShell(SpriteBatch batch, Texture card, Matrix4 projection,
+            GdxCardShell.Resolve resolve) {
+        GdxCardShell shell = new GdxCardShell(4, resolve);
+        try {
+            clearBackBuffer();
+            batch.setProjectionMatrix(projection);
+            shell.beginPair(20, 6, 122, 116);
+            shell.renderLayer(() -> drawCard(batch, card), WIDTH, HEIGHT);
+            shell.endPair();
+            return ScreenUtils.getFrameBufferPixels(0, 0, WIDTH, HEIGHT, false);
+        } finally {
+            shell.dispose();
         }
     }
 

@@ -29,6 +29,34 @@ import org.lwjgl.opengl.GL30C;
 final class GdxCardShell implements Disposable {
     private static final int CROP_BLOCK_SIZE = 128;
 
+    enum Resolve { NATIVE, SUPERSAMPLED, CARD_SILHOUETTE }
+
+    private static final String CARD_COMPOSITE_FRAGMENT = """
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+            varying vec4 v_color;
+            varying vec2 v_texCoords;
+            uniform sampler2D u_texture;
+            // One output pixel in layer UVs, followed by the last valid pixel centre.
+            uniform vec4 u_pixelBounds;
+            void main() {
+                vec2 uv = v_texCoords;
+                vec2 lo = max(uv - u_pixelBounds.xy, 0.5 * u_pixelBounds.xy);
+                vec2 hi = min(uv + u_pixelBounds.xy, u_pixelBounds.zw);
+                vec4 center = texture2D(u_texture, uv);
+                vec4 sides = texture2D(u_texture, vec2(lo.x, uv.y)) + texture2D(u_texture, vec2(hi.x, uv.y))
+                           + texture2D(u_texture, vec2(uv.x, lo.y)) + texture2D(u_texture, vec2(uv.x, hi.y));
+                vec4 corners = texture2D(u_texture, lo) + texture2D(u_texture, hi)
+                             + texture2D(u_texture, vec2(lo.x, hi.y)) + texture2D(u_texture, vec2(hi.x, lo.y));
+                // Separable weights (0.28, 0.44, 0.28) give a white edge the same
+                // gradual transition as the remote fan. Filter premultiplied RGBA
+                // together at a silhouette; keep the centre texel on solid surfaces.
+                vec4 edge = center * (0.44 * 0.44) + sides * (0.28 * 0.44) + corners * (0.28 * 0.28);
+                gl_FragColor = v_color * (abs(edge.a - center.a) < 0.0001 ? center : edge);
+            }
+            """;
+
     private record Grid(int columns, int rows, float aspect) { }
     private final Map<Grid, GdxCardContour> contours = new LinkedHashMap<>(8, 0.75f, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<Grid, GdxCardContour> eldest) {
@@ -53,6 +81,7 @@ final class GdxCardShell implements Disposable {
     private int capacity;
     private FrameBuffer layer;
     private SpriteBatch composite;
+    private ShaderProgram cardCompositeShader;
     private int multisampleTarget;
     private int multisampleColour;
     private int multisampleDepth;
@@ -64,7 +93,7 @@ final class GdxCardShell implements Disposable {
     private float groupWidth;
     private float groupHeight;
     private final int requestedSamples;
-    private final boolean supersampleCrop;
+    private final Resolve resolve;
     private int nativeWidth;
     private int nativeHeight;
     private int regionX, regionY, regionWidth, regionHeight;
@@ -72,12 +101,12 @@ final class GdxCardShell implements Disposable {
     GdxCardPickMesh pickTarget;
 
     GdxCardShell(int requestedSamples) {
-        this(requestedSamples, true);
+        this(requestedSamples, Resolve.SUPERSAMPLED);
     }
 
-    GdxCardShell(int requestedSamples, boolean supersampleCrop) {
+    GdxCardShell(int requestedSamples, Resolve resolve) {
         this.requestedSamples = Math.max(0, requestedSamples);
-        this.supersampleCrop = supersampleCrop;
+        this.resolve = resolve;
     }
 
     void prepare(int cols, int strips, float aspect) {
@@ -319,7 +348,7 @@ final class GdxCardShell implements Disposable {
             layer = null;
         }
         resolutionScale = 1;
-        if (supersampleCrop && cropped && width <= maximum / 2 && height <= maximum / 2) {
+        if (resolve != Resolve.NATIVE && cropped && width <= maximum / 2 && height <= maximum / 2) {
             var limits = BufferUtils.newIntBuffer(2);
             GL11C.glGetIntegerv(GL20.GL_MAX_VIEWPORT_DIMS, limits);
             if (w <= limits.get(0) / 2 && h <= limits.get(1) / 2) resolutionScale = 2;
@@ -353,13 +382,32 @@ final class GdxCardShell implements Disposable {
 
     private void composite(float worldWidth, float worldHeight, float opacity) {
         if (composite == null) {
-            composite = new SpriteBatch();
+            if (resolve == Resolve.CARD_SILHOUETTE) {
+                ShaderProgram shader = new ShaderProgram(CoronaPokerGdxTable.CARD_VERTEX_SHADER, CARD_COMPOSITE_FRAGMENT);
+                if (!shader.isCompiled()) {
+                    String log = shader.getLog();
+                    shader.dispose();
+                    throw new IllegalStateException("Card silhouette shader: " + log);
+                }
+                cardCompositeShader = shader;
+                composite = new SpriteBatch(1, shader);
+            } else {
+                composite = new SpriteBatch();
+            }
             composite.setBlendFunctionSeparate(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA,
                     GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
         }
         composite.setProjectionMatrix(projection.setToOrtho2D(0f, 0f, worldWidth, worldHeight));
         composite.setColor(opacity, opacity, opacity, opacity);
         composite.begin();
+        if (cardCompositeShader != null) {
+            float dx = (float) resolutionScale / layer.getWidth();
+            float dy = (float) resolutionScale / layer.getHeight();
+            int width = regionWidth > 0 ? regionWidth : nativeWidth;
+            int height = regionWidth > 0 ? regionHeight : nativeHeight;
+            cardCompositeShader.setUniformf("u_pixelBounds", dx, dy,
+                    (width - 0.5f) * dx, (height - 0.5f) * dy);
+        }
         if (regionWidth > 0) {
             // At 2x, linear sampling averages the four subpixels on the
             // original pixel grid. The resolve texture is premultiplied.
@@ -548,5 +596,6 @@ final class GdxCardShell implements Disposable {
         if (layer != null) layer.dispose();
         if (mesh != null) mesh.dispose();
         if (composite != null) composite.dispose();
+        if (cardCompositeShader != null) cardCompositeShader.dispose();
     }
 }

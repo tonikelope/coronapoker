@@ -26,7 +26,7 @@ final class GdxShuffleDealerFlight implements Disposable {
     private final Rectangle crop = new Rectangle();
 
     GdxShuffleDealerFlight(int activeSamples) {
-        layer = new GdxCardShell(activeSamples, false);
+        layer = new GdxCardShell(activeSamples, GdxCardShell.Resolve.NATIVE);
     }
 
     void draw(GdxRiffleShuffle riffle, Matrix4 table, Texture back, Texture[] faces, int mode, float aspect,

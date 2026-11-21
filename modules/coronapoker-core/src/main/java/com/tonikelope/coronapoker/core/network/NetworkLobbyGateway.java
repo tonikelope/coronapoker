@@ -544,36 +544,42 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 throw new IOException("Secure channel not established");
             }
             final Connection connection = opened;
-            Transport transport = new Transport(false, request, directory, executor,
-                    connection.sessionId, identity,
-                    NewGameTableDraft.Settings.parseWire(connection.gameConfig),
-                    gameTables, identityTrust, receiveStats, shareStats,
-                    statsSync, connection.hotJoin);
-            transport.serverConnection = connection;
-            transport.serverNickname = connection.remoteNickname;
-            transport.peers.put(connection.remoteNickname,
-                    new Peer(connection.remoteNickname, connection.remoteAvatar, false, true,
-                            false, connection.secure, connection,
-                            connection.remoteIdentityPublicKey,
-                            connection.remoteIdentitySignature, null, null,
-                            null));
-            if (connection.remoteIdentityPublicKey != null) {
-                identityTrust.observe(connection.remoteNickname,
-                        connection.remoteIdentityPublicKey);
+            try {
+                Transport transport = new Transport(false, request, directory, executor,
+                        connection.sessionId, identity,
+                        NewGameTableDraft.Settings.parseWire(connection.gameConfig),
+                        gameTables, identityTrust, receiveStats, shareStats,
+                        statsSync, connection.hotJoin);
+                transport.serverConnection = connection;
+                transport.serverNickname = connection.remoteNickname;
+                transport.peers.put(connection.remoteNickname,
+                        new Peer(connection.remoteNickname, connection.remoteAvatar, false, true,
+                                false, connection.secure, connection,
+                                connection.remoteIdentityPublicKey,
+                                connection.remoteIdentitySignature, null, null,
+                                null));
+                if (connection.remoteIdentityPublicKey != null) {
+                    identityTrust.observe(connection.remoteNickname,
+                            connection.remoteIdentityPublicKey);
+                }
+                transport.peers.put(transport.localNickname,
+                        Peer.local(transport.localNickname, request.connection().avatar(), false,
+                                identity.publicKey(), identity.signJoin(connection.sessionId)));
+                LobbySession session = new LobbySession(transport.snapshot(
+                        connection.hotJoin ? LobbySnapshot.Phase.IN_GAME
+                                : LobbySnapshot.Phase.CONNECTED,
+                        ""), transport::submit, transport);
+                transport.session = session;
+                connection.currentGeneration().socket.setSoTimeout(0);
+                connection.startGameOutbox();
+                executor.execute(() -> transport.readClient(connection));
+                connection.startHeartbeat(transport::publishCurrent);
+                transport.beginStatsSync(connection);
+                return session;
+            } catch (Exception failure) {
+                connection.close();
+                throw failure;
             }
-            transport.peers.put(transport.localNickname,
-                    Peer.local(transport.localNickname, request.connection().avatar(), false,
-                            identity.publicKey(), identity.signJoin(connection.sessionId)));
-            LobbySession session = new LobbySession(transport.snapshot(
-                    connection.hotJoin ? LobbySnapshot.Phase.IN_GAME
-                            : LobbySnapshot.Phase.CONNECTED,
-                    ""), transport::submit, transport);
-            transport.session = session;
-            connection.currentGeneration().socket.setSoTimeout(0);
-            executor.execute(() -> transport.readClient(connection));
-            connection.startHeartbeat(transport::publishCurrent);
-            transport.beginStatsSync(connection);
-            return session;
         }
 
         /**
@@ -680,7 +686,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 SecretKeySpec[] keys = keys(pair, remotePublic, password);
                 candidate = new Connection(socket, input, output, keys[0],
                         keys[1], GameCommandType.Direction.HOST_TO_CLIENT,
-                        executor, false);
+                        executor);
                 candidate.sessionId = receivedSessionId;
                 candidate.remoteNickname = established.remoteNickname;
                 candidate.remoteAvatar = established.remoteAvatar;
@@ -772,8 +778,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 dataOut.flush();
                 SecretKeySpec[] keys = keys(pair, remotePublic, password);
                 connection = new Connection(socket, input, output, keys[0], keys[1],
-                        GameCommandType.Direction.CLIENT_TO_HOST, executor,
-                        false);
+                        GameCommandType.Direction.CLIENT_TO_HOST, executor);
                 Connection.Generation initialGeneration =
                         connection.currentGeneration();
                 String join = connection.readEncryptedText(
@@ -1570,6 +1575,9 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 Connection.Generation generation, String command,
                 boolean fromClient, String[] parts) throws Exception {
             if (!source.isCurrent(generation)) return null;
+            if (fromClient && isHostLobbyDirective(parts[0])) {
+                throw new IOException("Lobby directive requires the host");
+            }
             switch (parts[0]) {
                 case "EXIT" -> {
                     if (fromClient) {
@@ -1588,7 +1596,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                             "ANTI_DOS_CONNECTION_BLOCKED_SESSION");
                     close();
                 }
-                case "NEWPASS" -> { if (!fromClient && parts.length > 1) password = "*".equals(parts[1]) ? null : text64(parts[1]); }
+                case "NEWPASS" -> { if (parts.length == 2) password = "*".equals(parts[1]) ? null : text64(parts[1]); }
                 case "CHAT" -> {
                     String nickname = fromClient ? source.remoteNickname : text64(parts[1]);
                     String text = parts.length == 3 ? text64(parts[2]) : "";
@@ -2977,14 +2985,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 SecretKeySpec aes, SecretKeySpec hmac,
                 GameCommandType.Direction inboundGameDirection,
                 ExecutorService executor) {
-            this(socket, input, output, aes, hmac, inboundGameDirection,
-                    executor, true);
-        }
-
-        Connection(Socket socket, InputStream input, OutputStream output,
-                SecretKeySpec aes, SecretKeySpec hmac,
-                GameCommandType.Direction inboundGameDirection,
-                ExecutorService executor, boolean startGameOutbox) {
             this.generation = new Generation(0L, socket, input, output,
                     aes, hmac);
             connectionStatuses.resetGeneration(generation.id);
@@ -2993,7 +2993,6 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     .fromSeed(aes.getEncoded()).digest();
             this.gameCommandGate = new GameCommandGate(inboundGameDirection);
             this.executor = executor;
-            if (startGameOutbox) startGameOutbox();
         }
 
         void startGameOutbox() {
@@ -3356,7 +3355,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 synchronized (gameOutbox) {
                     entry = gameOutbox.peek();
                     if (entry == null && !closed.get()) {
-                        try { gameOutbox.wait(250L); }
+                        try { gameOutbox.wait(); }
                         catch (InterruptedException interrupted) {
                             Thread.currentThread().interrupt();
                             close();
@@ -3451,7 +3450,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 while (!closed.get()) {
                     Generation current = generation;
                     if (current != null && !current.closed.get()) return current;
-                    try { generationLock.wait(250L); }
+                    try { generationLock.wait(); }
                     catch (InterruptedException interrupted) {
                         Thread.currentThread().interrupt();
                         close();
@@ -3566,6 +3565,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
         private static SecretKeySpec copyKey(SecretKeySpec source) {
             return new SecretKeySpec(source.getEncoded(), source.getAlgorithm());
         }
+    }
+
+    static boolean isHostLobbyDirective(String verb) {
+        return "KICKED".equals(verb) || "KICKED_FLOOD".equals(verb) || "NEWPASS".equals(verb);
     }
 
     static boolean shuffleMessagesMayOverlap(String first, String second) {

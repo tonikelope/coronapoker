@@ -198,6 +198,11 @@ public final class SecureChannelCodec {
                 return false;
             }
         }
-        return !"-".equals(counter);
+        try {
+            Integer.parseInt(counter);
+            return true;
+        } catch (NumberFormatException outsideCounterRange) {
+            return false;
+        }
     }
 }

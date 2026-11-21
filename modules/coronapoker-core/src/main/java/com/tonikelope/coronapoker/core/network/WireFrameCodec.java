@@ -73,13 +73,16 @@ public final class WireFrameCodec {
             if (current == '\n') {
                 return new Frame(Kind.TEXT, line.toString(StandardCharsets.ISO_8859_1), null);
             }
-            if (current != '\r') {
-                line.write(current);
-                if (line.size() > textCap) {
-                    throw new IOException("Line exceeds " + textCap
-                            + " char cap (DoS guard tripped)");
+            if (current == '\r') {
+                if (input.read() != '\n') {
+                    throw new IOException("Invalid text frame terminator");
                 }
+                return new Frame(Kind.TEXT, line.toString(StandardCharsets.ISO_8859_1), null);
             }
+            if (line.size() >= textCap) {
+                throw new IOException("Line exceeds " + textCap + " char cap");
+            }
+            line.write(current);
             current = input.read();
         }
         return new Frame(Kind.TEXT, line.toString(StandardCharsets.ISO_8859_1), null);

@@ -181,6 +181,16 @@ class NetworkLobbyGatewayTest {
     }
 
     @Test
+    void lobbyAdministrativeNoticesBelongToTheHost() {
+        for (String directive : List.of("KICKED", "KICKED_FLOOD", "NEWPASS")) {
+            assertTrue(NetworkLobbyGateway.isHostLobbyDirective(directive));
+        }
+        for (String shared : List.of("CHAT", "GAME", "EXIT")) {
+            assertFalse(NetworkLobbyGateway.isHostLobbyDirective(shared));
+        }
+    }
+
+    @Test
     void settlementConsensusResultIsRegisteredOnlyFromHost() {
         assertEquals(GameCommandType.HANDVERIFY_RESULT,
                 GameCommandType.from(GameCommandType.Direction.HOST_TO_CLIENT,

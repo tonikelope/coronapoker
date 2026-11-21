@@ -19,6 +19,15 @@ class WireFrameCodecTest {
         assertArrayEquals(new byte[]{0, 1, 2, (byte) 255}, WireFrameCodec.read(input, 32).binary());
     }
 
+    @Test void acceptsBothLineEndingsAtThePayloadLimit() throws Exception {
+        byte[] lines = "PONG#1\r\nPONG#2\n".getBytes(StandardCharsets.US_ASCII);
+        ByteArrayInputStream stream = new ByteArrayInputStream(lines);
+        assertEquals("PONG#1", WireFrameCodec.read(stream, 6).text());
+        assertEquals("PONG#2", WireFrameCodec.read(stream, 6).text());
+        assertThrows(IOException.class, () -> WireFrameCodec.read(
+                new ByteArrayInputStream("unfinished\r".getBytes(StandardCharsets.US_ASCII)), 10));
+    }
+
     @Test void rejectsOversizedFramesBeforeAllocatingTheirBodies() {
         byte[] forged = {0, 0x7f, (byte) 0xff, (byte) 0xff, (byte) 0xff};
         assertThrows(IOException.class,

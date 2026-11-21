@@ -121,7 +121,8 @@ public final class ShuffleVerificationQueue {
     private final Sink sink;
     private final Verifier verifier;
     private volatile boolean running;
-    private Thread worker;
+    private volatile Thread worker;
+    private boolean stopped;
 
     public ShuffleVerificationQueue(Sink sink) {
         this(sink, DUALLOCK_VERIFIER, DEFAULT_CAPACITY);
@@ -143,6 +144,7 @@ public final class ShuffleVerificationQueue {
         if (running) {
             return;
         }
+        synchronized (queue) { stopped = false; }
         running = true;
         worker = new Thread(this::runLoop, "shuffle-verify-queue");
         worker.setDaemon(true);
@@ -157,10 +159,11 @@ public final class ShuffleVerificationQueue {
      * @return true if accepted, false if rejected (queue full)
      */
     public boolean enqueue(Job job) {
-        if (job == null) {
-            return false;
+        boolean accepted;
+        synchronized (queue) {
+            if (job == null || stopped) return false;
+            accepted = queue.offer(job);
         }
-        boolean accepted = queue.offer(job);
         if (!accepted) {
             LOGGER.log(Level.WARNING,
                     "SHUFFLE-VERIFY: queue full. Rejecting critical verify job for hand {0}. "
@@ -174,7 +177,10 @@ public final class ShuffleVerificationQueue {
      */
     public synchronized void shutdown() {
         running = false;
-        queue.clear();
+        synchronized (queue) {
+            stopped = true;
+            queue.clear();
+        }
         if (worker != null) {
             worker.interrupt();
         }
@@ -188,7 +194,7 @@ public final class ShuffleVerificationQueue {
     }
 
     private void runLoop() {
-        while (running) {
+        while (running && worker == Thread.currentThread()) {
             Job job;
             try {
                 job = queue.take();
@@ -202,7 +208,7 @@ public final class ShuffleVerificationQueue {
                 // interrupt. If teardown happened while it was running, never
                 // deliver its late verdict into a replacement GameFrame.
                 synchronized (this) {
-                    if (!running) {
+                    if (!running || worker != Thread.currentThread()) {
                         break;
                     }
                     // Serialize the final lifecycle check and callback with
@@ -216,13 +222,13 @@ public final class ShuffleVerificationQueue {
                     }
                 }
             } catch (Exception e) {
-                if (!running) {
-                    break;
+                synchronized (this) {
+                    if (!running || worker != Thread.currentThread()) {
+                        break;
+                    }
+                    // Apply the same teardown fence to errors as to completed proofs.
+                    sink.onMalformed(job.megapacket, job.handId, e);
                 }
-                // A verifier that throws (malformed bundle, decode error) is ambiguous, not proof of
-                // cheating: report it as malformed so the Sink treats it as "not verified", never as a
-                // confirmed dishonest deck.
-                sink.onMalformed(job.megapacket, job.handId, e);
             }
         }
     }

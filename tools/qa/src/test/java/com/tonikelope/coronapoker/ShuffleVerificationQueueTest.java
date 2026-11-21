@@ -167,6 +167,48 @@ public class ShuffleVerificationQueueTest {
     }
 
     @Test
+    public void restartedQueuePublishesOnlyItsNewWorkersResults() throws Exception {
+        RecordingSink sink = new RecordingSink(1);
+        CountDownLatch oldStarted = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        var oldWorker = new java.util.concurrent.atomic.AtomicReference<Thread>();
+        ShuffleVerificationQueue queue = new ShuffleVerificationQueue(sink, job -> {
+            if (job.handId == 1) {
+                oldWorker.set(Thread.currentThread());
+                oldStarted.countDown();
+                while (true) {
+                    try {
+                        release.await();
+                        break;
+                    } catch (InterruptedException duringShutdown) {
+                        // Model non-interruptible proof evaluation.
+                    }
+                }
+                throw new IllegalStateException("Previous verification finished after restart");
+            }
+            return true;
+        }, 4);
+        try {
+            queue.start();
+            assertTrue(queue.enqueue(job(1)));
+            assertTrue(oldStarted.await(5, TimeUnit.SECONDS));
+            queue.shutdown();
+            assertFalse(queue.enqueue(job(2)));
+            queue.start();
+            assertTrue(queue.enqueue(job(3)));
+            assertTrue(sink.latch.await(5, TimeUnit.SECONDS));
+            release.countDown();
+            oldWorker.get().join(5000);
+            assertFalse(oldWorker.get().isAlive());
+            assertEquals(List.of(3), sink.verified);
+            assertTrue(sink.malformed.isEmpty());
+        } finally {
+            release.countDown();
+            queue.shutdown();
+        }
+    }
+
+    @Test
     public void tableResetShutsDownTheIndependentVerificationWorker() throws Exception {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null && !Files.isRegularFile(current.resolve(

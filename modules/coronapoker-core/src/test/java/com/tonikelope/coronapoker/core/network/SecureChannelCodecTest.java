@@ -32,6 +32,8 @@ class SecureChannelCodecTest {
 
     @Test
     void acceptsOnlyTheHistoricalPlaintextHeartbeatFrames() throws Exception {
+        assertEquals("PONG#2147483647", SecureChannelCodec.decryptCommand("PONG#2147483647", AES, HMAC));
+        org.junit.jupiter.api.Assertions.assertFalse(SecureChannelCodec.isPlaintextControlFrame("PING#" + (1L + Integer.MAX_VALUE)));
         assertEquals("PING#-2147483648", SecureChannelCodec.decryptCommand("PING#-2147483648", AES, HMAC));
         assertThrows(KeyException.class,
                 () -> SecureChannelCodec.decryptCommand("GAME#1#INJECTED", AES, HMAC));

@@ -1379,6 +1379,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean mediaPressedThisFrame;
     private boolean floatingWindowInputThisFrame;
     private int seatChatBlockHand = Integer.MIN_VALUE;
+    private boolean settingsSoundEnabledSnapshot;
     private boolean settingsAutoRebuySnapshot;
     private boolean settingsStraddleTimeoutDraft;
     private boolean settingsTextToSpeechSnapshot;
@@ -3265,6 +3266,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shortcutCaptureId = null;
         shortcutBindings.beginEdit();
         GdxAudioDevices.refreshCaptureDevicesAsync();
+        settingsSoundEnabledSnapshot = audioControl.enabled();
         settingsAutoRebuySnapshot = autoRebuy;
         settingsStraddleTimeoutDraft = GdxSettingsContract.straddleOnTimeout(
                 tableProperties);
@@ -3366,7 +3368,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Properties properties = tableProperties;
             String previewOutput = properties.getProperty(
                     GdxAudioDevices.OUTPUT_KEY, "");
-            settingsSession.restore(properties);
+            settingsSession.restore(properties, preferences);
             GdxVisualEffects.synchronize(properties);
             if (presentationSettings != null) {
                 presentationSettings.refreshRuntimePreferences();
@@ -3385,7 +3387,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     restoredOutput)) {
                 GdxAudioDevices.applyConfiguredOutput(properties);
             }
-            audioControl.setEnabled(tablePreference("sonidos", true), false);
+            audioControl.restoreSessionEnabled(settingsSoundEnabledSnapshot);
             confirmActions = tablePreference("confirmar_todo", false)
                     && !isTestMode();
             autoButtons = tablePreference("auto_action_buttons", false)
@@ -3401,9 +3403,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 replaceFeltTexture(presentationSettings.felt());
             }
             autoRebuy = settingsAutoRebuySnapshot;
-            if (presentationSettings != null) {
-                presentationSettings.setAutoRebuyOnBroke(autoRebuy);
-            }
             if (!autoButtons) queuedPreAction = 0;
             if (musicEnabled()) {
                 if (!backgroundMusic.isPlaying()) backgroundMusic.play();
@@ -3549,6 +3548,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 780, 0, false,
                 gameText.translate("gdx.settings.unsaved.continue"),
                 gameText.translate("gdx.settings.unsaved.discard"));
+        cardZoomSlider.cancel();
+        shuffleAngleSlider.cancel();
+        shortcutCaptureId = null;
+        clearTableScrollDrag();
         settingsDiscardConfirmation = confirmation;
         settingsDiscardAfterClose = afterClose;
         confirmation.result().thenAccept(discard -> {

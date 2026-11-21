@@ -49,8 +49,8 @@ final class GdxAppearanceOptions {
         return TABLE_VIEW.values().get(selectedIndex(TABLE_VIEW, properties));
     }
 
-    static final Choice SHUFFLE_VIEW = exact("vista_barajado", "VISTA DE BARAJADO", "table",
-            new String[]{"table", "3d"}, new String[]{"MISMA QUE LA MESA", "3D"});
+    static final Choice SHUFFLE_VIEW = exact("vista_barajado", "VISTA DE BARAJADO", "3d",
+            new String[]{"2d", "3d"}, new String[]{"2D", "3D"});
 
     static final Choice SHUFFLE_DURATION = exact("duracion_barajado", "DURACIÓN", "medium",
             new String[]{"full", "medium", "short"}, new String[]{"COMPLETA", "MEDIA", "CORTA"});
@@ -251,6 +251,8 @@ final class GdxAppearanceOptions {
     static int selectedIndex(Choice choice, Properties properties) {
         String configured = properties.getProperty(choice.key(),
                 choice.fallback());
+        // The old "table" value selected the top-down shuffle on a flat table.
+        if (choice == SHUFFLE_VIEW && "table".equals(configured)) configured = "2d";
         int exact = choice.values().indexOf(configured);
         if (exact >= 0) return exact;
         if (!choice.numericNearest()) return choice.values().indexOf(choice.fallback());

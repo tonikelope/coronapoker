@@ -65,7 +65,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         }
         normalizedDecks = Map.copyOf(decks);
         availableDecks = List.copyOf(new ArrayList<>(decks.values()));
-        autoRebuyOnBroke = bool(GdxSettingsContract.AUTO_REBUY_KEY, false);
         refreshRuntimePreferences();
         commitCommunityDealStyle();
     }
@@ -92,6 +91,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
 
     /** Refreshes the immutable flags read by the render loop after an edit. */
     void refreshRuntimePreferences() {
+        autoRebuyOnBroke = bool(GdxSettingsContract.AUTO_REBUY_KEY, false);
         boolean master = bool("animaciones", true);
         boolean shuffle = master && bool("animacion_barajado", true);
         animationFlags = new AnimationFlags(master,

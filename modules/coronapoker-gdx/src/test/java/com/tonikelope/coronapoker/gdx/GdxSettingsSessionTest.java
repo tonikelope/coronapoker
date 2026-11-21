@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tonikelope.coronapoker.core.PreferencesService;
+import java.nio.file.Path;
 import java.util.Properties;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 
 final class GdxSettingsSessionTest {
@@ -18,10 +21,35 @@ final class GdxSettingsSessionTest {
             assertFalse(session.propertiesChanged(preferences));
             GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, preferences, 0);
             assertTrue(session.propertiesChanged(preferences));
-            session.restore(preferences);
+            session.restore(preferences, null);
             assertTrue(GdxAppearanceOptions.perspectiveTable(preferences));
             assertFalse(session.propertiesChanged(preferences));
             session.close();
+        }
+    }
+
+    @Test
+    void discardRepairsAnIndependentDiskFlushAndPreservesUnrelatedChanges(
+            @TempDir Path directory) throws Exception {
+        var file = directory.resolve("settings.properties");
+        try (var prefs = new PreferencesService(file)) {
+            prefs.start();
+            var properties = prefs.properties();
+            properties.setProperty(GdxShuffleAngle.KEY, "45");
+            var session = new GdxSettingsSession();
+            session.begin(GdxSettingsSession.Context.LIVE_TABLE, properties);
+            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 1);
+            assertFalse(session.propertiesChanged(properties));
+            properties.setProperty(GdxShuffleAngle.KEY, "85");
+            properties.setProperty("unrelated", "keep");
+            prefs.save();
+            session.restore(properties, prefs);
+        }
+        try (var reloaded = new PreferencesService(file)) {
+            var properties = reloaded.properties();
+            assertEquals("45", properties.getProperty(GdxShuffleAngle.KEY));
+            assertFalse(properties.containsKey(GdxSettingsContract.TABLE_VIEW_KEY));
+            assertEquals("keep", properties.getProperty("unrelated"));
         }
     }
 
@@ -152,7 +180,7 @@ final class GdxSettingsSessionTest {
         properties.setProperty("auto_call_enabled", "true");
         properties.setProperty("auto_call_max", "4.5");
         assertTrue(session.propertiesChanged(properties));
-        session.restore(properties);
+        session.restore(properties, null);
         assertFalse(session.propertiesChanged(properties));
         assertEquals("goliat", properties.getProperty("baraja"));
         assertEquals("ALT+P", properties.getProperty("shortcut.pause"));

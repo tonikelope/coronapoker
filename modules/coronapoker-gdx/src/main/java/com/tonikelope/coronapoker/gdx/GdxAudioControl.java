@@ -44,13 +44,17 @@ final class GdxAudioControl {
     }
 
     boolean setEnabled(boolean enabled, boolean persist) {
-        synchronized (SESSION_LOCK) {
-            sessionEnabled = enabled;
-        }
+        restoreSessionEnabled(enabled);
         properties.setProperty("sonidos", Boolean.toString(enabled));
         if (persist && preferences != null) {
             preferences.saveDeferred();
         }
         return enabled;
+    }
+
+    void restoreSessionEnabled(boolean enabled) {
+        synchronized (SESSION_LOCK) {
+            sessionEnabled = enabled;
+        }
     }
 }

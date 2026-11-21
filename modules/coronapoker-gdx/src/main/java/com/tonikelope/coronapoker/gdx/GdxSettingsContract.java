@@ -1709,10 +1709,7 @@ final class GdxSettingsContract {
     static Map<String, String> snapshot(Properties properties) {
         Map<String, String> snapshot = new LinkedHashMap<>();
         for (String key : PREFERENCE_KEYS) {
-            String value = TABLE_VIEW_KEY.equals(key)
-                    ? GdxAppearanceOptions.perspectiveViewSetting(properties)
-                    : properties.getProperty(key);
-            snapshot.put(key, value);
+            snapshot.put(key, properties.getProperty(key));
         }
         for (String key : properties.stringPropertyNames()) {
             if (isTransactionalDynamicKey(key)) {

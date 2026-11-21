@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
+import com.tonikelope.coronapoker.core.PreferencesService;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ final class GdxSettingsSession {
     private final Map<Context, EnumMap<GdxSettingsContract.Section, Integer>>
             lastSubpageByContext = new EnumMap<>(Context.class);
     private Map<String, String> preferenceSnapshot = Map.of();
+    private boolean openedPerspective;
     private boolean open;
 
     void begin(Context nextContext, Properties properties) {
@@ -34,6 +36,7 @@ final class GdxSettingsSession {
         tabIndex = lastTabByContext.getOrDefault(context, 0);
         preferenceSnapshot = properties == null
                 ? Map.of() : GdxSettingsContract.snapshot(properties);
+        openedPerspective = properties != null && GdxAppearanceOptions.perspectiveTable(properties);
         open = true;
     }
 
@@ -103,15 +106,23 @@ final class GdxSettingsSession {
     }
 
     boolean propertiesChanged(Properties properties) {
-        return properties != null
-                && !GdxSettingsContract.snapshot(properties)
-                        .equals(preferenceSnapshot);
+        if (properties == null) return false;
+        var current = GdxSettingsContract.snapshot(properties);
+        // Selecting the active view is a no-op even if the opening profile used its implicit default.
+        if (GdxAppearanceOptions.perspectiveTable(properties) == openedPerspective) {
+            current.put(GdxSettingsContract.TABLE_VIEW_KEY, preferenceSnapshot.get(GdxSettingsContract.TABLE_VIEW_KEY));
+        }
+        return !current.equals(preferenceSnapshot);
     }
 
-    void restore(Properties properties) {
-        if (properties != null) {
+    void restore(Properties properties, PreferencesService preferences) {
+        if (properties == null) return;
+        synchronized (properties) {
+            if (GdxSettingsContract.snapshot(properties).equals(preferenceSnapshot)) return;
             GdxSettingsContract.restore(properties, preferenceSnapshot);
         }
+        // An independent save (for example a lobby chat change) can have flushed a live preview.
+        if (preferences != null) preferences.saveDeferred();
     }
 
     void close() {

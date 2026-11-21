@@ -725,6 +725,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float scrollDragGrabOffset;
     private String settingsShortcutCaptureId;
     private GdxTableDialog settingsAutoCallDialog;
+    private boolean settingsSoundEnabledSnapshot;
     private boolean settingsAutoRebuySnapshot;
     private boolean settingsStraddleTimeoutDraft;
     private GdxWindowMode settingsOpenedWindowMode = GdxWindowMode.BORDERLESS;
@@ -2221,6 +2222,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && initialBuyinInput == null
                 && !voiceNotesOpen
                 && blindStructureDialog == BlindStructureDialog.NONE;
+    }
+
+    private boolean settingsSlidersInteractive() {
+        return surface == Surface.SETTINGS && isFrontendRootModal()
+                && dropdown == Dropdown.NONE && !rulesWindow.isOpen();
     }
 
     private void drawSettingsBackdropSurface() {
@@ -5362,6 +5368,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void captureFrontendModalInput() {
+        cardZoomSlider.cancel();
+        shuffleAngleSlider.cancel();
         editMenu = null;
         pressedHit = null;
         pointerSelectionField = null;
@@ -8023,7 +8031,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate(
                 "gdx.settings.unsaved.continue")),
                 ButtonTone.NEUTRAL,
-                () -> settingsDiscardConfirmation = false, true);
+                this::continueEditingSettings, true);
         themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate(
                 "gdx.settings.unsaved.discard")),
@@ -8941,6 +8949,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDebugLineCount = 0;
         settingsShortcutCaptureId = null;
         settingsAutoCallDialog = null;
+        settingsSoundEnabledSnapshot = audioControl.enabled();
         settingsAutoRebuySnapshot = presentationSettings.autoRebuyOnBroke();
         settingsStraddleTimeoutDraft = GdxSettingsContract.straddleOnTimeout(
                 initialProperties);
@@ -8965,14 +8974,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeSettings(boolean save) {
-        cardZoomSlider.cancel();
-        shuffleAngleSlider.cancel();
         imagePreview.dispose();
         settingsShortcutCaptureId = null;
         if (save && settingsReturnSurface == Surface.LOBBY) {
             NewGameTableDraft.Settings requested = settingsTable == null
                     ? null : settingsTable.snapshot();
-            if (shouldSubmitLobbyTableSettings(lobby, requested)) {
+            if (shouldSubmitLobbyTableSettings(lobby, settingsTableSnapshot, requested)) {
                 submitLobbyCommand(new LobbyCommand.UpdateTableSettings(requested),
                         () -> finishClosingSettings(true));
                 return;
@@ -8982,12 +8989,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     static boolean shouldSubmitLobbyTableSettings(LobbySnapshot state,
-            NewGameTableDraft.Settings requested) {
+            NewGameTableDraft.Settings opened, NewGameTableDraft.Settings requested) {
         return state != null && state.host() && requested != null
-                && !requested.equals(state.tableSettings());
+                && !requested.equals(opened) && !requested.equals(state.tableSettings());
     }
 
     private void finishClosingSettings(boolean save) {
+        captureFrontendModalInput();
         audioPreview.stop();
         boolean restartNotice = save
                 && GdxSettingsContract.requiresMsaaRestart(
@@ -9018,7 +9026,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             shortcutBindings.cancelEdit();
             String previewOutput = initialProperties.getProperty(
                     GdxAudioDevices.OUTPUT_KEY, "");
-            settingsSession.restore(initialProperties);
+            settingsSession.restore(initialProperties, preferences);
             GdxVisualEffects.synchronize(initialProperties);
             presentationSettings.refreshRuntimePreferences();
             if (settingsOpenedWindowMode != null
@@ -9032,10 +9040,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     restoredOutput)) {
                 GdxAudioDevices.applyConfiguredOutput(initialProperties);
             }
-            audioControl.setEnabled(preferenceBoolean("sonidos", true),
-                    false);
-            presentationSettings.setAutoRebuyOnBroke(
-                    settingsAutoRebuySnapshot);
+            audioControl.restoreSessionEnabled(settingsSoundEnabledSnapshot);
             refreshFeltFromSettings();
         }
         settingsSession.close();
@@ -9080,14 +9085,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return !Objects.equals(current, settingsTableSnapshot);
     }
 
+    private void continueEditingSettings() {
+        captureFrontendModalInput();
+        settingsDiscardConfirmation = false;
+    }
+
     private void requestCancelSettings() {
         if (!settingsHavePendingChanges()) {
             finishClosingSettings(false);
             return;
         }
-        clearActiveField();
-        editMenu = null;
-        pressedHit = null;
+        captureFrontendModalInput();
+        settingsShortcutCaptureId = null;
         settingsDiscardConfirmation = true;
     }
 
@@ -16559,6 +16568,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public boolean touchDown(int screenX, int screenY, int pointerIndex, int button) {
         if (pendingLanguage != null || fileChooserPending()) return true;
+        if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         pressedHit = null;
@@ -16655,8 +16665,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return true;
         }
-        if (button == Input.Buttons.LEFT && surface == Surface.SETTINGS && dropdown == Dropdown.NONE
-                && !hasNestedFrontendModal() && !frontendNoticeOwnsPointer()
+        if (button == Input.Buttons.LEFT && settingsSlidersInteractive()
                 && (shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
                         || cardZoomSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties))) return true;
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
@@ -16747,7 +16756,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (pendingLanguage != null) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
-        if (surface == Surface.SETTINGS && dropdown == Dropdown.NONE && !hasNestedFrontendModal()
+        if (settingsSlidersInteractive()
                 && (shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)
                         || cardZoomSlider.drag(pointer.x, pointerIndex, initialProperties))) return true;
         if (rulesWindow.isOpen()) {
@@ -16820,6 +16829,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
         if (pendingLanguage != null) return true;
+        if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (button == Input.Buttons.LEFT && (shuffleAngleSlider.release(pointerIndex) || cardZoomSlider.release(pointerIndex))) return true;
@@ -17452,7 +17462,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
             if (settingsDiscardConfirmation) {
-                settingsDiscardConfirmation = false;
+                continueEditingSettings();
                 return true;
             }
             if (statsConfirmation != StatsConfirmation.NONE) {

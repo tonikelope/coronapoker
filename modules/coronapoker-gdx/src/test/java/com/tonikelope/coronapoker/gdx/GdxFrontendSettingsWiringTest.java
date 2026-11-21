@@ -37,11 +37,15 @@ final class GdxFrontendSettingsWiringTest {
         NewGameTableDraft.Settings changed = table.snapshot();
 
         assertTrue(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
-                snapshot(true, original), changed));
+                snapshot(true, original), original, changed));
         assertFalse(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
-                snapshot(false, original), changed));
+                snapshot(false, original), original, changed));
         assertFalse(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
-                snapshot(true, original), original));
+                snapshot(true, changed), original, changed));
+        assertFalse(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
+                snapshot(true, changed), original, original));
+        assertFalse(GdxFrontendScreen.shouldSubmitLobbyTableSettings(
+                snapshot(true, null), original, original));
     }
 
     @Test

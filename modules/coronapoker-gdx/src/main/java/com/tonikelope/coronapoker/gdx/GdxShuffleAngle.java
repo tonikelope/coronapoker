@@ -10,7 +10,7 @@ import java.util.Properties;
 final class GdxShuffleAngle {
     static final String KEY = "barajado_giro_3d";
     static final String LABEL = "gdx.settings.row.shuffle_angle";
-    static final int DEFAULT = 45;
+    static final int DEFAULT = 35;
     private final Rectangle track = new Rectangle();
     private final Rectangle hit = new Rectangle();
     private int pointer = -1;

@@ -418,14 +418,15 @@ final class GdxPerspectiveTable implements Disposable {
         }
     }
 
-    Vector3 shuffleMarkerToScreen(float x, float y, float diameter, Rectangle leftBank, Rectangle rightBank, Rectangle peekButton) {
+    Vector3 localMarkerToScreen(float x, float y, float diameter, Rectangle leftBank, Rectangle rightBank,
+            Rectangle peekButton, boolean avoidShuffle) {
         float elevation = positionMarkerThickness(diameter) * .5f;
         Vector3 center = chipPointToScreen(x, y, elevation);
         float cx = center.x, cy = center.y;
-        float radius = diameter * .58f;
+        float radius = diameter * .53f;
         float rx = Math.abs(chipPointToScreen(x + radius, y, elevation).x - cx);
         float ry = Math.abs(chipPointToScreen(x, y - radius, 0f).y - cy);
-        var position = shuffleMarker.place(cx, cy, rx, ry, leftBank, rightBank, peekButton);
+        var position = shuffleMarker.place(cx, cy, rx, ry, leftBank, rightBank, peekButton, avoidShuffle);
         return projectedPoint.set(position.x, position.y, 0f);
     }
 

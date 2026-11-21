@@ -2,7 +2,6 @@
 package com.tonikelope.coronapoker.gdx;
 
 import com.badlogic.gdx.math.ConvexHull;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
@@ -15,6 +14,9 @@ final class GdxShuffleMarkerPlacement {
     private final float[] corners = new float[24];
     private final Vector3 point = new Vector3();
     private FloatArray outline;
+    private final float[] edgePadding = new float[12];
+    private float minY, maxY;
+    private boolean reserveShuffle;
     private final Rectangle leftBank = new Rectangle(), rightBank = new Rectangle();
     private final Rectangle peekButton = new Rectangle();
     private final Vector2 result = new Vector2();
@@ -34,12 +36,28 @@ final class GdxShuffleMarkerPlacement {
             corners[2*i+1] = (1f + point.y) * height * .5f;
         }
         outline = hull.computePolygon(corners, false);
+        minY = maxY = outline.items[1];
+        for (int i = 3; i < outline.size; i += 2) {
+            minY = Math.min(minY, outline.items[i]);
+            maxY = Math.max(maxY, outline.items[i]);
+        }
         baseX = Float.NaN;
     }
 
-    Vector2 place(float x, float y, float rx, float ry, Rectangle left, Rectangle right, Rectangle peek) {
+    Vector2 place(float x, float y, float rx, float ry, Rectangle left, Rectangle right, Rectangle peek,
+            boolean avoidShuffle) {
         if (baseX == x && baseY == y && radiusX == rx && radiusY == ry
-                && leftBank.equals(left) && rightBank.equals(right) && peekButton.equals(peek)) return result;
+                && reserveShuffle == avoidShuffle && leftBank.equals(left) && rightBank.equals(right)
+                && peekButton.equals(peek)) return result;
+        if (avoidShuffle && (!reserveShuffle || Float.isNaN(baseX) || radiusX != rx || radiusY != ry)) {
+            // Offset each edge by the support radius of the projected disc along its normal.
+            for (int i = 2; i < outline.size; i += 2) {
+                float nx = outline.items[i+1] - outline.items[i-1];
+                float ny = outline.items[i-2] - outline.items[i];
+                edgePadding[i/2-1] = (float) Math.hypot(rx * nx, ry * ny);
+            }
+        }
+        reserveShuffle = avoidShuffle;
         baseX = x; baseY = y; radiusX = rx; radiusY = ry;
         leftBank.set(left); rightBank.set(right); peekButton.set(peek);
         bestDistance = Float.POSITIVE_INFINITY;
@@ -61,22 +79,20 @@ final class GdxShuffleMarkerPlacement {
     private void considerRow(float y) {
         float dy = y - baseY;
         if (dy * dy >= bestDistance) return;
-        // Intersect the convex silhouette with the full vertical extent of the marker.
         lowX = Float.POSITIVE_INFINITY;
         highX = Float.NEGATIVE_INFINITY;
-        for (int i = 2; i < outline.size; i += 2) {
-            float x0 = outline.items[i-2], y0 = outline.items[i-1];
-            float x1 = outline.items[i], y1 = outline.items[i+1];
-            if (Math.max(y0, y1) < y - radiusY || Math.min(y0, y1) > y + radiusY) continue;
-            if (y0 != y1) {
-                float a = MathUtils.clamp((y - radiusY - y0) / (y1 - y0), 0f, 1f);
-                float b = MathUtils.clamp((y + radiusY - y0) / (y1 - y0), 0f, 1f);
-                float span = x1 - x0;
-                x1 = x0 + b * span;
-                x0 += a * span;
+        if (reserveShuffle && y > minY - radiusY && y < maxY + radiusY) {
+            lowX = Float.NEGATIVE_INFINITY;
+            highX = Float.POSITIVE_INFINITY;
+            // The hull is counterclockwise. Intersect its outward-offset half-planes with this row.
+            for (int i = 2; i < outline.size; i += 2) {
+                float x0 = outline.items[i-2], y0 = outline.items[i-1];
+                float dx = outline.items[i] - x0, dyEdge = outline.items[i+1] - y0;
+                if (dyEdge == 0f) continue;
+                float limit = x0 + (edgePadding[i/2-1] + dx * (y - y0)) / dyEdge;
+                if (dyEdge < 0f) lowX = Math.max(lowX, limit);
+                else highX = Math.min(highX, limit);
             }
-            lowX = Math.min(lowX, Math.min(x0, x1) - radiusX);
-            highX = Math.max(highX, Math.max(x0, x1) + radiusX);
         }
         // On this row the nearest legal x is the original x or an obstacle boundary.
         consider(baseX, y);

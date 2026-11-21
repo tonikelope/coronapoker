@@ -56,7 +56,7 @@ final class GdxModSettingsIndicatorTest {
             assertTrue(GdxModSettingsIndicator.cardBack(settings,
                     "pepsiman"));
             assertFalse(GdxModSettingsIndicator.deck(settings, "goliat"));
-            assertTrue(GdxModSettingsIndicator.option(settings,
+            assertFalse(GdxModSettingsIndicator.option(settings,
                     "animacion_barajado"));
             assertTrue(GdxModSettingsIndicator.option(settings,
                     "cinematicas_allin"));

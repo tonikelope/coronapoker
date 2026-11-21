@@ -18507,26 +18507,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private Vector2 positionMarkerAnchor(Seat seat) {
         if (!perspectiveActive || seat.index != 0) return new Vector2(seat.positionX, seat.positionY);
         float cardWidth = communityCardWidth();
-        float x = tableCenterX + cardWidth * 1.12f;
+        float x = tableCenterX + cardWidth * 1.25f;
         float diameter = localPositionMarkerDiameter(cardWidth);
         float y = localPositionMarkerY();
-        com.badlogic.gdx.math.Vector3 point;
-        if (liveShuffleAnimationEnabled()) {
+        boolean avoidShuffle = liveShuffleAnimationEnabled();
+        if (avoidShuffle) {
             float aspect = liveShuffle != null && liveShuffle.presentationStarted
                     ? liveShuffle.cardAspect : deckCardAspect(availableDeck(liveDeck));
             perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY,
                     shuffleLength(aspect, true), aspect, shuffleAngle());
-            // The peek button can appear as soon as the local cards become available.
-            if (tablePreference(GdxSettingsContract.TABLE_PEEK_BUTTON_KEY, true)) {
-                layoutPeekButton(reservedPeekButton, viewport.getWorldWidth(), viewport.getWorldHeight());
-            } else {
-                reservedPeekButton.set(0f, 0f, 0f, 0f);
-            }
-            point = perspectiveTable.shuffleMarkerToScreen(x, y, diameter,
-                    perspectiveLocalChipBounds, perspectiveLocalRightChipBounds, reservedPeekButton);
-        } else {
-            point = perspectiveTable.chipPointToScreen(x, y, GdxPerspectiveTable.positionMarkerThickness(diameter) * .5f);
         }
+        // The peek button can appear as soon as the local cards become available.
+        if (tablePreference(GdxSettingsContract.TABLE_PEEK_BUTTON_KEY, true)) {
+            layoutPeekButton(reservedPeekButton, viewport.getWorldWidth(), viewport.getWorldHeight());
+        } else {
+            reservedPeekButton.set(0f, 0f, 0f, 0f);
+        }
+        var point = perspectiveTable.localMarkerToScreen(x, y, diameter,
+                perspectiveLocalChipBounds, perspectiveLocalRightChipBounds, reservedPeekButton, avoidShuffle);
         return new Vector2(MathUtils.lerp(seat.positionX, point.x, perspectiveBlend),
                 MathUtils.lerp(seat.positionY, point.y, perspectiveBlend));
     }

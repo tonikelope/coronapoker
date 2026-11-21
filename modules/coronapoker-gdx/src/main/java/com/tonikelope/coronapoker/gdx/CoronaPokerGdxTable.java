@@ -1591,6 +1591,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean perspectiveActive;
     private static final float POCKET_PEEK_DRAG_DISTANCE = 96f;
     private final Rectangle pocketPeekButton = new Rectangle();
+    private final Rectangle reservedPeekButton = new Rectangle();
     private final GdxPointerHold pocketPeekPointer = new GdxPointerHold();
     private boolean pocketPeekInputThisFrame;
     private boolean mousePeekHeld;
@@ -2971,8 +2972,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "modo_auto_confirm", true);
             autoCallEnabled = booleanPreference(persisted,
                     "auto_call_enabled", false);
-            autoCallMax = doublePreference(persisted,
-                    "auto_call_max", 0d);
+            autoCallMax = GdxSettingsContract.automaticCallLimit(persisted);
             confirmActions = booleanPreference(persisted,
                     "confirmar_todo", false) && !isTestMode();
         }
@@ -3344,6 +3344,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private void refreshControlSettings(Properties properties) {
+        confirmActions = tablePreference("confirmar_todo", false)
+                && !isTestMode();
+        autoButtons = tablePreference("auto_action_buttons", false)
+                && !isTestMode();
+        autoActionPersist = tablePreference("auto_action_persist", true);
+        autoModeConfirm = tablePreference("modo_auto_confirm", true);
+        autoCallEnabled = tablePreference("auto_call_enabled", false);
+        autoCallMax = GdxSettingsContract.automaticCallLimit(properties);
+        if (!autoButtons) queuedPreAction = 0;
+    }
+
     private void closeTableSettings(boolean save) {
         cardZoomSlider.cancel();
         shuffleAngleSlider.cancel();
@@ -3388,14 +3400,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 GdxAudioDevices.applyConfiguredOutput(properties);
             }
             audioControl.restoreSessionEnabled(settingsSoundEnabledSnapshot);
-            confirmActions = tablePreference("confirmar_todo", false)
-                    && !isTestMode();
-            autoButtons = tablePreference("auto_action_buttons", false)
-                    && !isTestMode();
-            autoActionPersist = tablePreference("auto_action_persist", true);
-            autoModeConfirm = tablePreference("modo_auto_confirm", true);
-            autoCallEnabled = tablePreference("auto_call_enabled", false);
-            autoCallMax = doublePreference(properties, "auto_call_max", 0d);
+            refreshControlSettings(properties);
             effectsVolume = GdxSettingsContract.masterVolume(properties);
             musicVolume = 0.40f * effectsVolume;
             if (presentationSettings != null) {
@@ -3403,7 +3408,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 replaceFeltTexture(presentationSettings.felt());
             }
             autoRebuy = settingsAutoRebuySnapshot;
-            if (!autoButtons) queuedPreAction = 0;
             if (musicEnabled()) {
                 if (!backgroundMusic.isPlaying()) backgroundMusic.play();
             } else {
@@ -3570,6 +3574,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void restoreTableAudioDefaults() {
         Properties properties = tableSettingsProperties();
         GdxSettingsContract.TogglePage page = settingsAudioPage();
+        String oldOutput = properties.getProperty(GdxAudioDevices.OUTPUT_KEY, "");
         GdxSettingsContract.restoreAudioPageDefaults(properties,
                 settingsAudioPage, tableHost,
                 GdxAudioDevices.hasCaptureDevices());
@@ -3577,8 +3582,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             settingsTextToSpeechDraft = true;
             settingsVoiceMessagesDraft = true;
         }
-        GdxAudioDevices.applyConfiguredOutput(properties);
-        audioControl.setEnabled(tablePreference("sonidos", true), false);
+        if (GdxSettingsContract.hasMasterVolume(GdxSettingsContract.AUDIO_PAGES.get(settingsAudioPage))) {
+            if (GdxAudioDevices.outputSelectionChanged(oldOutput, properties.getProperty(GdxAudioDevices.OUTPUT_KEY, ""))) {
+                GdxAudioDevices.applyConfiguredOutput(properties);
+            }
+            audioControl.restoreSessionEnabled(tablePreference("sonidos", true));
+        }
         effectsVolume = GdxSettingsContract.masterVolume(properties);
         musicVolume = 0.40f * effectsVolume;
         if (musicEnabled()) backgroundMusic.play();
@@ -3614,33 +3623,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void restoreTableAppearanceDefaults() {
         Properties properties = tableSettingsProperties();
-        String deck = properties.getProperty("baraja", "goliat");
-        String back = properties.getProperty("trasera", "default");
-        String angle = properties.getProperty(GdxShuffleAngle.KEY);
-        String zoom2D = properties.getProperty(GdxCardZoom.SHUFFLE_2D.key);
-        String zoom3D = properties.getProperty(GdxCardZoom.SHUFFLE_3D.key);
-        String shuffleDuration = properties.getProperty(GdxAppearanceOptions.SHUFFLE_DURATION.key());
-        String shuffleView = properties.getProperty(GdxAppearanceOptions.SHUFFLE_VIEW.key());
-        String oldSize = properties.getProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY);
-        GdxSettingsContract.restoreAppearancePageDefaults(properties, settingsAppearancePage, true);
-        if (liveShuffle != null) {
-            properties.setProperty("baraja", deck);
-            properties.setProperty("trasera", back);
-            if (angle != null) properties.setProperty(GdxShuffleAngle.KEY, angle);
-            if (zoom2D != null) properties.setProperty(GdxCardZoom.SHUFFLE_2D.key, zoom2D);
-            if (zoom3D != null) properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, zoom3D);
-            if (shuffleDuration != null) properties.setProperty(GdxAppearanceOptions.SHUFFLE_DURATION.key(), shuffleDuration);
-            else properties.remove(GdxAppearanceOptions.SHUFFLE_DURATION.key());
-            if (shuffleView != null) properties.setProperty(GdxAppearanceOptions.SHUFFLE_VIEW.key(), shuffleView);
-            else properties.remove(GdxAppearanceOptions.SHUFFLE_VIEW.key());
-            if (oldSize != null) properties.setProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY, oldSize);
-        }
+        GdxWindowMode previousMode = GdxWindowMode.configured(properties);
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, settingsAppearancePage, true, liveShuffle != null);
         GdxVisualEffects.synchronize(properties);
         if (presentationSettings != null) {
             presentationSettings.refreshRuntimePreferences();
         }
-        if (GdxSettingsContract.isAppearanceGraphicsPage(settingsAppearancePage)) {
-            GdxDisplayModeController.apply(GdxWindowMode.configured(properties));
+        GdxWindowMode restoredMode = GdxWindowMode.configured(properties);
+        if (previousMode != restoredMode) {
+            GdxDisplayModeController.apply(restoredMode);
         }
         if (presentationSettings != null) {
             synchronizeSelectedDeck();
@@ -3656,7 +3647,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean currentSettingsSubsectionAtDefaults() {
         return switch (settingsSection()) {
             case APPEARANCE -> GdxSettingsContract.appearancePageAtDefaults(
-                    tableSettingsProperties(), settingsAppearancePage, true);
+                    tableSettingsProperties(), settingsAppearancePage, true, liveShuffle != null);
             case AUDIO -> {
                 boolean defaults = GdxSettingsContract.audioPageAtDefaults(
                         tableSettingsProperties(), settingsAudioPage,
@@ -3669,7 +3660,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
                 yield defaults;
             }
-            case SHORTCUTS -> shortcutBindings.allDefaults();
+            case SHORTCUTS -> shortcutBindings.allDefaults()
+                    && GdxSettingsContract.controlSettingsAtDefaults(tableSettingsProperties());
             case GAME, DEBUG -> true;
         };
     }
@@ -3682,6 +3674,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         } else if (settingsSection()
                 == GdxSettingsContract.Section.SHORTCUTS) {
             shortcutBindings.resetAllEdits();
+            Properties properties = tableSettingsProperties();
+            GdxSettingsContract.restoreControlDefaults(properties);
+            refreshControlSettings(properties);
+            autoRebuy = false;
+            if (presentationSettings != null) presentationSettings.refreshRuntimePreferences();
             shortcutCaptureId = null;
         } else {
             return;
@@ -15375,6 +15372,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
+    private static void layoutPeekButton(Rectangle bounds, float width, float height) {
+        bounds.set(width * 0.590f, height * 0.220f, 72f, 42f);
+    }
+
     private void drawPocketPeekButton(float width, float height) {
         if (!perspectiveActive || !pocketPeekEnabled) stopPocketPeekInput();
         if (!pocketPeekButtonVisible()) {
@@ -15382,7 +15383,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             mousePeekHeld = false;
             return;
         }
-        pocketPeekButton.set(width * 0.590f, height * 0.220f, 72f, 42f);
+        layoutPeekButton(pocketPeekButton, width, height);
         Rectangle r = pocketPeekButton;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -18515,8 +18516,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? liveShuffle.cardAspect : deckCardAspect(availableDeck(liveDeck));
             perspectiveTable.shuffleProjection(shuffleProjection, tableCenterY,
                     shuffleLength(aspect, true), aspect, shuffleAngle());
+            // The peek button can appear as soon as the local cards become available.
+            if (tablePreference(GdxSettingsContract.TABLE_PEEK_BUTTON_KEY, true)) {
+                layoutPeekButton(reservedPeekButton, viewport.getWorldWidth(), viewport.getWorldHeight());
+            } else {
+                reservedPeekButton.set(0f, 0f, 0f, 0f);
+            }
             point = perspectiveTable.shuffleMarkerToScreen(x, y, diameter,
-                    perspectiveLocalChipBounds, perspectiveLocalRightChipBounds);
+                    perspectiveLocalChipBounds, perspectiveLocalRightChipBounds, reservedPeekButton);
         } else {
             point = perspectiveTable.chipPointToScreen(x, y, GdxPerspectiveTable.positionMarkerThickness(diameter) * .5f);
         }

@@ -199,8 +199,10 @@ final class GdxFrontendSettingsGpuTest {
                     click.at(frame.subTab(page).getCenter(new Vector2()));
                     assertEquals(page, session.subpageIndex());
                 }
+                render.run();
+                if (section != GdxSettingsContract.Section.DEBUG) verifyScrollableSettingsRows(owner, render);
                 var baseline = GdxSettingsContract.snapshot(props);
-                // A pending edit can originate on another tab, including when leaving via the read-only log.
+                // A pending edit may also originate on another tab when the current rule is locked.
                 NewGameTableDraft draft = owner instanceof GdxFrontendScreen
                         && section == GdxSettingsContract.Section.GAME
                         ? (NewGameTableDraft) field(owner, "settingsTable") : null;
@@ -218,6 +220,8 @@ final class GdxFrontendSettingsGpuTest {
                         && section == GdxSettingsContract.Section.GAME && page == 3 && (boolean) field(table, "tableHost")) {
                     invoke(table, "toggleDraftHandLimit", new Class<?>[0]);
                     onlyGameDraftChanged = true;
+                } else if (section == GdxSettingsContract.Section.DEBUG) {
+                    click.at(GdxSettingsLayout.debugPerformanceRow(frame.content()).getCenter(new Vector2()));
                 } else {
                     editForDiscard(props, section, page);
                 }
@@ -284,9 +288,56 @@ final class GdxFrontendSettingsGpuTest {
                 }
                 assertFalse(session.propertiesChanged(props), label);
                 assertEquals(false, invoke(owner, "settingsHavePendingChanges", new Class<?>[0]), label);
+                if (GdxSettingsContract.hasRestoreDefaults(section)) {
+                    editForDiscard(props, section, page);
+                    render.run();
+                    assertEquals(false, invoke(owner, "currentSettingsSubsectionAtDefaults", new Class<?>[0]), label);
+                    click.at(frame.restoreButton().getCenter(new Vector2()));
+                    assertEquals(true, invoke(owner, "currentSettingsSubsectionAtDefaults", new Class<?>[0]), label);
+                    // Restore Defaults itself is also a staged edit.
+                    boolean pending = (boolean) invoke(owner, "settingsHavePendingChanges", new Class<?>[0]);
+                    render.run();
+                    click.at(frame.cancelButton().getCenter(new Vector2()));
+                    if (pending) {
+                        render.run();
+                        assertDiscardPrompt(owner, true, label);
+                        click.at(prompt.positiveButton().getCenter(new Vector2()));
+                    }
+                    assertFalse(session.open(), label);
+                    assertEquals(baseline, GdxSettingsContract.snapshot(props), label);
+                    invoke(owner, "openSettings", new Class<?>[0]);
+                }
             }
         }
         verifySettingsKeyboardAndSave(owner, context, props, render, click);
+    }
+
+    private static void verifyScrollableSettingsRows(Object owner, Runnable render) throws Exception {
+        var input = owner instanceof CoronaPokerGdxTable table ? table.inputProcessor() : (GdxFrontendScreen) owner;
+        GdxSettingsLayout.PixelRows rows = currentRows(owner);
+        assertNotNull(rows);
+        var visited = new java.util.BitSet(rows.totalRows());
+        for (;;) {
+            visited.set(rows.firstIndex(), rows.lastExclusive());
+            if (rows.offset() >= rows.maximum()) break;
+            float previous = rows.offset();
+            input.scrolled(0f, Math.max(1f, rows.viewportHeight() / (2f * GdxSettingsLayout.PIXEL_SCROLL_WHEEL_STEP)));
+            render.run();
+            rows = currentRows(owner);
+            assertTrue(rows.offset() > previous, "Wheel did not advance");
+        }
+        assertEquals(rows.totalRows(), visited.cardinality(), "Every settings row must be reachable");
+        input.scrolled(0f, -1f - rows.maximum() / GdxSettingsLayout.PIXEL_SCROLL_WHEEL_STEP);
+        render.run();
+        assertEquals(0f, currentRows(owner).offset());
+    }
+
+    private static GdxSettingsLayout.PixelRows currentRows(Object owner) throws Exception {
+        if (owner instanceof CoronaPokerGdxTable) {
+            Object scrollbar = invoke(owner, "settingsRowScroll", new Class<?>[0]);
+            return (GdxSettingsLayout.PixelRows) invoke(scrollbar, "rows", new Class<?>[0]);
+        }
+        return (GdxSettingsLayout.PixelRows) invoke(owner, "currentSettingsPixelRows", new Class<?>[0]);
     }
 
     private static void verifySettingsKeyboardAndSave(Object owner, GdxSettingsSession.Context context,
@@ -337,16 +388,27 @@ final class GdxFrontendSettingsGpuTest {
 
     private static void editForDiscard(Properties props, GdxSettingsContract.Section section, int page) {
         if (section == GdxSettingsContract.Section.APPEARANCE && page == 1) {
-            GdxAppearanceOptions.cycle(GdxAppearanceOptions.SHUFFLE_DURATION, props);
+            String current = props.getProperty("duracion_barajado", "medium");
+            props.setProperty("duracion_barajado", "short".equals(current) ? "full" : "short");
             return;
         }
-        String key = switch (section) {
-            case APPEARANCE -> page == 0 ? "show_time" : "gdx_show_fps";
-            case AUDIO -> GdxSettingsContract.AUDIO_PAGES.get(page).options().get(0).key();
-            case SHORTCUTS -> "confirmar_todo";
-            case GAME, DEBUG -> "show_time";
-        };
-        props.setProperty(key, Boolean.toString(!Boolean.parseBoolean(props.getProperty(key, "true"))));
+        switch (section) {
+            case APPEARANCE -> {
+                if (page == 0) props.setProperty("show_time", "true");
+                else props.setProperty("auto_fullscreen", "false");
+            }
+            case AUDIO -> {
+                if (page == 0) props.setProperty("master_volume", "0.25");
+                else if (page == 4) props.setProperty("audio_block_voice_messages", "true");
+                else {
+                    var option = GdxSettingsContract.AUDIO_PAGES.get(page).options().get(0);
+                    props.setProperty(option.key(), Boolean.toString(!option.fallback()));
+                }
+            }
+            case SHORTCUTS -> props.setProperty("confirmar_todo", "true");
+            case GAME -> props.setProperty("show_time", "true");
+            case DEBUG -> throw new AssertionError(section);
+        }
     }
 
     private static void assertDiscardPrompt(Object owner, boolean expected, String label) throws Exception {
@@ -366,7 +428,7 @@ final class GdxFrontendSettingsGpuTest {
     private static void tableGesture(CoronaPokerGdxTable table, Vector2 world, int key) throws Exception {
         var viewport = (Viewport) field(table, "viewport");
         Vector2 point = viewport.project(new Vector2(world));
-        int x = Math.round(point.x), y = HEIGHT - 1 - Math.round(point.y);
+        int x = Math.round(point.x), y = Gdx.graphics.getHeight() - 1 - Math.round(point.y);
         Input hardware = Gdx.input;
         boolean[] down = {true};
         Gdx.input = (Input) java.lang.reflect.Proxy.newProxyInstance(Input.class.getClassLoader(),
@@ -727,7 +789,7 @@ final class GdxFrontendSettingsGpuTest {
             throws Exception {
         var viewport = (Viewport) field(screen, "viewport");
         Vector2 point = viewport.project(new Vector2(x, y));
-        return point.set(point.x, HEIGHT - 1f - point.y);
+        return point.set(point.x, Gdx.graphics.getHeight() - 1f - point.y);
     }
 
     private static LobbySession lobby() {

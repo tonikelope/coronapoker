@@ -1291,6 +1291,77 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.markDefault("rojo", false));
     }
 
+    @Test
+    void everyAppearanceAndAudioOptionCanBeDiscardedAndResetOnItsOwnPage() {
+        for (int page = 0; page < 2; page++) {
+            var options = page == 0 ? GdxSettingsContract.appearanceTablePage()
+                    : GdxSettingsContract.appearanceTogglePage(page);
+            for (var option : options.options()) {
+                var props = new Properties();
+                props.setProperty(option.key(), Boolean.toString(!option.fallback()));
+                var opening = GdxSettingsContract.snapshot(props);
+                assertTrue(opening.containsKey(option.key()), option.key());
+                assertFalse(GdxSettingsContract.appearancePageAtDefaults(props, page, true), option.key());
+                GdxSettingsContract.restoreAppearancePageDefaults(props, page, true);
+                assertTrue(GdxSettingsContract.appearancePageAtDefaults(props, page, true), option.key());
+                GdxSettingsContract.restore(props, opening);
+                assertEquals(Boolean.toString(!option.fallback()), props.getProperty(option.key()));
+            }
+        }
+        for (int page = 0; page < GdxSettingsContract.AUDIO_PAGES.size(); page++) {
+            for (var option : GdxSettingsContract.AUDIO_PAGES.get(page).options()) {
+                var props = new Properties();
+                props.setProperty(option.key(), Boolean.toString(!option.fallback()));
+                assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(option.key()), option.key());
+                boolean sound = Boolean.parseBoolean(props.getProperty("sonidos", "true"));
+                assertFalse(GdxSettingsContract.audioPageAtDefaults(props, page, true, true, sound), option.key());
+                GdxSettingsContract.restoreAudioPageDefaults(props, page, true, true);
+                assertTrue(GdxSettingsContract.audioPageAtDefaults(props, page, true, true, true), option.key());
+                assertEquals(Boolean.toString(option.fallback()), props.getProperty(option.key()));
+            }
+        }
+    }
+
+    @Test
+    void resettingGraphicsAndControlsIncludesTheFullscreenDependencyAndAutoActions() {
+        var settings = properties("auto_fullscreen", "false");
+        var graphics = GdxSettingsContract.appearanceGraphicsPageIndex();
+        assertFalse(GdxSettingsContract.appearancePageAtDefaults(settings, graphics, true));
+        settings.setProperty("confirmar_todo", "true");
+        GdxSettingsContract.restoreAppearancePageDefaults(settings, graphics, true);
+        assertEquals("true", settings.getProperty("auto_fullscreen"));
+        assertEquals("true", settings.getProperty("confirmar_todo"));
+        assertTrue(GdxSettingsContract.appearancePageAtDefaults(settings, graphics, true));
+        for (String key : List.of("auto_action_buttons", "auto_action_persist", "modo_auto_confirm",
+                "confirmar_todo", "auto_call_enabled", "auto_call_max", GdxSettingsContract.AUTO_REBUY_KEY)) {
+            GdxSettingsContract.restoreControlDefaults(settings);
+            settings.setProperty(key, key.equals("auto_call_max") ? "25"
+                    : Boolean.toString(!Boolean.parseBoolean(settings.getProperty(key))));
+            assertFalse(GdxSettingsContract.controlSettingsAtDefaults(settings), key);
+            GdxSettingsContract.restoreControlDefaults(settings);
+            assertTrue(GdxSettingsContract.controlSettingsAtDefaults(settings), key);
+        }
+    }
+
+    @Test
+    void lockedShuffleValuesStayExactWhenRestoringOtherOptions() {
+        var settings = properties("vista_barajado", "table");
+        settings.setProperty(GdxShuffleAngle.KEY, "45");
+        settings.setProperty("baraja", "pepsiman");
+        assertTrue(GdxSettingsContract.appearancePageAtDefaults(settings, 1, true, true));
+        assertTrue(GdxSettingsContract.appearancePageAtDefaults(settings, 0, true, true));
+        settings.setProperty("animacion_reparto", "false");
+        assertFalse(GdxSettingsContract.appearancePageAtDefaults(settings, 1, true, true));
+        GdxSettingsContract.restoreAppearancePageDefaults(settings, 1, true, true);
+        GdxSettingsContract.restoreAppearancePageDefaults(settings, 0, true, true);
+        assertEquals("true", settings.getProperty("animacion_reparto"));
+        assertEquals("pepsiman", settings.getProperty("baraja"));
+        assertFalse(settings.containsKey("trasera"));
+        assertFalse(settings.containsKey("duracion_barajado"));
+        assertEquals("45", settings.getProperty(GdxShuffleAngle.KEY));
+        assertEquals("table", settings.getProperty("vista_barajado"));
+    }
+
     private static Properties properties(String key, String value) {
         Properties properties = new Properties();
         properties.setProperty(key, value);

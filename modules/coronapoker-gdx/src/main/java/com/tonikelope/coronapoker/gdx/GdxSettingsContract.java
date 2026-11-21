@@ -358,6 +358,35 @@ final class GdxSettingsContract {
     }
 
     /** Sections whose Swing counterpart owns a transactional reset action. */
+    static boolean controlSettingsAtDefaults(Properties p) {
+        return booleanAtDefault(p, "auto_action_buttons", false)
+                && booleanAtDefault(p, "auto_action_persist", true)
+                && booleanAtDefault(p, "modo_auto_confirm", true)
+                && booleanAtDefault(p, "confirmar_todo", false)
+                && booleanAtDefault(p, "auto_call_enabled", false)
+                && automaticCallLimit(p) == 0d
+                && booleanAtDefault(p, AUTO_REBUY_KEY, false);
+    }
+
+    static double automaticCallLimit(Properties p) {
+        try {
+            double value = Double.parseDouble(p.getProperty("auto_call_max", "0"));
+            return Double.isFinite(value) && value >= 0d ? value : 0d;
+        } catch (NumberFormatException invalid) {
+            return 0d;
+        }
+    }
+
+    static void restoreControlDefaults(Properties p) {
+        p.setProperty("auto_action_buttons", "false");
+        p.setProperty("auto_action_persist", "true");
+        p.setProperty("modo_auto_confirm", "true");
+        p.setProperty("confirmar_todo", "false");
+        p.setProperty("auto_call_enabled", "false");
+        p.setProperty("auto_call_max", "0");
+        p.setProperty(AUTO_REBUY_KEY, "false");
+    }
+
     static boolean hasRestoreDefaults(Section section) {
         return section == Section.APPEARANCE
                 || section == Section.AUDIO
@@ -1464,12 +1493,19 @@ final class GdxSettingsContract {
     /** Restores only the currently visible Appearance subsection. */
     static void restoreAppearancePageDefaults(Properties properties,
             int pageIndex, boolean includeStartupGraphics) {
+        restoreAppearancePageDefaults(properties, pageIndex, includeStartupGraphics, false);
+    }
+
+    static void restoreAppearancePageDefaults(Properties properties,
+            int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
         if (index == 0) {
             // GDX's approved visual reference uses the Goliat deck.
-            properties.setProperty("baraja", "goliat");
-            properties.setProperty("trasera", "default");
+            if (!shuffleLocked) {
+                properties.setProperty("baraja", "goliat");
+                properties.setProperty("trasera", "default");
+            }
             properties.setProperty("color_tapete", "verde");
             properties.setProperty("nivel_luz", Integer.toString(
                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
@@ -1489,6 +1525,7 @@ final class GdxSettingsContract {
             properties.setProperty("gdx_fps_limit",
                     Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
             properties.setProperty("gdx_show_fps", "false");
+            properties.setProperty("auto_fullscreen", "true");
             properties.setProperty(CARD_RENDERING_KEY,
                     Integer.toString(DEFAULT_CARD_RENDERING_MODE));
             if (includeStartupGraphics) {
@@ -1504,26 +1541,34 @@ final class GdxSettingsContract {
                     Boolean.toString(option.fallback()));
         }
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
-            properties.remove(GdxCardZoom.SHUFFLE_2D.key);
-            properties.remove(GdxCardZoom.SHUFFLE_3D.key);
-            properties.remove(GdxCardZoom.LEGACY_SHUFFLE_KEY);
-            properties.remove(GdxShuffleAngle.KEY);
+            if (!shuffleLocked) {
+                properties.remove(GdxCardZoom.SHUFFLE_2D.key);
+                properties.remove(GdxCardZoom.SHUFFLE_3D.key);
+                properties.remove(GdxCardZoom.LEGACY_SHUFFLE_KEY);
+                properties.remove(GdxShuffleAngle.KEY);
+            }
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
-                properties.setProperty(choice.key(), choice.fallback());
+                if (!shuffleLocked || !GdxAppearanceOptions.shuffleChoice(choice)) {
+                    properties.setProperty(choice.key(), choice.fallback());
+                }
             }
         }
     }
 
     static boolean appearancePageAtDefaults(Properties properties,
             int pageIndex, boolean includeStartupGraphics) {
+        return appearancePageAtDefaults(properties, pageIndex, includeStartupGraphics, false);
+    }
+
+    static boolean appearancePageAtDefaults(Properties properties,
+            int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
         if (index == 0) {
-            boolean visualDefaults = stringAtDefault(properties, "baraja",
-                    "goliat")
-                    && stringAtDefault(properties, "trasera", "default")
-                    && stringAtDefault(properties, "color_tapete", "verde")
+            boolean deckDefaults = shuffleLocked || stringAtDefault(properties, "baraja", "goliat")
+                    && stringAtDefault(properties, "trasera", "default");
+            boolean visualDefaults = deckDefaults && stringAtDefault(properties, "color_tapete", "verde")
                     && stringAtDefault(properties, "nivel_luz",
                             Integer.toString(
                                     GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL));
@@ -1541,6 +1586,7 @@ final class GdxSettingsContract {
                     DEFAULT_VSYNC)
                     && stringAtDefault(properties, "gdx_fps_limit",
                             Integer.toString(DEFAULT_FRAME_RATE_LIMIT))
+                    && booleanAtDefault(properties, "auto_fullscreen", true)
                     && booleanAtDefault(properties, "gdx_show_fps", false)
                     && cardRenderingMode(properties) == DEFAULT_CARD_RENDERING_MODE;
             return runtime && (!includeStartupGraphics
@@ -1556,12 +1602,13 @@ final class GdxSettingsContract {
                     option.fallback())) return false;
         }
         if (page == APPEARANCE_ANIMATIONS_PAGE) {
-            if (GdxCardZoom.SHUFFLE_2D.percent(properties) != GdxCardZoom.SHUFFLE_2D.normal
-                    || GdxCardZoom.SHUFFLE_3D.percent(properties) != GdxCardZoom.SHUFFLE_3D.normal) return false;
-            if (GdxShuffleAngle.value(properties) != GdxShuffleAngle.DEFAULT) return false;
+            if (!shuffleLocked && (GdxCardZoom.SHUFFLE_2D.percent(properties) != GdxCardZoom.SHUFFLE_2D.normal
+                    || GdxCardZoom.SHUFFLE_3D.percent(properties) != GdxCardZoom.SHUFFLE_3D.normal
+                    || GdxShuffleAngle.value(properties) != GdxShuffleAngle.DEFAULT)) return false;
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
-                if (!stringAtDefault(properties, choice.key(), choice.fallback())) return false;
+                if (shuffleLocked && GdxAppearanceOptions.shuffleChoice(choice)) continue;
+                if (!GdxAppearanceOptions.isDefault(choice, properties)) return false;
             }
         }
         return true;

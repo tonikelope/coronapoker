@@ -9101,23 +9101,31 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void restoreFrontendAudioDefaults() {
+        String oldOutput = initialProperties.getProperty(GdxAudioDevices.OUTPUT_KEY, "");
         GdxSettingsContract.restoreAudioPageDefaults(initialProperties,
                 settingsAudioPage,
                 frontendMayEditGlobalCommunicationRules(),
                 GdxAudioDevices.hasCaptureDevices());
-        GdxAudioDevices.applyConfiguredOutput(initialProperties);
-        audioControl.setEnabled(preferenceBoolean("sonidos", true), false);
+        if (GdxSettingsContract.hasMasterVolume(GdxSettingsContract.AUDIO_PAGES.get(settingsAudioPage))) {
+            if (GdxAudioDevices.outputSelectionChanged(oldOutput, initialProperties.getProperty(GdxAudioDevices.OUTPUT_KEY, ""))) {
+                GdxAudioDevices.applyConfiguredOutput(initialProperties);
+            }
+            audioControl.restoreSessionEnabled(preferenceBoolean("sonidos", true));
+        }
         syncMusicForSurface();
         playFrontendSwitchSound(true);
     }
 
     private void restoreFrontendAppearanceDefaults() {
+        GdxWindowMode previousMode = GdxWindowMode.configured(initialProperties);
         GdxSettingsContract.restoreAppearancePageDefaults(initialProperties,
                 settingsAppearancePage, true);
         GdxVisualEffects.synchronize(initialProperties);
         presentationSettings.refreshRuntimePreferences();
-        GdxDisplayModeController.apply(GdxWindowMode.configured(
-                initialProperties));
+        GdxWindowMode restoredMode = GdxWindowMode.configured(initialProperties);
+        if (previousMode != restoredMode) {
+            GdxDisplayModeController.apply(restoredMode);
+        }
         refreshFeltFromSettings();
         playFrontendSwitchSound(true);
     }
@@ -9137,7 +9145,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxAudioDevices.hasCaptureDevices(),
                     audioControl.enabled());
             case SHORTCUTS -> shortcutBindings.allDefaults()
-                    && frontendControlSettingsAtDefaults();
+                    && GdxSettingsContract.controlSettingsAtDefaults(initialProperties);
             case GAME, DEBUG -> true;
         };
     }
@@ -9150,7 +9158,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case AUDIO -> restoreFrontendAudioDefaults();
             case SHORTCUTS -> {
                 shortcutBindings.resetAllEdits();
-                restoreFrontendControlDefaults();
+                GdxSettingsContract.restoreControlDefaults(initialProperties);
+                presentationSettings.refreshRuntimePreferences();
                 settingsShortcutCaptureId = null;
             }
             case GAME, DEBUG -> {
@@ -11038,35 +11047,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String frontendAutoCallValue() {
         boolean enabled = preferenceBoolean("auto_call_enabled", false);
-        double maximum = preferenceDouble("auto_call_max", 0d);
+        double maximum = GdxSettingsContract.automaticCallLimit(initialProperties);
         return GdxSettingsContract.autoCallStatusLabel(enabled, maximum,
                 formatBlind(maximum), gameText);
-    }
-
-    private boolean frontendControlSettingsAtDefaults() {
-        return !preferenceBoolean("auto_action_buttons", false)
-                && preferenceBoolean("auto_action_persist", true)
-                && preferenceBoolean("modo_auto_confirm", true)
-                && !preferenceBoolean("confirmar_todo", false)
-                && !preferenceBoolean("auto_call_enabled", false)
-                && Math.abs(preferenceDouble("auto_call_max", 0d)) < 0.0001d
-                && !presentationSettings.autoRebuyOnBroke();
-    }
-
-    private void restoreFrontendControlDefaults() {
-        initialProperties.setProperty("auto_action_buttons", "false");
-        initialProperties.setProperty("auto_action_persist", "true");
-        initialProperties.setProperty("modo_auto_confirm", "true");
-        initialProperties.setProperty("confirmar_todo", "false");
-        initialProperties.setProperty("auto_call_enabled", "false");
-        initialProperties.setProperty("auto_call_max", "0");
-        presentationSettings.setAutoRebuyOnBroke(false);
     }
 
     private void openSettingsAutoCallDialog() {
         settingsAutoCallDialog = GdxTableDialog.autoCall(
                 preferenceBoolean("auto_call_enabled", false),
-                preferenceDouble("auto_call_max", 0d), gameText);
+                GdxSettingsContract.automaticCallLimit(initialProperties), gameText);
         clearActiveField();
     }
 
@@ -11249,15 +11238,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean preferenceBoolean(String key, boolean fallback) {
         return Boolean.parseBoolean(initialProperties.getProperty(key,
                 Boolean.toString(fallback)));
-    }
-
-    private double preferenceDouble(String key, double fallback) {
-        try {
-            return Double.parseDouble(initialProperties.getProperty(key,
-                    Double.toString(fallback)));
-        } catch (NumberFormatException invalid) {
-            return fallback;
-        }
     }
 
     private float masterVolume() {

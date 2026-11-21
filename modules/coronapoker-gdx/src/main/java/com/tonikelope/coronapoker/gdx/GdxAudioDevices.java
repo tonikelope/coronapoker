@@ -145,16 +145,7 @@ final class GdxAudioDevices {
     }
 
     static void applyConfiguredOutput(Properties properties) {
-        String selected = properties.getProperty(OUTPUT_KEY, DEFAULT);
-        try {
-            if (Gdx.audio != null && !Gdx.audio.switchOutputDevice(
-                    selected.isEmpty() ? null : selected)) {
-                properties.setProperty(OUTPUT_KEY, DEFAULT);
-                Gdx.audio.switchOutputDevice(null);
-            }
-        } catch (RuntimeException unavailable) {
-            properties.setProperty(OUTPUT_KEY, DEFAULT);
-        }
+        rebindConfiguredOutput(properties, outputChoices());
     }
 
     private static boolean rebindConfiguredOutput(Properties properties,
@@ -167,8 +158,9 @@ final class GdxAudioDevices {
         String target = selected.isEmpty() || available.contains(selected)
                 ? selected : DEFAULT;
         try {
-            return Gdx.audio != null && Gdx.audio.switchOutputDevice(
-                    target.isEmpty() ? null : target);
+            if (Gdx.audio == null) return false;
+            if (Gdx.audio.switchOutputDevice(target.isEmpty() ? null : target)) return true;
+            return !target.isEmpty() && Gdx.audio.switchOutputDevice(null);
         } catch (RuntimeException unavailable) {
             return false;
         }

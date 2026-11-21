@@ -16,6 +16,7 @@ final class GdxShuffleMarkerPlacement {
     private final Vector3 point = new Vector3();
     private FloatArray outline;
     private final Rectangle leftBank = new Rectangle(), rightBank = new Rectangle();
+    private final Rectangle peekButton = new Rectangle();
     private final Vector2 result = new Vector2();
     private float baseX = Float.NaN, baseY, radiusX, radiusY;
     private float lowX, highX, bestDistance;
@@ -36,11 +37,11 @@ final class GdxShuffleMarkerPlacement {
         baseX = Float.NaN;
     }
 
-    Vector2 place(float x, float y, float rx, float ry, Rectangle left, Rectangle right) {
+    Vector2 place(float x, float y, float rx, float ry, Rectangle left, Rectangle right, Rectangle peek) {
         if (baseX == x && baseY == y && radiusX == rx && radiusY == ry
-                && leftBank.equals(left) && rightBank.equals(right)) return result;
+                && leftBank.equals(left) && rightBank.equals(right) && peekButton.equals(peek)) return result;
         baseX = x; baseY = y; radiusX = rx; radiusY = ry;
-        leftBank.set(left); rightBank.set(right);
+        leftBank.set(left); rightBank.set(right); peekButton.set(peek);
         bestDistance = Float.POSITIVE_INFINITY;
         considerRow(y);
         if (bestDistance > 0f) {
@@ -52,6 +53,7 @@ final class GdxShuffleMarkerPlacement {
             }
             if (right.width > 0f) considerRow(right.y + right.height + ry);
             if (left.width > 0f) considerRow(left.y + left.height + ry);
+            if (peek.width > 0f) considerRow(peek.y + peek.height + ry);
         }
         return result;
     }
@@ -79,18 +81,20 @@ final class GdxShuffleMarkerPlacement {
         // On this row the nearest legal x is the original x or an obstacle boundary.
         consider(baseX, y);
         if (lowX <= highX) { consider(lowX, y); consider(highX, y); }
-        if (leftBank.width > 0f) {
-            consider(leftBank.x - radiusX, y);
-            consider(leftBank.x + leftBank.width + radiusX, y);
-        }
-        if (rightBank.width > 0f) {
-            consider(rightBank.x - radiusX, y);
-            consider(rightBank.x + rightBank.width + radiusX, y);
-        }
+        considerSides(leftBank, y);
+        considerSides(rightBank, y);
+        considerSides(peekButton, y);
+    }
+
+    private void considerSides(Rectangle obstacle, float y) {
+        if (obstacle.width <= 0f) return;
+        consider(obstacle.x - radiusX, y);
+        consider(obstacle.x + obstacle.width + radiusX, y);
     }
 
     private void consider(float x, float y) {
-        if ((x > lowX && x < highX) || blocks(leftBank, x, y) || blocks(rightBank, x, y)) return;
+        if ((x > lowX && x < highX) || blocks(leftBank, x, y)
+                || blocks(rightBank, x, y) || blocks(peekButton, x, y)) return;
         float distance = Vector2.dst2(x, y, baseX, baseY);
         if (distance < bestDistance) {
             bestDistance = distance;

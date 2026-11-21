@@ -49,7 +49,7 @@ final class GdxRabbitPresentationContractTest {
         assertTrue(shader.contains("uniform sampler2D u_texture;"));
         assertTrue(shader.contains(
                 "sampleCardArtwork(u_texture, v_texCoords)"));
-        assertTrue(shader.contains("roundedCardCoverage(v_texCoords)"));
+        assertTrue(shader.contains("softCardCoverage(v_texCoords,"));
         assertTrue(shader.contains("gl_FrontFacing"));
         assertFalse(shader.contains("u_overlayTexture"));
         assertTrue(shader.contains("uniform vec4 u_highlight;"));

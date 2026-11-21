@@ -168,6 +168,7 @@ final class GdxCommunityTurn2DGpuTest {
         shader.setUniformf("u_cardAspect", CARD_HEIGHT / CARD_WIDTH);
         shader.setUniformf("u_canvasScale", CANVAS);
         shader.setUniformf("u_artworkSmooth", 0f);
+        shader.setUniformf("u_tableSilhouette", 1f);
         shader.setUniformf("u_extraArtworkSampling", 1f);
         shader.setUniformf("u_projectedArtwork", 0f);
         shader.setUniformf("u_artworkLodBias", 0f);

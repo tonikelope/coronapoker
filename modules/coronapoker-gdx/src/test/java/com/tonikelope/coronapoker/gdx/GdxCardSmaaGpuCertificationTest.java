@@ -91,7 +91,7 @@ final class GdxCardSmaaGpuCertificationTest {
                     () -> "Smooth card artwork prefilter was effectively a "
                     + "no-op: only " + artworkChanged
                     + " framebuffer pixels changed");
-            verifyRemoteSilhouette(batch, card, projection);
+            verifyFlatTableSilhouette(batch, card, projection);
             verifyMeshSilhouette(batch, card, projection);
             byte[] direct = renderNative(renderer, batch, card, projection);
             byte[] antialiased = renderSmaa(renderer, batch, card, projection, null);
@@ -117,17 +117,17 @@ final class GdxCardSmaaGpuCertificationTest {
         }
     }
 
-    private static void verifyRemoteSilhouette(SpriteBatch batch, Texture card, Matrix4 projection) {
-        for (float angle : new float[]{7f, -7f}) {
+    private static void verifyFlatTableSilhouette(SpriteBatch batch, Texture card, Matrix4 projection) {
+        for (float angle : new float[]{0f, 7f, -7f, 8.5f, -8.5f}) {
             byte[] regular = renderProductCard(batch, card, projection, 1f, angle, false);
-            byte[] remote = renderProductCard(batch, card, projection, 1f, angle, true);
+            byte[] table = renderProductCard(batch, card, projection, 1f, angle, true);
             // The white border of the diagnostic card meets a black background.
             assertTrue(maxRightEdgeStep(regular) > 200);
-            assertCompactRightEdge(regular, remote, angle);
+            assertCompactRightEdge(regular, table, angle);
             for (int y = 44; y < 84; y++) {
                 int start = (y * WIDTH + 60) * 4;
                 int end = start + 40 * 4;
-                assertTrue(java.util.Arrays.equals(regular, start, end, remote, start, end),
+                assertTrue(java.util.Arrays.equals(regular, start, end, table, start, end),
                         "The opaque artwork must retain its original samples");
             }
         }
@@ -216,7 +216,7 @@ final class GdxCardSmaaGpuCertificationTest {
     }
 
     private static byte[] renderProductCard(SpriteBatch batch, Texture card,
-            Matrix4 projection, float artworkSmooth, float angle, boolean remoteSeat) {
+            Matrix4 projection, float artworkSmooth, float angle, boolean tableSilhouette) {
         clearBackBuffer();
         ShaderProgram shader = new ShaderProgram(
                 CoronaPokerGdxTable.CARD_VERTEX_SHADER,
@@ -237,7 +237,7 @@ final class GdxCardSmaaGpuCertificationTest {
             shader.setUniformf("u_canvasScale",
                     CoronaPokerGdxTable.cardShaderCanvasScale());
             shader.setUniformf("u_artworkSmooth", artworkSmooth);
-            shader.setUniformf("u_remoteSeat", remoteSeat ? 1f : 0f);
+            shader.setUniformf("u_tableSilhouette", tableSilhouette ? 1f : 0f);
             shader.setUniformf("u_overlay", 1f, 1f, 1f, 0f);
             batch.setColor(Color.WHITE);
             batch.draw(card, 27.5f, 4f, 52.5f, 60f, 105f, 120f,

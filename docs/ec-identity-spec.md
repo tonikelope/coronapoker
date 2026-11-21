@@ -220,7 +220,7 @@ Honest player timeouts are resolved client-side: each peer's local `auto_action`
 
 The board is never trusted from a host plaintext announcement alone. After the SRA cascade and the community rotation pass (see [`SECURITY.md`](SECURITY.md) §2.2), each community slot is locked **only** under each peer's `k_community`. Per street, the host:
 
-1. Sends every ring member its **own per-recipient encrypted piece**, `FLOP_PIECE` / `TURN_PIECE` / `RIVER_PIECE` (and `RABBIT_*_PIECE` for rabbit hunting), wire-shaped as `<PIECE>#<recipient_nick_b64>#<payload_b64>`. The recipient applies its `local_sra_unlock_community` to decode the piece **locally** and maps each 32-byte chunk to a card index via `RistrettoSRA.resolveCardIndex`.
+1. Broadcasts one `CARD_DELIVERY_V1` for the street, containing the cryptographic hand ID, the phase and the complete list of named single-locked residues. The receiver checks the hand, phase, recipient set and curve encodings before using its own entry. It applies `local_sra_unlock_community` and resolves the card indices against the genesis deck. Run It Twice uses a distinct phase for each street of the second board. Rabbit hunting retains its separate addressed `RABBIT_*_PIECE` messages.
 2. Broadcasts a single signed announcement to everyone:
    ```
    COMM_REVEAL # <record_b64> # <sig_b64>
@@ -321,10 +321,12 @@ At hand close every currently expected human ring member publishes a signed rece
 
 ```
 Host → all:      GAME # <command_id> # HANDVERIFY                       (no payload, trigger)
-Each peer → all: GAME # <command_id> # HANDVERIFY # <nick_b64> # <receipt_b64>
+Signer → host:   GAME # <command_id> # HANDVERIFY # <nick_b64> # <receipt_b64>
+Host → peers:    GAME # <command_id> # HANDVERIFY # <host_nick_b64> # <host_receipt_b64>
+Host → recipient: GAME # <command_id> # HANDVERIFY_RELAY_V1 # <nick_b64> # <receipt_b64> [# <nick_b64> # <receipt_b64> ...]
 ```
 
-Both forms ride the standard `GAME # <command_id> #` envelope. The parser distinguishes the trigger from a receipt by field count (3 fields vs 5). Clients send receipts to the host, which relays them to the other clients and sends its own receipt.
+The host relays the signed receipts available in each collection pass. Each recipient gets the other signers’ receipts. The client validates the full batch, including each signer, signature and hand ID, before adding any entry to its local settlement. The transport confirmation records delivery. Each client still verifies the final result independently.
 
 The host also sends `HANDVERIFY_RESULT # <hand_id_b64> # <OK|FAIL> # <reason_b64>` in the same envelope. Clients require an OK for their current hand and check the signed receipts independently before closing.
 
@@ -422,8 +424,10 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | `COMM_REVEAL # <record_b64> # <sig_b64>` | Host → all | Signed community-card announcement, absorbed into `H_t` |
 | `RABBIT_REQ # <request_b64>` | Requester → host | Hand-bound request carrying the requester's Ed25519 proof (`"RABBIT\0"`) |
 | `RABBIT_AUTH # <authorization_b64>` | Host → all | Canonical count/fee plus the unchanged signed request. Every peer verifies requester authorship before charging |
+| `CARD_DELIVERY_V1 # <hand_id_b64> # <phase> # <nick_b64> # <residue_b64> ...` | Host → clients | Single-locked card residues for pocket cards or one board street |
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |
 | `HANDVERIFY # <nick_b64> # <receipt_b64>` | Clients → host, host → clients | Signed end-of-hand receipt |
+| `HANDVERIFY_RELAY_V1 # <nick_b64> # <receipt_b64> ...` | Host → each recipient | Available signed peer receipts, excluding the recipient’s own |
 | `HANDVERIFY_RESULT # <hand_id_b64> # <status> # <reason_b64>` | Host → clients | Hand-specific `OK` or `FAIL` for settlement |
 
 Wire-incompatible changes are gated by the strict `ApplicationMetadata.VERSION` equality check at join (§3). The production dual-lock proof format v2 uses context-bound DLEQ proofs for the expected public keys. Active-hand recovery requires the matching local `SHUFFLE_CONTEXT@2` verdict alongside `SHUFFLE_VERIFIED@1`.

@@ -113,7 +113,7 @@ final class GdxPlasticCard {
             lastTurn = turn;
             peek.set(lift);
             // The hand turns both cards together. Their stored peek curvature
-            // relaxes as the wrist turns, with just a shallow bow under load.
+            // relaxes as the wrist turns, while the free edge flexes more than the supported edge.
             if (turn == 0f) return;
             double phase = Math.min(1.0, turn / .90);
             double travel = gripTravel(phase);
@@ -122,7 +122,7 @@ final class GdxPlasticCard {
             double pitch = Math.PI * travel - .13 * Math.sin(2.0 * Math.PI * travel);
             double grip = (1.0 - phase) * (1.0 - phase);
             double load = Math.sin(Math.PI * phase);
-            double bow = Math.toRadians(33) * load * load;
+            double bow = Math.toRadians(65) * load * load;
             floor = 0.0;
             z[0] = -extent * Math.cos(pitch);
             y[0] = 0.0;
@@ -131,7 +131,9 @@ final class GdxPlasticCard {
                 peek.sample(point, normal, 1f, 1f, .5f, (float) v);
                 double heldAngle = Math.atan2(-normal.z, normal.y);
                 double along = Math.max(0.0, Math.min(1.0, v));
-                angle[i] = pitch + grip * heldAngle + bow * (along - .5);
+                // Keep the average pitch while letting the free half bend more.
+                double flex = along * (.70 + .30 * along) - .45;
+                angle[i] = pitch + grip * heldAngle + bow * flex;
                 if (i > 0) {
                     z[i] = z[i - 1] + (Math.cos(angle[i - 1]) + Math.cos(angle[i])) * range / (2.0 * STEPS);
                     y[i] = y[i - 1] + (Math.sin(angle[i - 1]) + Math.sin(angle[i])) * range / (2.0 * STEPS);

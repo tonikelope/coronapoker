@@ -358,7 +358,7 @@ final class GdxPlasticCardTest {
                 "Lifting and rolling must overlap instead of stopping between phases");
     }
 
-    @Test void coveredShowdownPairTurnsWithOnlyAShallowElasticBow() {
+    @Test void coveredShowdownPairFlexesAndRecoversOnLanding() {
         var shape = new GdxPlasticCard.UncoverShape();
         var point = new Vector3();
         var supported = new Vector3();
@@ -377,7 +377,7 @@ final class GdxPlasticCardTest {
                 peakBend = Math.max(peakBend, bend);
                 if (frame == 90) assertEquals(0f, bend, .01f);
             }
-            assertTrue(peakBend > 25f && peakBend < 45f, "Peak bend in degrees: " + peakBend);
+            assertTrue(peakBend > 60f && peakBend < 80f, "Peak bend in degrees: " + peakBend);
         }
     }
 

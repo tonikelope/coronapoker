@@ -71,8 +71,9 @@ final class GdxFrontendPasswordAndFooterTest {
         assertEquals(2, GdxFrontendScreen.MENU_QUOTE_MAX_LINES);
         assertEquals(GdxSettingsStyle.SMALL_FONT_SIZE, 18);
         assertTrue(GdxFrontendScreen.MENU_QUOTE_TWO_LINE_TOP_BASELINE
-                - GdxFrontendScreen.MENU_QUOTE_LINE_HEIGHT
-                > GdxFrontendScreen.MENU_SOUND_BOTTOM_MARGIN
-                + GdxFrontendScreen.MENU_SOUND_SIZE);
+                - GdxFrontendScreen.MENU_QUOTE_LINE_HEIGHT - GdxSettingsStyle.SMALL_FONT_SIZE
+                > GdxFrontendScreen.MENU_BADGE_BOTTOM + GdxFrontendScreen.MENU_BADGE_HEIGHT);
+        assertTrue(GdxFrontendScreen.MENU_QUOTE_TWO_LINE_TOP_BASELINE
+                < GdxFrontendScreen.MENU_LAST_BUTTON_Y);
     }
 }

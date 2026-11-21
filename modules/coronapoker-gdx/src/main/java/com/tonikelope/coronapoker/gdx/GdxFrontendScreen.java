@@ -165,11 +165,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float MENU_SOUND_RIGHT_MARGIN = 35f;
     static final float MENU_SOUND_BOTTOM_MARGIN = 20f;
     static final float MENU_SOUND_SIZE = 40f;
+    static final float MENU_BADGE_BOTTOM = GdxProductVersionBrand.BASELINE_Y + 10f;
+    static final float MENU_BADGE_HEIGHT = 120f;
+    static final float MENU_LAST_BUTTON_Y = 205f;
     static final float MENU_QUOTE_SIDE_MARGIN = 24f;
     static final float MENU_QUOTE_MAX_WIDTH = WIDTH
             - 2f * MENU_QUOTE_SIDE_MARGIN;
     static final float MENU_QUOTE_LINE_HEIGHT = 24f;
-    static final float MENU_QUOTE_SINGLE_BASELINE = 88f + MENU_QUOTE_LINE_HEIGHT;
+    static final float MENU_QUOTE_SINGLE_BASELINE =
+            MENU_BADGE_BOTTOM + MENU_BADGE_HEIGHT + 22f;
     static final float MENU_QUOTE_TWO_LINE_TOP_BASELINE =
             MENU_QUOTE_SINGLE_BASELINE + MENU_QUOTE_LINE_HEIGHT;
     static final int MENU_QUOTE_MAX_LINES = 2;
@@ -479,7 +483,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean loadedSecretFelt;
     private Texture logo;
     private Texture pegi18;
-    private TextureRegion krustySeal;
+    private Texture krustySeal;
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture selectedAvatarTexture;
@@ -954,9 +958,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture = loadFeltTexture();
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-        pegi18 = filteredTexture("images/pegi18.png");
-        // The bundled 100 px seal has a two-pixel transparent margin.
-        krustySeal = new TextureRegion(filteredTexture("images/krusty.png"), 2, 2, 96, 96);
+        pegi18 = new Texture(Gdx.files.internal("images/pegi18.png"), true);
+        pegi18.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        krustySeal = loadKrustySeal();
         avatarDefault = filteredTexture("images/avatar_default.png");
         avatarBot = filteredTexture("images/avatar_bot.png");
         soundIcon = filteredTexture("images/sound.png");
@@ -1484,13 +1488,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         batch.begin();
         if (surface == Surface.MENU && !hasVisibleFrontendModal()) {
-            float height = 120f;
+            float height = MENU_BADGE_HEIGHT;
             float width = height * pegi18.getWidth() / pegi18.getHeight();
             float x = GdxProductVersionBrand.X;
-            float y = GdxProductVersionBrand.BASELINE_Y + 10f;
             batch.setColor(Color.WHITE);
-            batch.draw(pegi18, x, y, width, height);
-            batch.draw(krustySeal, x + width + 10f, y, height, height);
+            batch.draw(pegi18, x, MENU_BADGE_BOTTOM, width, height);
+            batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
+            batch.draw(krustySeal, x + width + 10f, MENU_BADGE_BOTTOM, height, height);
+            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         }
         drawLobbyAvatarsInCurrentBatch();
         drawUiImagesInCurrentBatch();
@@ -2692,10 +2697,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 gameText.translate("gdx.language_name"),
                 () -> openDropdown(Dropdown.LANGUAGE,
                         975f, 310f, 350f, 82f)));
-        mainMenuButton(595f, 205f, 350f, 82f,
+        mainMenuButton(595f, MENU_LAST_BUTTON_Y, 350f, 82f,
                 uppercase(gameText.translate("menu.acerca_de")), 4, false,
                 this::openAboutDialog);
-        exitButton(975f, 205f, 350f, 82f,
+        exitButton(975f, MENU_LAST_BUTTON_Y, 350f, 82f,
                 gameText.translate("ui.salir"),
                 this::requestApplicationExit, true);
 
@@ -6730,6 +6735,28 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static Texture filteredTexture(String asset) {
         return GdxTextureQuality.loadUi(Gdx.files.internal(asset));
+    }
+
+    private static Texture loadKrustySeal() {
+        Pixmap source = new Pixmap(Gdx.files.internal("images/krusty.png"));
+        try {
+            // Filter colour and coverage together so RGB in transparent
+            // pixels cannot bleed into the outline when the seal shrinks.
+            var pixels = source.getPixels();
+            for (int i = 0; i < pixels.limit(); i += 4) {
+                int alpha = pixels.get(i + 3) & 0xff;
+                if (alpha == 255) continue;
+                for (int channel = i; channel < i + 3; channel++) {
+                    int colour = pixels.get(channel) & 0xff;
+                    pixels.put(channel, (byte) ((colour * alpha + 127) / 255));
+                }
+            }
+            Texture texture = new Texture(source, true);
+            texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+            return texture;
+        } finally {
+            source.dispose();
+        }
     }
 
     private static Texture silhouetteTexture(String asset, Color tint) {
@@ -18127,7 +18154,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture.dispose();
         logo.dispose();
         pegi18.dispose();
-        krustySeal.getTexture().dispose();
+        krustySeal.dispose();
         avatarDefault.dispose();
         avatarBot.dispose();
         disposeCustomBotAvatarTextures();

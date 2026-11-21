@@ -1152,9 +1152,9 @@ final class GdxSettingsContract {
             return text == null ? "Máximo rendimiento" : text.translate("gdx.settings.value.card_performance");
         }
         if (rendering == GdxCardSmaaRenderer.RENDERING_BALANCED) {
-            return text == null ? "TRILINEAL + AF(x16)" : text.translate("gdx.settings.value.card_trilinear");
+            return text == null ? "Equilibrado" : text.translate("gdx.settings.value.card_trilinear");
         }
-        return text == null ? "TRILINEAL + AF(x16) + 16 muestras"
+        return text == null ? "Máxima calidad"
                 : text.translate("gdx.settings.value.card_trilinear_16_samples");
     }
 

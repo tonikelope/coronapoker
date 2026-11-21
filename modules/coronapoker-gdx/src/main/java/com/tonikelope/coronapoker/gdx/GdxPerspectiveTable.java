@@ -47,6 +47,7 @@ final class GdxPerspectiveTable implements Disposable {
     // Match the short dimension of the projected texel footprint. Sampling
     // the long dimension separately keeps angled ink from smearing sideways.
     static final String CARD_PROJECTION_SAMPLER = """
+            uniform float u_tableArtworkLodOffset;
             vec4 sampleProjectedCard(sampler2D image, vec2 uv, float aspect, float smoothArtwork) {
                 if (smoothArtwork < -0.5) return texture2D(image, uv);
                 vec2 dx = dFdx(uv);
@@ -60,6 +61,7 @@ final class GdxPerspectiveTable implements Disposable {
                 float stretch = clamp(max(xx, yy) / max(area, 0.00000001), 1.0, 4.0);
                 float bias = (smoothArtwork > 0.5 ? -0.25 : -0.42) - log2(stretch);
                 if (smoothArtwork > 0.5) {
+                    bias += u_tableArtworkLodOffset;
                     vec4 resolved = vec4(0.0);
                     resolved += texture2D(image, uv + dx * (-0.03125) + dy * (-0.34375), bias);
                     resolved += texture2D(image, uv + dx * (0.03125) + dy * (0.34375), bias);
@@ -1760,6 +1762,7 @@ final class GdxPerspectiveTable implements Disposable {
         shader.setUniformf("u_chipPreviewTint", 0f, 0f, 0f, 0f);
         shader.setUniformf("u_opacity", opacity);
         shader.setUniformf("u_artworkSmooth", artworkSampling);
+        shader.setUniformf("u_tableArtworkLodOffset", GdxCardSampling.TABLE_ARTWORK_LOD_OFFSET);
     }
 
     private static Mesh mesh(boolean fixed, FloatArray vertices) {

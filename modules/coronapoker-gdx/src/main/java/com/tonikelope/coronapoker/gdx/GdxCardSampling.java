@@ -6,6 +6,9 @@ import com.badlogic.gdx.graphics.Texture.TextureFilter;
 
 /** Hardware state shared by flat cards, projected artwork and the shuffle viewer. */
 final class GdxCardSampling {
+    // The 16-tap table filter can reconstruct finer mip levels inside the same pixel.
+    static final float TABLE_ARTWORK_LOD_OFFSET = -1.75f;
+
     private GdxCardSampling() {}
 
     static boolean smoothArtwork(int mode) {

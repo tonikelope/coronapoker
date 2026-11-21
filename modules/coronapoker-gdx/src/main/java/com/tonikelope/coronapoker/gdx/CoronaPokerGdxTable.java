@@ -646,7 +646,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             "uniform float u_artworkSmooth;\n"
             + "uniform float u_artworkLodBias;\n"
             + "uniform float u_extraArtworkSampling;\n"
-            + "uniform float u_remoteArtworkLodOffset;\n"
             + "uniform float u_projectedArtwork;\n"
             + GdxPerspectiveTable.CARD_PROJECTION_SAMPLER
             + "vec4 sampleCardArtwork(sampler2D artwork, vec2 uv) {\n"
@@ -662,7 +661,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             // A finer mip keeps the narrow engraved strokes. Resolve the
             // four quadrants of the pixel to avoid a single sharp lookup.
             + "    float lodBias = u_extraArtworkSampling > 0.5 ? -0.75 : u_artworkLodBias;\n"
-            + "    lodBias += u_remoteArtworkLodOffset;\n"
+            + "    if (u_artworkSmooth > 0.5) lodBias += u_tableArtworkLodOffset;\n"
             + "    if (u_artworkSmooth < 0.5) {\n"
             + "        vec2 x = uvDx * 0.25;\n"
             + "        vec2 y = uvDy * 0.25;\n"
@@ -1423,7 +1422,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean configuredCardShaderPerspective;
     private float configuredCardShaderAspect;
     private float configuredCardShaderArtworkSmooth;
-    private CardArtworkSampling configuredCardShaderSampling;
+    private boolean configuredCardShaderExtraArtworkSampling;
     private float configuredCardShaderOverlayAlpha = Float.NaN;
     private ShaderProgram avatarShader;
     private ShaderProgram cinematicShader;
@@ -15617,10 +15616,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     }
                     float reveal = flight.revealProgress();
                     if (reveal > 0f) {
-                        configurePlacedCardShader(liveCardFace(deal.card().code()), cardBack,
-                                cardFlipAngle(reveal, flight.flipDirection), true, target);
+                        configureCardShader(liveCardFace(deal.card().code()), cardBack,
+                                cardFlipAngle(reveal, flight.flipDirection), true,
+                                target.height / target.width, true);
                     } else {
-                        configurePlacedCardShader(cardBack, cardBack, 0f, false, target);
+                        useRoundedCardShader(cardBack, true);
                     }
                     drawDealtCardFlight(target, flightProgress, fanX, fanY,
                             flight.dealOrder, cardFlipScale(reveal), cardBack, flight.route.style);
@@ -15720,7 +15720,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     MathUtils.lerp(from.x, to.x, motion) + towardX * arc * lane,
                     MathUtils.lerp(from.y, to.y, motion) + towardY * arc * lane,
                     from.width, from.height,
-                    MathUtils.lerp(from.rotation, to.rotation, motion), from.remoteSeat);
+                    MathUtils.lerp(from.rotation, to.rotation, motion));
             if (slot == 0) {
                 firstPlacement = placement;
             } else {
@@ -15807,8 +15807,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float canvasHeight = target.height * CARD_SHADER_CANVAS_SCALE;
             float revealScale = cardFlipScale(progress);
             Texture face = liveCardFace(liveHoleReveal.revealedCard(slot).code());
-            configurePlacedCardShader(face, cardBack, cardFlipAngle(progress,
-                    liveHoleReveal.flipDirection), true, target);
+            configureCardShader(face, cardBack, cardFlipAngle(progress,
+                    liveHoleReveal.flipDirection), true,
+                    target.height / target.width, true);
             batch.setColor(Color.WHITE);
             batch.draw(cardBack, x - canvasWidth / 2f,
                     y - canvasHeight / 2f, canvasWidth / 2f,
@@ -15845,7 +15846,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 x += RIVAL_LEFT_CARD_SHIFT;
             }
             return new LiveCardPlacement(x, centerY, width, height,
-                    slot == 0 ? RIVAL_CARD_FAN_ANGLE : -RIVAL_CARD_FAN_ANGLE, true);
+                    slot == 0 ? RIVAL_CARD_FAN_ANGLE : -RIVAL_CARD_FAN_ANGLE);
         }
         float towardX = tableCenterX - seat.x;
         float towardY = tableCenterY - seat.y;
@@ -16303,7 +16304,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.setColor(tint, tint, tint, alpha);
         if (card.faceUp() && !card.code().isBlank()) {
             Texture face = liveCardFace(card.code());
-            configurePlacedCardShader(face, cardBack, MathUtils.PI, true, placement);
+            configureCardShader(face, cardBack, MathUtils.PI, true,
+                    placement.height / placement.width, true);
             setCardShowdownOverlay(showdownTint);
             float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
             float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
@@ -16313,7 +16315,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     placement.rotation, 0, 0, cardBack.getWidth(),
                     cardBack.getHeight(), false, false);
         } else {
-            configurePlacedCardShader(cardBack, cardBack, 0f, false, placement);
+            useRoundedCardShader(cardBack, true);
             float canvasWidth = placement.width * CARD_SHADER_CANVAS_SCALE;
             float canvasHeight = placement.height * CARD_SHADER_CANVAS_SCALE;
             batch.draw(cardBack, placement.x - canvasWidth / 2f,
@@ -18156,6 +18158,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         rabbitPeelShader.setUniformf("u_cornerRadius", CARD_CORNER_RADIUS);
         rabbitPeelShader.setUniformf("u_artworkSmooth",
                 cardArtworkSmoothValue());
+        rabbitPeelShader.setUniformf("u_tableArtworkLodOffset", GdxCardSampling.TABLE_ARTWORK_LOD_OFFSET);
         rabbitPeelShader.setUniformf("u_extraArtworkSampling",
                 perspectiveBoardArtwork ? 0f : 1f);
         rabbitPeelShader.setUniformf("u_projectedArtwork", perspectiveBoardArtwork
@@ -18177,24 +18180,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void configureCardShader(Texture front, Texture cardBack,
             float angle, boolean perspective, float aspect, boolean extraArtworkSampling) {
-        configureCardShader(front, cardBack, angle, perspective, aspect,
-                extraArtworkSampling ? CardArtworkSampling.DETAILED : CardArtworkSampling.STANDARD);
-    }
-
-    private void configurePlacedCardShader(Texture front, Texture back, float angle,
-            boolean perspective, LiveCardPlacement placement) {
-        float aspect = perspective ? placement.height / placement.width : 1f / deckCardAspect(liveDeck);
-        configureCardShader(front, back, angle, perspective, aspect,
-                placement.remoteSeat ? CardArtworkSampling.REMOTE : CardArtworkSampling.DETAILED);
-    }
-
-    private void configureCardShader(Texture front, Texture cardBack,
-            float angle, boolean perspective, float aspect, CardArtworkSampling sampling) {
         Objects.requireNonNull(front, "Card shader requires a front texture");
         Objects.requireNonNull(cardBack, "Card shader requires a back texture");
         float artworkSmooth = cardArtworkSmoothValue();
         if (batch.getShader() == roundedCardShader
-                && configuredCardShaderSampling == sampling
+                && configuredCardShaderExtraArtworkSampling == extraArtworkSampling
                 && sameCardShaderConfiguration(
                         configuredCardShaderFront, configuredCardShaderBack,
                         configuredCardShaderAngle,
@@ -18221,9 +18211,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         roundedCardShader.setUniformf("u_canvasScale",
                 CARD_SHADER_CANVAS_SCALE);
         roundedCardShader.setUniformf("u_artworkSmooth", artworkSmooth);
-        roundedCardShader.setUniformf("u_extraArtworkSampling", sampling == CardArtworkSampling.STANDARD ? 0f : 1f);
-        // Resolve the small remote artwork from a finer mip using the same sixteen sample positions.
-        roundedCardShader.setUniformf("u_remoteArtworkLodOffset", sampling == CardArtworkSampling.REMOTE ? -1.75f : 0f);
+        roundedCardShader.setUniformf("u_extraArtworkSampling", extraArtworkSampling ? 1f : 0f);
+        roundedCardShader.setUniformf("u_tableArtworkLodOffset",
+                extraArtworkSampling || perspectiveBoardArtwork ? GdxCardSampling.TABLE_ARTWORK_LOD_OFFSET : 0f);
         roundedCardShader.setUniformf("u_projectedArtwork",
                 perspectiveBoardArtwork ? aspect : 0f);
         roundedCardShader.setUniformf("u_artworkLodBias",
@@ -18235,7 +18225,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         configuredCardShaderPerspective = perspective;
         configuredCardShaderAspect = aspect;
         configuredCardShaderArtworkSmooth = artworkSmooth;
-        configuredCardShaderSampling = sampling;
+        configuredCardShaderExtraArtworkSampling = extraArtworkSampling;
         configuredCardShaderOverlayAlpha = 0f;
     }
 
@@ -33805,13 +33795,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         LEFT, RIGHT, UP, DOWN
     }
 
-    private enum CardArtworkSampling { STANDARD, DETAILED, REMOTE }
-
     private record LiveCardPlacement(float x, float y, float width,
-            float height, float rotation, boolean remoteSeat) {
-        LiveCardPlacement(float x, float y, float width, float height, float rotation) {
-            this(x, y, width, height, rotation, false);
-        }
+            float height, float rotation) {
     }
 
     private record ViewedCard(Texture texture, boolean faceUp) {

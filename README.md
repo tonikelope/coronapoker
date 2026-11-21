@@ -267,6 +267,7 @@ can safely overlay the supported presentation assets:
 
 ## 🖥️ UX & display
 
+- **Main menu.** High-resolution PEGI 18 and Krusty seals fade in with the menu. Poker quotes stay centred between the footer elements, with each author kept on one line.
 - **One responsive GDX table layout** that scales and extends with the available window while preserving the same controls and presentation model.
 - **Three display modes**: exclusive fullscreen, borderless fullscreen (the default) and windowed, with optional automatic fullscreen when a table starts.
 - **Appearance controls** for the deck, card back, felt and table-light level. Right-click a visible card or an unoccupied area of the felt during play to open the corresponding deck or felt list. The selected appearance is saved to your profile.
@@ -276,7 +277,7 @@ can safely overlay the supported presentation assets:
 - **Smoother native text** across the menu, HUD, chat and dialogs, with consistent font sizing and spacing. Long tooltips and dialog text use balanced line breaks and limit the extra space between words. Clickable controls show a hand cursor.
 - **Consistent settings controls** in the main menu, waiting room and live table: categorical choices use scrollable drop-down lists, while minus/plus steppers are reserved for quantities. Live-table restrictions keep the same layout and clearly show whether an option is locked for everyone or host-only. Discard restores the opening settings. Restore Defaults applies to the selected subsection and can itself be discarded.
 - **Table light switch.** In both table views, the light fades from full brightness to the configured level and back. The light and quick-chat switches use compact versions of the animated settings control.
-- **End-of-hand card collection.** The players' remaining cards fade in place as the community cards gather. The collected stack then fades away.
+- **End-of-hand card collection.** The community cards briefly return to full intensity before they gather. The players' remaining cards fade in place and the collected stack fades away.
 - **Optional animations and effects**, with one master switch plus independent controls for halos/glows, dialog blur and highlights/bevels. Table, card and cinematic animation behaviour remains configurable.
 - **3D flying-chip shadow quality** under Appearance > Animations and effects, grouped with **Flying chips**. **High** is the default. **Normal** uses fewer samples for shadows during large chip transfers.
 - **Community card deal style** under Appearance > Animations and effects. **By street** is the default. The flop arrives as a covered stack, turns over in the first slot, then spreads to the right. The turn and river travel covered from the dealer and turn over after landing. The flight is slower in this mode. **All face down at the start of the hand** deals the full board at the same speed as the players' cards. A saved change takes effect from the next hand.

@@ -98,7 +98,7 @@ final class GdxModalCompositionContractTest {
         assertTrue(source.contains(
                 "exitButton(exit.x, exit.y, exit.width, exit.height,"),
                 "application exit confirmation must use the shared composition");
-        assertTrue(source.contains("exitButton(975f, 205f, 350f, 82f,"),
+        assertTrue(source.contains("exitButton(975f, MENU_LAST_BUTTON_Y, 350f, 82f,"),
                 "main-menu exit must use the shared composition");
         assertTrue(source.contains("iconButton(35f, 55f, 220f, 70f,"),
                 "waiting-room exit needs its own label inset");

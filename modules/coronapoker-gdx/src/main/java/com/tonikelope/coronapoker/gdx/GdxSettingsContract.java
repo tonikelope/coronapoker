@@ -1149,13 +1149,12 @@ final class GdxSettingsContract {
 
     static String cardRenderingStatusLabel(int rendering, GdxGameText text) {
         if (rendering == GdxCardSmaaRenderer.RENDERING_PERFORMANCE) {
-            return text == null ? "Máximo rendimiento" : text.translate("gdx.settings.value.card_performance");
+            return translatedUpper(text, "gdx.settings.value.card_performance", "MÁXIMO RENDIMIENTO");
         }
         if (rendering == GdxCardSmaaRenderer.RENDERING_BALANCED) {
-            return text == null ? "Equilibrado" : text.translate("gdx.settings.value.card_trilinear");
+            return translatedUpper(text, "gdx.settings.value.card_trilinear", "EQUILIBRADO");
         }
-        return text == null ? "Máxima calidad"
-                : text.translate("gdx.settings.value.card_trilinear_16_samples");
+        return translatedUpper(text, "gdx.settings.value.card_trilinear_16_samples", "MÁXIMA CALIDAD");
     }
 
     private static String antialiasingValue(String technique, int samples,

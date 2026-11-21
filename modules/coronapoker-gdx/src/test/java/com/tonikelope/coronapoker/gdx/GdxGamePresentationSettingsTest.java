@@ -431,8 +431,10 @@ final class GdxGamePresentationSettingsTest {
         assertEquals(direct, GdxSettingsContract.cardRenderingMode(properties));
         assertFalse(GdxSettingsContract.appearancePageAtDefaults(properties, page, false));
         var text = new GdxGameText("es");
-        assertEquals("Equilibrado", GdxSettingsContract.cardRenderingStatusLabel(direct, text));
-        assertEquals("Máxima calidad",
+        assertEquals("EQUILIBRADO", GdxSettingsContract.cardRenderingStatusLabel(direct, text));
+        assertEquals("MÁXIMO RENDIMIENTO", GdxSettingsContract.cardRenderingStatusLabel(
+                GdxCardSmaaRenderer.RENDERING_PERFORMANCE, text));
+        assertEquals("MÁXIMA CALIDAD",
                 GdxSettingsContract.cardRenderingStatusLabel(sampled, text));
     }
 

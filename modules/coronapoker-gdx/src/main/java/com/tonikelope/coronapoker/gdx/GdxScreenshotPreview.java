@@ -17,7 +17,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.lwjgl.stb.STBImageResize;
 
 /** Owns the selected screenshot and its immediate neighbors for an open viewer. */
 final class GdxScreenshotPreview implements AutoCloseable {
@@ -159,32 +158,9 @@ final class GdxScreenshotPreview implements AutoCloseable {
         int previewWidth = (int) Math.ceil(width * scale);
         int previewHeight = (int) Math.ceil(height * scale);
         try {
-            return new Decoded(resize(source, previewWidth, previewHeight), width, height);
+            return new Decoded(GdxTextureQuality.resizePixmap(source, previewWidth, previewHeight), width, height);
         } finally {
             source.dispose();
-        }
-    }
-
-    private static Pixmap resize(Pixmap source, int width, int height) {
-        Pixmap resized = new Pixmap(width, height, source.getFormat());
-        try {
-            int layout = switch (source.getFormat()) {
-                case RGB888 -> STBImageResize.STBIR_RGB;
-                case RGBA8888 -> STBImageResize.STBIR_RGBA;
-                default -> 0;
-            };
-            if (layout == 0 || STBImageResize.stbir_resize_uint8_linear(source.getPixels(),
-                    source.getWidth(), source.getHeight(), 0, resized.getPixels(),
-                    width, height, 0, layout) == null) {
-                resized.setBlending(Pixmap.Blending.None);
-                resized.setFilter(Pixmap.Filter.BiLinear);
-                resized.drawPixmap(source, 0, 0, source.getWidth(), source.getHeight(),
-                        0, 0, width, height);
-            }
-            return resized;
-        } catch (RuntimeException | Error failure) {
-            resized.dispose();
-            throw failure;
         }
     }
 

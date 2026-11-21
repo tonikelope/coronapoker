@@ -157,7 +157,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             "newgame.grupo_bots",
             "gdx.newgame.profile_title");
     static final String PASSWORD_MASK_GLYPH = "\u2022";
-    static final String FRONTEND_EXTRA_FONT_CHARACTERS = "♥♦♠♣"
+    static final String FRONTEND_EXTRA_FONT_CHARACTERS = "♥♦♠♣" + "\u00a0"
             + PASSWORD_MASK_GLYPH;
     static final float MENU_LOGO_X = 42f;
     static final float MENU_LOGO_TOP = 32f;
@@ -168,15 +168,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static final float MENU_BADGE_BOTTOM = GdxProductVersionBrand.BASELINE_Y + 10f;
     static final float MENU_BADGE_HEIGHT = 120f;
     static final float MENU_LAST_BUTTON_Y = 205f;
-    static final float MENU_QUOTE_SIDE_MARGIN = 24f;
+    static final float MENU_BADGE_GAP = 10f;
+    static final float MENU_QUOTE_SIDE_MARGIN = 280f;
     static final float MENU_QUOTE_MAX_WIDTH = WIDTH
             - 2f * MENU_QUOTE_SIDE_MARGIN;
     static final float MENU_QUOTE_LINE_HEIGHT = 24f;
-    static final float MENU_QUOTE_SINGLE_BASELINE =
-            MENU_BADGE_BOTTOM + MENU_BADGE_HEIGHT + 22f;
-    static final float MENU_QUOTE_TWO_LINE_TOP_BASELINE =
-            MENU_QUOTE_SINGLE_BASELINE + MENU_QUOTE_LINE_HEIGHT;
-    static final int MENU_QUOTE_MAX_LINES = 2;
+    static final float MENU_QUOTE_BOTTOM_BASELINE = 112f;
+    static final int MENU_QUOTE_MAX_LINES = 3;
     static final float LOBBY_LEFT_ACTION_X = 55f;
     static final float LOBBY_LEFT_ACTION_WIDTH = 390f;
     static final float LOBBY_LEFT_CONTENT_X = LOBBY_LEFT_ACTION_X;
@@ -482,8 +480,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String loadedFelt;
     private boolean loadedSecretFelt;
     private Texture logo;
-    private Texture pegi18;
-    private Texture krustySeal;
+    private GdxMenuBadge pegi18;
+    private GdxMenuBadge krustySeal;
     private Texture avatarDefault;
     private Texture avatarBot;
     private Texture selectedAvatarTexture;
@@ -958,9 +956,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         feltTexture = loadFeltTexture();
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-        pegi18 = new Texture(Gdx.files.internal("images/pegi18.png"), true);
-        pegi18.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
-        krustySeal = loadKrustySeal();
+        pegi18 = new GdxMenuBadge("images/pegi18.png");
+        krustySeal = new GdxMenuBadge("images/krusty.png");
         avatarDefault = filteredTexture("images/avatar_default.png");
         avatarBot = filteredTexture("images/avatar_bot.png");
         soundIcon = filteredTexture("images/sound.png");
@@ -1489,13 +1486,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         batch.begin();
         if (surface == Surface.MENU && !hasVisibleFrontendModal()) {
             float height = MENU_BADGE_HEIGHT;
-            float width = height * pegi18.getWidth() / pegi18.getHeight();
             float x = GdxProductVersionBrand.X;
             batch.setColor(Color.WHITE);
-            batch.draw(pegi18, x, MENU_BADGE_BOTTOM, width, height);
-            batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
-            batch.draw(krustySeal, x + width + 10f, MENU_BADGE_BOTTOM, height, height);
-            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+            pegi18.drawAt(batch, viewport, x, MENU_BADGE_BOTTOM, height);
+            x += pegi18.widthForHeight(height) + MENU_BADGE_GAP;
+            krustySeal.drawAt(batch, viewport, x, MENU_BADGE_BOTTOM, height);
         }
         drawLobbyAvatarsInCurrentBatch();
         drawUiImagesInCurrentBatch();
@@ -2717,22 +2712,29 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     /**
-     * Keeps every menu quote at the same 18 px size. Only exceptional long
-     * quotes wrap to a second line; unlike fitted UI labels they never switch
-     * to the smaller fallback font.
+     * Keeps the quote centred between the badges and footer controls at
+     * one font size. Wrapped lines grow upwards from the same anchor.
      */
     private void drawMainMenuQuote(String quote) {
         if (quote.isBlank()) return;
-        List<String> lines = wrapText(smallFont, quote,
-                MENU_QUOTE_MAX_WIDTH, MENU_QUOTE_MAX_LINES);
-        float baseline = lines.size() > 1
-                ? MENU_QUOTE_TWO_LINE_TOP_BASELINE
-                : MENU_QUOTE_SINGLE_BASELINE;
+        List<String> lines = wrapMainMenuQuote(quote);
+        float baseline = MENU_QUOTE_BOTTOM_BASELINE
+                + (lines.size() - 1) * MENU_QUOTE_LINE_HEIGHT;
         for (String line : lines) {
             texts.add(new TextItem(smallFont, line, WIDTH / 2f, baseline,
                     new Color(Color.WHITE), true));
             baseline -= MENU_QUOTE_LINE_HEIGHT;
         }
+    }
+
+    private List<String> wrapMainMenuQuote(String quote) {
+        int author = quote.lastIndexOf("\" (");
+        if (author >= 0) {
+            int start = author + 2;
+            quote = quote.substring(0, start)
+                    + quote.substring(start).replace(' ', '\u00a0');
+        }
+        return wrapText(smallFont, quote, MENU_QUOTE_MAX_WIDTH, MENU_QUOTE_MAX_LINES);
     }
 
     private void openStats() {
@@ -6735,28 +6737,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private static Texture filteredTexture(String asset) {
         return GdxTextureQuality.loadUi(Gdx.files.internal(asset));
-    }
-
-    private static Texture loadKrustySeal() {
-        Pixmap source = new Pixmap(Gdx.files.internal("images/krusty.png"));
-        try {
-            // Filter colour and coverage together so RGB in transparent
-            // pixels cannot bleed into the outline when the seal shrinks.
-            var pixels = source.getPixels();
-            for (int i = 0; i < pixels.limit(); i += 4) {
-                int alpha = pixels.get(i + 3) & 0xff;
-                if (alpha == 255) continue;
-                for (int channel = i; channel < i + 3; channel++) {
-                    int colour = pixels.get(channel) & 0xff;
-                    pixels.put(channel, (byte) ((colour * alpha + 127) / 255));
-                }
-            }
-            Texture texture = new Texture(source, true);
-            texture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
-            return texture;
-        } finally {
-            source.dispose();
-        }
     }
 
     private static Texture silhouetteTexture(String asset, Color tint) {

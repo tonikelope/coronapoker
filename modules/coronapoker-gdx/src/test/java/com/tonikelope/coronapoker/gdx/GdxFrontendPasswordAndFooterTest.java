@@ -60,20 +60,21 @@ final class GdxFrontendPasswordAndFooterTest {
         assertEquals(GdxFrontendScreen.MENU_SOUND_RIGHT_MARGIN,
                 1920f - bounds.x - bounds.width);
         assertTrue(bounds.y + bounds.height
-                < GdxFrontendScreen.MENU_QUOTE_SINGLE_BASELINE,
+                < GdxFrontendScreen.MENU_QUOTE_BOTTOM_BASELINE,
                 "the smaller audio control must stay below the quote line");
     }
 
     @Test
-    void mainMenuQuotesUseTheFullWidthAtOneFixedSize() {
+    void mainMenuQuotesStayBetweenTheFooterBadgesAndControls() {
         assertEquals(1920f - 2f * GdxFrontendScreen.MENU_QUOTE_SIDE_MARGIN,
                 GdxFrontendScreen.MENU_QUOTE_MAX_WIDTH);
-        assertEquals(2, GdxFrontendScreen.MENU_QUOTE_MAX_LINES);
+        assertEquals(3, GdxFrontendScreen.MENU_QUOTE_MAX_LINES);
         assertEquals(GdxSettingsStyle.SMALL_FONT_SIZE, 18);
-        assertTrue(GdxFrontendScreen.MENU_QUOTE_TWO_LINE_TOP_BASELINE
-                - GdxFrontendScreen.MENU_QUOTE_LINE_HEIGHT - GdxSettingsStyle.SMALL_FONT_SIZE
-                > GdxFrontendScreen.MENU_BADGE_BOTTOM + GdxFrontendScreen.MENU_BADGE_HEIGHT);
-        assertTrue(GdxFrontendScreen.MENU_QUOTE_TWO_LINE_TOP_BASELINE
+        assertTrue(GdxFrontendScreen.MENU_QUOTE_SIDE_MARGIN
+                > GdxProductVersionBrand.X + 2f * GdxFrontendScreen.MENU_BADGE_HEIGHT
+                + GdxFrontendScreen.MENU_BADGE_GAP);
+        assertTrue(GdxFrontendScreen.MENU_QUOTE_BOTTOM_BASELINE
+                + (GdxFrontendScreen.MENU_QUOTE_MAX_LINES - 1) * GdxFrontendScreen.MENU_QUOTE_LINE_HEIGHT
                 < GdxFrontendScreen.MENU_LAST_BUTTON_Y);
     }
 }

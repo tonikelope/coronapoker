@@ -126,7 +126,7 @@ final class CardRenderLabApp extends ApplicationAdapter {
         float centerX = panelWidth + (width - panelWidth) / 2f;
         float centerY = height * 0.50f;
         float cardWidth = model.cardWidth();
-        float cardHeight = cardWidth * back.getHeight() / back.getWidth();
+        float cardHeight = cardWidth * face.getHeight() / face.getWidth();
         float canvasWidth = cardWidth * CARD_CANVAS_SCALE;
         float canvasHeight = cardHeight * CARD_CANVAS_SCALE;
 

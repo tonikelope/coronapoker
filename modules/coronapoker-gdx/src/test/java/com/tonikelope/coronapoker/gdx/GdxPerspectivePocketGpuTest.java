@@ -19,7 +19,11 @@ import com.tonikelope.coronapoker.core.game.ActionControlState;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
+import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
 import java.awt.Point;
+import java.awt.image.BufferedImage;
+import java.nio.file.Files;
+import javax.imageio.ImageIO;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -50,6 +54,7 @@ final class GdxPerspectivePocketGpuTest {
                     assertEquals(GLFW.GLFW_FALSE, GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_VISIBLE));
                     verifyAutoCallPreview(dir);
                     verifyPocket(dir);
+                    verifyCrossDeckBack(dir);
                     verifyFlopCallCost(dir);
                 } catch (Throwable error) {
                     failure.set(error);
@@ -59,6 +64,65 @@ final class GdxPerspectivePocketGpuTest {
             }
         }, config);
         if (failure.get() != null) throw new AssertionError(failure.get());
+    }
+
+    private static void verifyCrossDeckBack(Path dir) throws Exception {
+        var root = Files.createDirectories(dir.resolve("artwork/mod"));
+        Files.writeString(root.resolve("mod.xml"), "<mod><name>Test</name><version>1</version></mod>");
+        // Partial decks are valid: the reference face (2_P) need not be present.
+        var faces = Files.createDirectories(root.resolve("decks/tall/hq"));
+        var backs = Files.createDirectories(root.resolve("decks/wide/hq"));
+        ImageIO.write(new BufferedImage(120, 240, BufferedImage.TYPE_INT_RGB), "jpg",
+                faces.resolve("A_P.jpg").toFile());
+        var magenta = new BufferedImage(320, 128, BufferedImage.TYPE_INT_RGB);
+        var graphics = magenta.createGraphics();
+        try {
+            graphics.setColor(java.awt.Color.MAGENTA);
+            graphics.fillRect(0, 0, magenta.getWidth(), magenta.getHeight());
+        } finally {
+            graphics.dispose();
+        }
+        ImageIO.write(magenta, "jpg", backs.resolve("trasera.jpg").toFile());
+        try (var prefs = new PreferencesService(dir.resolve("cross-deck.properties"))) {
+            prefs.properties().setProperty("baraja", "tall");
+            prefs.properties().setProperty("trasera", "wide");
+            prefs.properties().setProperty("sonido_visor", "false");
+            var settings = new GdxGamePresentationSettings(prefs, ModMediaCatalog.discover(root.getParent()));
+            var hidden = new TableSnapshot.CardSnapshot("", false, false);
+            var snapshot = new TableSnapshot(1L, "local", TableSnapshot.Street.FLOP,
+                    0d, "", false, List.of(), List.of(hidden));
+            var table = new CoronaPokerGdxTable(60, new GdxTableViewState(snapshot),
+                    command -> {}, () -> {}, new GdxGameLogSink(), prefs, null, settings);
+            try {
+                table.create();
+                table.resize(WIDTH, HEIGHT);
+                var viewed = CoronaPokerGdxTable.class.getDeclaredMethod("viewedCard", TableSnapshot.CardSnapshot.class);
+                viewed.setAccessible(true);
+                Object card = viewed.invoke(table, hidden);
+                var open = CoronaPokerGdxTable.class.getDeclaredMethod("openCardViewer", card.getClass());
+                open.setAccessible(true);
+                open.invoke(table, card);
+                var opened = CoronaPokerGdxTable.class.getDeclaredField("uiOpenedAt");
+                opened.setAccessible(true);
+                opened.setFloat(table, -10f);
+                table.render();
+                byte[] pixels = ScreenUtils.getFrameBufferPixels(false);
+                int centerX = WIDTH / 2, centerY = HEIGHT / 2;
+                int across = 0, down = 0;
+                for (int x = 0; x < WIDTH; x++) if (magenta(pixels, x, centerY)) across++;
+                for (int y = 0; y < HEIGHT; y++) if (magenta(pixels, centerX, y)) down++;
+                var viewport = (Viewport) field(table, "viewport");
+                assertEquals(120f * viewport.getScreenWidth() / viewport.getWorldWidth(), across, 2f);
+                assertEquals(240f * viewport.getScreenHeight() / viewport.getWorldHeight(), down, 2f);
+            } finally {
+                table.dispose();
+            }
+        }
+    }
+
+    private static boolean magenta(byte[] pixels, int x, int y) {
+        int i = 4 * (y * WIDTH + x);
+        return (pixels[i] & 255) > 200 && (pixels[i + 1] & 255) < 40 && (pixels[i + 2] & 255) > 200;
     }
 
     private static void verifyFlopCallCost(Path dir) throws Exception {

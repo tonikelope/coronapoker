@@ -1830,7 +1830,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxCardZoomSlider cardZoomSlider = new GdxCardZoomSlider();
     private final Matrix4 shuffleProjection = new Matrix4();
     private final GdxShuffleOverlayCamera tiltedShuffleCamera = new GdxShuffleOverlayCamera();
-    private final Map<String, Float> deckCardAspects = new HashMap<>();
+    private final Map<String, GdxShuffleArtwork.FaceSize> deckFaceSizes = new HashMap<>();
     private int appliedCardMode = -1;
     private final List<LiveCardFlight> liveCardFlights = new ArrayList<>();
     private int liveHoleDealCount;
@@ -19993,18 +19993,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private FileHandle deckCardFile(String deck, String filename) {
-        java.util.Optional<Path> hq = externalDeckAsset(deck,
-                "hq/" + filename);
-        if (hq.isPresent()) {
-            return Gdx.files.absolute(hq.get().toString());
-        }
-        java.util.Optional<Path> standard = externalDeckAsset(deck, filename);
-        if (standard.isPresent()) {
-            return Gdx.files.absolute(standard.get().toString());
-        }
+        var external = externalDeckCardFile(deck, filename);
+        if (external.isPresent()) return Gdx.files.absolute(external.get().toString());
         String bundled = GdxGamePresentationSettings.OFFICIAL_DECKS.contains(deck)
                 ? deck : "goliat";
         return Gdx.files.internal("images/decks/" + bundled + "/hq/" + filename);
+    }
+
+    private java.util.Optional<Path> externalDeckCardFile(String deck, String filename) {
+        return externalDeckAsset(deck, "hq/" + filename).or(() -> externalDeckAsset(deck, filename));
     }
 
     private java.util.Optional<Path> externalDeckAsset(String deck,
@@ -20820,8 +20817,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private float deckCardAspect(String deck) {
-        return deckCardAspects.computeIfAbsent(deck, selected ->
-                GdxShuffleArtwork.cardAspect(deckCardFile(selected, GdxShuffleArtwork.code(0) + ".jpg")));
+        return deckFaceSize(deck).aspect();
+    }
+
+    private GdxShuffleArtwork.FaceSize deckFaceSize(String deck) {
+        return deckFaceSizes.computeIfAbsent(deck, selected -> {
+            if (presentationSettings != null && presentationSettings.modDeck(selected)) {
+                // A partial MOD can supply faces other than the usual reference (2_P).
+                for (int id = 0; id < GdxShuffleGeometry.CARDS; id++) {
+                    var face = externalDeckCardFile(selected, GdxShuffleArtwork.code(id) + ".jpg");
+                    if (face.isPresent()) return GdxShuffleArtwork.faceSize(Gdx.files.absolute(face.get().toString()));
+                }
+            }
+            return GdxShuffleArtwork.faceSize(deckCardFile(selected, GdxShuffleArtwork.code(0) + ".jpg"));
+        });
     }
 
     private void drawLiveShuffleOverlay() {
@@ -25653,8 +25662,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float alpha = uiFade();
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
-        Rectangle card = cardViewerBounds(texture.getWidth(),
-                texture.getHeight(), width, height);
+        var faceSize = deckFaceSize(liveDeck);
+        Rectangle card = cardViewerBounds(faceSize.width(), faceSize.height(), width, height);
 
         batch.begin();
         batch.setColor(1f, 1f, 1f, alpha);
@@ -27082,9 +27091,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private Rectangle remoteRebuyOverlayBounds(Seat seat) {
-        float cardAspect = activeCardBack().getHeight()
-                / (float) activeCardBack().getWidth();
-        Rectangle envelope = rivalHandEnvelope(cardAspect);
+        Rectangle envelope = rivalHandEnvelope(1f / deckCardAspect(liveDeck));
         float sourceAspect = 782f / 326f;
         float areaX = seat.podX + envelope.x;
         float areaY = seat.y + envelope.y;

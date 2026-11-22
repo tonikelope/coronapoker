@@ -31,8 +31,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     private static final List<Integer> CARD_RENDERING_MODES = List.of(
             GdxCardSmaaRenderer.RENDERING_PERFORMANCE, GdxCardSmaaRenderer.RENDERING_BALANCED,
             GdxCardSmaaRenderer.RENDERING_SMOOTH_AF);
-    private static final List<Integer> FRAME_RATE_LIMITS = List.of(
-            60, 120, 144, 240, 0);
     private final PreferencesService preferences;
     private final Properties properties;
     private final ModMediaCatalog modMedia;
@@ -491,20 +489,8 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         return selected;
     }
     int requestedFrameRateLimit() {
-        int configured = integer("gdx_fps_limit",
-                GdxSettingsContract.DEFAULT_FRAME_RATE_LIMIT);
-        return FRAME_RATE_LIMITS.contains(configured) ? configured
-                : GdxSettingsContract.DEFAULT_FRAME_RATE_LIMIT;
-    }
-    List<Integer> frameRateLimits() {
-        return FRAME_RATE_LIMITS;
-    }
-    int selectFrameRateLimit(int limit, boolean persist) {
-        int selected = FRAME_RATE_LIMITS.contains(limit) ? limit
-                : requestedFrameRateLimit();
-        properties.setProperty("gdx_fps_limit", Integer.toString(selected));
-        if (persist) preferences.saveDeferred();
-        return selected;
+        return GdxFrameRateLimit.matchRefresh(properties)
+                ? 0 : GdxFrameRateLimit.CUSTOM.value(properties);
     }
     boolean vsyncEnabled() {
         return bool("gdx_vsync", GdxSettingsContract.DEFAULT_VSYNC);
@@ -533,24 +519,6 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         // the refresh-rate boundary.
         if (configured > 0 && configured < monitorRate) return configured;
         return monitorRate + 1;
-    }
-    int selectNextFrameRateLimit() {
-        return selectNextFrameRateLimit(true);
-    }
-    int selectNextFrameRateLimit(boolean persist) {
-        return adjustFrameRateLimit(1, persist);
-    }
-    int selectPreviousFrameRateLimit() {
-        return selectPreviousFrameRateLimit(true);
-    }
-    int selectPreviousFrameRateLimit(boolean persist) {
-        return adjustFrameRateLimit(-1, persist);
-    }
-    private int adjustFrameRateLimit(int direction, boolean persist) {
-        int current = FRAME_RATE_LIMITS.indexOf(requestedFrameRateLimit());
-        int selected = FRAME_RATE_LIMITS.get(Math.floorMod(current
-                + Integer.signum(direction), FRAME_RATE_LIMITS.size()));
-        return selectFrameRateLimit(selected, persist);
     }
     @Override public boolean autoFullscreen() {
         return GdxWindowMode.allowsAutomaticFullscreen(properties)

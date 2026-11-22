@@ -507,14 +507,16 @@ final class GdxSettingsLayoutTest {
         assertTrue(lastRowY >= GdxSettingsLayout.ROW_HEIGHT,
                 "the last table row must remain wholly inside content");
 
-        float graphicsStride = GdxSettingsLayout.rowStride(contentHeight,
-                GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
-        float graphicsLastY = firstRowY - graphicsStride
-                * (GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT - 1);
-        assertEquals(GdxSettingsLayout.ROW_STRIDE, graphicsStride,
-                "graphics rows must retain the canonical gap");
-        assertTrue(graphicsLastY >= 8f,
-                "renderer information must remain inside content");
+        int count = GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT;
+        float top = firstRowY + GdxSettingsLayout.ROW_HEIGHT;
+        var graphics = GdxSettingsLayout.pixelRows(firstRowY, 8f, top,
+                count, Float.MAX_VALUE, GdxSettingsContract.appearanceGraphicsGroups());
+        assertEquals(GdxSettingsLayout.ROW_STRIDE,
+                graphics.rowY(GdxSettingsContract.GRAPHICS_FPS_MODE_ROW)
+                - graphics.rowY(GdxSettingsContract.GRAPHICS_FPS_SLIDER_ROW));
+        assertTrue(graphics.scrollable());
+        assertTrue(graphics.rowY(count - 1) >= 8f,
+                "renderer information must be fully visible after scrolling");
     }
 
     @Test

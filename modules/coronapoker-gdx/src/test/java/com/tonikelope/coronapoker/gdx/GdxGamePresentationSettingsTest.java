@@ -394,7 +394,7 @@ final class GdxGamePresentationSettingsTest {
     }
 
     @Test
-    void graphicsDropdownsExposeCanonicalValuesAndRejectUnknownSelections(
+    void graphicsControlsAllowExactFrameRatesAndCanonicalMsaaValues(
             @TempDir Path temporary) throws Exception {
         PreferencesService preferences = new PreferencesService(
                 temporary.resolve("coronapoker.properties"));
@@ -406,10 +406,29 @@ final class GdxGamePresentationSettingsTest {
             assertEquals(List.of(0, 2, 4, 8), settings.msaaLevels());
             assertEquals(8, settings.selectMsaaSamples(8, false));
             assertEquals(8, settings.selectMsaaSamples(16, false));
-            assertEquals(List.of(60, 120, 144, 240, 0),
-                    settings.frameRateLimits());
-            assertEquals(240, settings.selectFrameRateLimit(240, false));
-            assertEquals(240, settings.selectFrameRateLimit(165, false));
+            var properties = preferences.properties();
+            var text = new GdxGameText("es");
+            assertEquals(120, settings.requestedFrameRateLimit());
+            assertEquals("Personalizado *", GdxFrameRateLimit.selectedModeLabel(properties, text));
+            assertEquals(List.of("Igual que el refresco", "Personalizado"),
+                    GdxFrameRateLimit.modeLabels(text));
+            GdxFrameRateLimit.selectMode(properties, 0);
+            assertEquals("Igual que el refresco", GdxFrameRateLimit.selectedModeLabel(properties, text));
+            GdxFrameRateLimit.selectMode(properties, 1);
+            GdxFrameRateLimit.CUSTOM.select(properties, 165);
+            assertEquals(165, settings.requestedFrameRateLimit());
+            assertEquals("Personalizado", GdxFrameRateLimit.selectedModeLabel(properties, text));
+            GdxFrameRateLimit.selectMode(properties, 0);
+            assertEquals(0, settings.requestedFrameRateLimit());
+            assertEquals(165, GdxFrameRateLimit.CUSTOM.value(properties));
+            GdxFrameRateLimit.selectMode(properties, -1);
+            assertEquals(0, settings.requestedFrameRateLimit());
+            GdxFrameRateLimit.selectMode(properties, 1);
+            assertEquals(165, settings.requestedFrameRateLimit());
+            GdxFrameRateLimit.CUSTOM.select(properties, 30);
+            assertEquals(30, settings.requestedFrameRateLimit());
+            GdxFrameRateLimit.CUSTOM.select(properties, 400);
+            assertEquals(400, settings.requestedFrameRateLimit());
         } finally {
             preferences.close();
         }
@@ -454,7 +473,8 @@ final class GdxGamePresentationSettingsTest {
                     settings.frameRateOverlayLabel(120));
             assertEquals(120, settings.effectiveFrameRateLimit(240));
             assertEquals(61, settings.effectiveFrameRateLimit(60));
-            assertEquals(144, settings.selectNextFrameRateLimit(false));
+            GdxFrameRateLimit.CUSTOM.select(preferences.properties(), 144);
+            assertEquals(144, settings.requestedFrameRateLimit());
             assertEquals(144, settings.effectiveFrameRateLimit(240));
             preferences.properties().setProperty("gdx_fps_limit", "240");
             assertEquals(145, settings.effectiveFrameRateLimit(144));

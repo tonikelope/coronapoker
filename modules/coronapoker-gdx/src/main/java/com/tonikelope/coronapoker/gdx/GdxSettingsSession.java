@@ -3,8 +3,10 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.PreferencesService;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
 /**
@@ -21,6 +23,9 @@ final class GdxSettingsSession {
         MENU, WAITING_ROOM, LIVE_TABLE
     }
 
+    private static final List<String> FRAME_RATE_KEYS =
+            List.of(GdxFrameRateLimit.KEY, GdxFrameRateLimit.MODE_KEY);
+    private final Properties frameRateDraft = new Properties();
     private Context context = Context.MENU;
     private int tabIndex;
     private final Map<Context, Integer> lastTabByContext =
@@ -36,6 +41,7 @@ final class GdxSettingsSession {
         tabIndex = lastTabByContext.getOrDefault(context, 0);
         preferenceSnapshot = properties == null
                 ? Map.of() : GdxSettingsContract.snapshot(properties);
+        resetFrameRateDraft();
         openedPerspective = properties != null && GdxAppearanceOptions.perspectiveTable(properties);
         open = true;
     }
@@ -105,9 +111,36 @@ final class GdxSettingsSession {
                 .put(section(), Math.max(0, requested));
     }
 
+    Properties frameRateDraft() {
+        return frameRateDraft;
+    }
+
+    void commitFrameRate(Properties properties) {
+        if (!open || properties == null || FRAME_RATE_KEYS.stream().allMatch(key ->
+                Objects.equals(preferenceSnapshot.get(key), frameRateDraft.getProperty(key)))) return;
+        synchronized (properties) {
+            for (String key : FRAME_RATE_KEYS) {
+                String value = frameRateDraft.getProperty(key);
+                if (value == null) properties.remove(key);
+                else properties.setProperty(key, value);
+            }
+        }
+    }
+
+    private void resetFrameRateDraft() {
+        frameRateDraft.clear();
+        for (String key : FRAME_RATE_KEYS) {
+            String value = preferenceSnapshot.get(key);
+            if (value != null) frameRateDraft.setProperty(key, value);
+        }
+    }
+
     boolean propertiesChanged(Properties properties) {
         if (properties == null) return false;
         var current = GdxSettingsContract.snapshot(properties);
+        for (String key : FRAME_RATE_KEYS) {
+            current.put(key, frameRateDraft.getProperty(key));
+        }
         // Selecting the active view is a no-op even if the opening profile used its implicit default.
         if (GdxAppearanceOptions.perspectiveTable(properties) == openedPerspective) {
             current.put(GdxSettingsContract.TABLE_VIEW_KEY, preferenceSnapshot.get(GdxSettingsContract.TABLE_VIEW_KEY));
@@ -116,10 +149,17 @@ final class GdxSettingsSession {
     }
 
     void restore(Properties properties, PreferencesService preferences) {
+        resetFrameRateDraft();
         if (properties == null) return;
         synchronized (properties) {
-            if (GdxSettingsContract.snapshot(properties).equals(preferenceSnapshot)) return;
-            GdxSettingsContract.restore(properties, preferenceSnapshot);
+            var current = GdxSettingsContract.snapshot(properties);
+            var opening = new LinkedHashMap<>(preferenceSnapshot);
+            // The FPS draft never touched the shared preferences.
+            for (String key : FRAME_RATE_KEYS) {
+                opening.put(key, current.get(key));
+            }
+            if (current.equals(opening)) return;
+            GdxSettingsContract.restore(properties, opening);
         }
         // An independent save (for example a lobby chat change) can have flushed a live preview.
         if (preferences != null) preferences.saveDeferred();
@@ -127,6 +167,7 @@ final class GdxSettingsSession {
 
     void close() {
         preferenceSnapshot = Map.of();
+        frameRateDraft.clear();
         open = false;
     }
 

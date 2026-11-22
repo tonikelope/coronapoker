@@ -99,11 +99,12 @@ final class GdxFrontendSettingsWiringTest {
                 StandardCharsets.UTF_8);
 
         assertTrue(frontend.contains("GdxSettingsContract.vsyncStatusLabel("));
-        assertTrue(frontend.contains("\"gdx_vsync\", \"gdx_fps_limit\""));
-        assertTrue(frontend.contains("settingsTooltip(bounds, keys[row])"));
+        assertTrue(frontend.contains("GdxSettingsContract.APPEARANCE_GRAPHICS_KEYS.get(row)"));
+        assertTrue(frontend.contains("drawFrameRateControl(bounds, rows)"));
         assertTrue(table.contains(".vsyncStatusLabel("));
         assertTrue(table.contains("\"gdx_vsync\""));
-        assertTrue(table.contains("\"gdx_fps_limit\""));
+        assertTrue(table.contains("GdxSettingsContract.APPEARANCE_GRAPHICS_KEYS.get(row)"));
+        assertTrue(table.contains("drawFrameRateControlText(bounds, alpha)"));
         assertTrue(table.contains("GdxSettingsTooltips.content("));
         assertTrue(table.contains(
                 "GdxFrameRateOverlayStyle.draw(shapes, batch, fpsFont"));

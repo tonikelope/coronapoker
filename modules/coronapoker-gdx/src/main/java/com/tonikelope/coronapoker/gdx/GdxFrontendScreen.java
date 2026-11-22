@@ -723,7 +723,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle settingsRowsClip = new Rectangle();
     private boolean settingsRowsActive;
     private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
-    private final GdxCardZoomSlider cardZoomSlider = new GdxCardZoomSlider();
+    private final GdxSettingsSlider cardZoomSlider = new GdxSettingsSlider(true);
+    private final GdxFrameRateControl fpsControl = new GdxFrameRateControl();
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
     private final GdxPointerHold scrollPointer = new GdxPointerHold();
     private float scrollDragGrabOffset;
@@ -1433,6 +1434,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDebugViewport.set(0f, 0f, 0f, 0f);
         shuffleAngleSlider.hide();
         cardZoomSlider.hide();
+        fpsControl.hide();
         // The clipped chat layer belongs only to the message history. Clear
         // its previous-frame viewport before drawing a gallery or emoji
         // picker, otherwise that stale layer is composed over the dialog.
@@ -5390,6 +5392,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void captureFrontendModalInput() {
         cardZoomSlider.cancel();
+        fpsControl.cancel();
         shuffleAngleSlider.cancel();
         editMenu = null;
         pressedHit = null;
@@ -9023,6 +9026,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void finishClosingSettings(boolean save) {
+        if (save) {
+            fpsControl.finishEditing(settingsSession.frameRateDraft());
+            settingsSession.commitFrameRate(initialProperties);
+        }
         captureFrontendModalInput();
         audioPreview.stop();
         boolean restartNotice = save
@@ -9146,8 +9153,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void restoreFrontendAppearanceDefaults() {
         GdxWindowMode previousMode = GdxWindowMode.configured(initialProperties);
+        fpsControl.cancel();
         GdxSettingsContract.restoreAppearancePageDefaults(initialProperties,
-                settingsAppearancePage, true);
+                settingsSession.frameRateDraft(), settingsAppearancePage, true, false);
         GdxVisualEffects.synchronize(initialProperties);
         presentationSettings.refreshRuntimePreferences();
         GdxWindowMode restoredMode = GdxWindowMode.configured(initialProperties);
@@ -9166,7 +9174,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean currentSettingsSubsectionAtDefaults() {
         return switch (settingsSession.section()) {
             case APPEARANCE -> GdxSettingsContract.appearancePageAtDefaults(
-                    initialProperties, settingsAppearancePage, true);
+                    initialProperties, settingsSession.frameRateDraft(), settingsAppearancePage, true, false);
             case AUDIO -> GdxSettingsContract.audioPageAtDefaults(
                     initialProperties, settingsAudioPage,
                     frontendMayEditGlobalCommunicationRules(),
@@ -10034,17 +10042,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             presentationSettings.vsyncEnabled(),
                             () -> presentationSettings.toggleVsync(false),
                             true);
-                } else if (row == 3) {
+                } else if (row == GdxSettingsContract.GRAPHICS_FPS_MODE_ROW) {
                     settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
-                            bounds.height,
-                            uppercase(gameText.translate(
+                            bounds.height, uppercase(gameText.translate(
                                     "gdx.settings.row.fps_limit")),
-                            GdxSettingsContract.markDefault(
-                                    frameRateLimitSettingLabel(),
-                                    GdxSettingsContract.isDefaultFrameRateLimit(
-                                            initialProperties)),
+                            GdxFrameRateLimit.selectedModeLabel(settingsSession.frameRateDraft(), gameText),
                             Dropdown.FPS_LIMIT, true);
-                } else if (row == 4) {
+                } else if (row == GdxSettingsContract.GRAPHICS_FPS_SLIDER_ROW) {
+                    drawFrameRateControl(bounds, rows);
+                } else if (row == 5) {
                     settingsDropdownChoice(bounds.x, bounds.y,
                             bounds.width, bounds.height,
                             uppercase(gameText.translate(
@@ -10054,7 +10060,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                             .equals(initialProperties.getProperty(GdxSettingsContract.MSAA_KEY,
                                                     Integer.toString(GdxSettingsContract.DEFAULT_MSAA_SAMPLES)))),
                             msaaStatusDetail(), Dropdown.MSAA, true);
-                } else if (row == 5) {
+                } else if (row == 6) {
                     settingsDropdownChoice(bounds.x, bounds.y, bounds.width,
                             bounds.height,
                             uppercase(gameText.translate(
@@ -10063,7 +10069,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     cardRenderingSettingLabel(),
                                     presentationSettings.requestedCardRenderingMode() == GdxSettingsContract.DEFAULT_CARD_RENDERING_MODE),
                             Dropdown.CARD_RENDERING, true);
-                } else if (row == 6) {
+                } else if (row == 7) {
                     settingsBooleanToggle(bounds.x, bounds.y, bounds.width,
                             uppercase(gameText.translate(
                                     "gdx.settings.option.gdx_show_fps")),
@@ -10077,7 +10083,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                     "gdx.settings.row.gpu_renderer")),
                             GdxGraphicsInfo.displayValue(gameText));
                 }
-                settingsTooltip(bounds, keys[row]);
+                settingsTooltip(bounds,
+                        GdxSettingsContract.APPEARANCE_GRAPHICS_KEYS.get(row));
             }
             drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w),
                     rows);
@@ -10166,6 +10173,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
         }
         drawSettingsRowScrollbar(GdxSettingsLayout.rowScrollbarX(x, w), rows);
+    }
+
+    private void drawFrameRateControl(Rectangle row, GdxSettingsLayout.PixelRows rows) {
+        Properties frameRate = settingsSession.frameRateDraft();
+        fpsControl.draw(shapes, row, rows, frameRate, true, 1f,
+                value -> textWidth(smallFont, value));
+        boolean enabled = GdxFrameRateLimit.CUSTOM.enabled(frameRate);
+        float baseline = row.y + row.height * .5f + 9f;
+        textFit(smallFont, "FPS", row.x + 18f, baseline,
+                enabled ? Color.WHITE : DISABLED, false, row.width * .42f - 30f);
+        text(smallFont, fpsControl.text(frameRate), fpsControl.textCenterX(),
+                baseline, enabled ? GOLD : DISABLED, true);
     }
 
     private void drawCardZoomRow(Rectangle row, GdxSettingsLayout.PixelRows rows) {
@@ -11407,11 +11426,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String cardRenderingSettingLabel() {
         return GdxSettingsContract.cardRenderingStatusLabel(
                 presentationSettings.requestedCardRenderingMode(), gameText);
-    }
-
-    private String frameRateLimitSettingLabel() {
-        return GdxSettingsContract.frameRateLimitLabel(
-                presentationSettings.requestedFrameRateLimit(), gameText);
     }
 
     private String windowModeSettingLabel() {
@@ -14749,8 +14763,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     initialProperties);
             case WINDOW_MODE -> GdxWindowMode.configured(initialProperties)
                     .ordinal();
-            case FPS_LIMIT -> presentationSettings.frameRateLimits().indexOf(
-                    presentationSettings.requestedFrameRateLimit());
+            case FPS_LIMIT -> GdxFrameRateLimit.selectedMode(settingsSession.frameRateDraft());
             case MSAA -> presentationSettings.msaaLevels().indexOf(
                     presentationSettings.requestedMsaaSamples());
             case CARD_RENDERING -> presentationSettings.cardRenderingModes()
@@ -14862,9 +14875,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     .toList();
             case WINDOW_MODE -> Arrays.stream(GdxWindowMode.values())
                     .map(mode -> mode.label(gameText)).toList();
-            case FPS_LIMIT -> presentationSettings.frameRateLimits().stream()
-                    .map(limit -> GdxSettingsContract.frameRateLimitLabel(
-                            limit, gameText)).toList();
+            case FPS_LIMIT -> GdxFrameRateLimit.modeLabels(gameText);
             case MSAA -> presentationSettings.msaaLevels().stream()
                     .map(samples -> GdxSettingsContract.msaaSelectedLabel(
                             samples, gameText)).toList();
@@ -14956,13 +14967,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             values[option]);
                 }
             }
-            case FPS_LIMIT -> {
-                List<Integer> values = presentationSettings.frameRateLimits();
-                if (option >= 0 && option < values.size()) {
-                    presentationSettings.selectFrameRateLimit(
-                            values.get(option), false);
-                }
-            }
+            case FPS_LIMIT -> GdxFrameRateLimit.selectMode(settingsSession.frameRateDraft(), option);
             case MSAA -> {
                 List<Integer> values = presentationSettings.msaaLevels();
                 if (option >= 0 && option < values.size()) {
@@ -16674,7 +16679,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (button == Input.Buttons.LEFT && settingsSlidersInteractive()
-                && (shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
+                && (fpsControl.begin(pointer.x, pointer.y, pointerIndex, settingsSession.frameRateDraft())
+                        || shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
                         || cardZoomSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties))) return true;
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
         if (avatarCropSession == null && dropdown != Dropdown.NONE
@@ -16765,7 +16771,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         if (settingsSlidersInteractive()
-                && (shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)
+                && (fpsControl.drag(pointer.x, pointerIndex, settingsSession.frameRateDraft())
+                        || shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)
                         || cardZoomSlider.drag(pointer.x, pointerIndex, initialProperties))) return true;
         if (rulesWindow.isOpen()) {
             rulesWindow.touchDragged(pointer.x, pointer.y, pointerIndex);
@@ -16840,7 +16847,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
-        if (button == Input.Buttons.LEFT && (shuffleAngleSlider.release(pointerIndex) || cardZoomSlider.release(pointerIndex))) return true;
+        if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
+                || cardZoomSlider.release(pointerIndex))) return true;
         if (lobbyVoicePointer.release(pointerIndex, button)) {
             pressedHit = null;
             clearPointerRepeat();
@@ -17260,6 +17268,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
         boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+        if (settingsSlidersInteractive()
+                && fpsControl.keyDown(keycode, control, shift, settingsSession.frameRateDraft())) return true;
         boolean capturingShortcut = surface == Surface.SETTINGS
                 && settingsSession.section() == GdxSettingsContract.Section.SHORTCUTS
                 && settingsShortcutCaptureId != null;
@@ -17781,6 +17791,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     @Override
     public boolean keyTyped(char character) {
         if (pendingLanguage != null) return true;
+        if (settingsSlidersInteractive()
+                && fpsControl.keyTyped(character, settingsSession.frameRateDraft())) return true;
         if (rulesWindow.isOpen()) {
             rulesWindow.key(KeyEvent.KEY_TYPED, 0, character);
             return true;
@@ -18216,7 +18228,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
-        if (b == Input.Buttons.LEFT && (shuffleAngleSlider.release(p) || cardZoomSlider.release(p))) return true;
+        if (b == Input.Buttons.LEFT && (fpsControl.release(p) || shuffleAngleSlider.release(p) || cardZoomSlider.release(p))) return true;
         if (pendingLanguage != null) return true;
         if (rulesWindow.cancel(p, b)) return true;
         if (lobbyGallery.cancel(p, b)) return true;

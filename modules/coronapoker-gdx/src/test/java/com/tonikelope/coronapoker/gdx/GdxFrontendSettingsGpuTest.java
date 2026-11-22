@@ -154,6 +154,7 @@ final class GdxFrontendSettingsGpuTest {
         verifyZoomTracks(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         verifyAngleTrack(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, GdxSettingsContract.appearanceGraphicsPageIndex());
+        verifyFrameRateControl(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         var modes = presentation.cardRenderingModes();
         assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_PERFORMANCE, GdxCardSmaaRenderer.RENDERING_BALANCED,
                 GdxCardSmaaRenderer.RENDERING_SMOOTH_AF), modes);
@@ -481,6 +482,68 @@ final class GdxFrontendSettingsGpuTest {
         assertSame(texture, field(screen, "feltTexture"));
     }
 
+    private static void verifyFrameRateControl(Object owner, com.badlogic.gdx.InputProcessor input,
+            Runnable render, Properties savedSettings) throws Exception {
+        var session = (GdxSettingsSession) field(owner, "settingsSession");
+        var settings = session.frameRateDraft();
+        var presentation = (GdxGamePresentationSettings) field(owner, "presentationSettings");
+        int openingLimit = presentation.requestedFrameRateLimit();
+        var control = (GdxFrameRateControl) field(owner, "fpsControl");
+        var slider = field(control, "slider");
+        var viewport = (Viewport) field(owner, "viewport");
+        var box = (Rectangle) field(control, "boxHit");
+        var track = (Rectangle) field(slider, "track");
+        var scroll = owner.getClass().getDeclaredField("settingsAppearanceScroll");
+        scroll.setAccessible(true);
+        var saved = (Properties) settings.clone();
+        try {
+            GdxFrameRateLimit.selectMode(settings, 1);
+            for (int offset = 0; offset <= 500; offset += 36) {
+                scroll.setFloat(owner, offset);
+                render.run();
+                if (box.height == 40f) break;
+            }
+            assertEquals(40f, box.height);
+            assertEquals(0f, ((Rectangle) field(slider, "minus")).width);
+            assertEquals(0f, ((Rectangle) field(slider, "plus")).width);
+            assertEquals(box.x + box.width / 2f, control.textCenterX());
+            var boxPoint = viewport.project(box.getCenter(new Vector2()));
+            int boxX = Math.round(boxPoint.x), boxY = HEIGHT - 1 - Math.round(boxPoint.y);
+            assertTrue(input.touchDown(boxX, boxY, 0, Input.Buttons.LEFT));
+            input.touchUp(boxX, boxY, 0, Input.Buttons.LEFT);
+            for (char digit : "173".toCharArray()) assertTrue(input.keyTyped(digit));
+            assertEquals(173, GdxFrameRateLimit.CUSTOM.value(settings));
+            assertEquals("173", control.text(settings));
+            assertEquals(openingLimit, presentation.requestedFrameRateLimit());
+
+            var left = viewport.project(new Vector2(track.x - 4f, track.y + 4f));
+            var right = viewport.project(new Vector2(track.x + track.width + 4f, track.y + 4f));
+            int leftX = Math.round(left.x), rightX = Math.round(right.x);
+            int y = HEIGHT - 1 - Math.round(left.y);
+            assertTrue(input.touchDown(leftX, y, 0, Input.Buttons.LEFT));
+            assertEquals("30", control.text(settings));
+            assertTrue(input.touchDragged(rightX, y, 0));
+            assertEquals("400", control.text(settings));
+            assertTrue(input.touchUp(rightX, y, 0, Input.Buttons.LEFT));
+
+            GdxFrameRateLimit.selectMode(settings, 0);
+            render.run();
+            assertFalse(control.editable(settings));
+            assertNull(field(slider, "visible"));
+            assertEquals("400", control.text(settings));
+            GdxFrameRateLimit.selectMode(settings, 1);
+            render.run();
+            assertTrue(control.editable(settings));
+            assertEquals("400", control.text(settings));
+            assertEquals(openingLimit, presentation.requestedFrameRateLimit());
+            assertTrue(session.propertiesChanged(savedSettings));
+        } finally {
+            restoreKey(settings, saved, GdxFrameRateLimit.KEY);
+            restoreKey(settings, saved, GdxFrameRateLimit.MODE_KEY);
+            scroll.setFloat(owner, 0f);
+        }
+    }
+
     private static void verifyZoomTracks(Object owner, com.badlogic.gdx.InputProcessor input, Runnable render,
             java.util.Properties properties) throws Exception {
         var slider = field(owner, "cardZoomSlider");
@@ -639,6 +702,9 @@ final class GdxFrontendSettingsGpuTest {
             verifyAngleTrack(table, table.inputProcessor(), table::render, preferences.properties());
             verifyShuffleAngleLock(table, preferences.properties());
             verifyDealerDeparture(table, preferences.properties());
+            invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class},
+                    GdxSettingsContract.appearanceGraphicsPageIndex());
+            verifyFrameRateControl(table, table.inputProcessor(), table::render, preferences.properties());
             invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
             for (String felt : List.of("azul", "verde", "azul", "verde", "azul")) {
                 invoke(table, "selectTableFeltOption", new Class<?>[]{int.class},

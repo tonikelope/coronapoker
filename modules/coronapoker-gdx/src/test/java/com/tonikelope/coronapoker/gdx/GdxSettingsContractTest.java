@@ -295,9 +295,9 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void graphicsWindowModeOwnsAutomaticFullscreenInEverySettingsSurface() {
-        assertEquals(java.util.List.of(
-                new GdxSettingsContract.RowGroup(0, 1, 0)),
+    void graphicsGroupsPairWindowModeWithFullscreenAndFpsModeWithItsSlider() {
+        assertEquals(java.util.List.of(new GdxSettingsContract.RowGroup(0, 1, 0),
+                new GdxSettingsContract.RowGroup(3, 4, 0)),
                 GdxSettingsContract.appearanceGraphicsGroups());
     }
 
@@ -719,8 +719,9 @@ final class GdxSettingsContractTest {
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(
                 "auto_fullscreen"));
         assertFalse(keys.contains("cinematicas"));
-        assertEquals(8,
+        assertEquals(9,
                 GdxSettingsContract.APPEARANCE_GRAPHICS_ROW_COUNT);
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(GdxFrameRateLimit.MODE_KEY));
         assertEquals(java.util.List.of("ANIMACIONES Y EFECTOS"),
                 GdxSettingsContract.APPEARANCE_PAGES.stream()
                         .map(GdxSettingsContract.TogglePage::title).toList());

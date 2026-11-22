@@ -54,6 +54,56 @@ final class GdxSettingsSessionTest {
     }
 
     @Test
+    void frameRateDraftAppliesOnlyWhenSaved(@TempDir Path directory) throws Exception {
+        var file = directory.resolve("frame-rate.properties");
+        try (var prefs = new PreferencesService(file)) {
+            prefs.start();
+            var settings = prefs.properties();
+            var presentation = new GdxGamePresentationSettings(prefs);
+            var session = new GdxSettingsSession();
+
+            for (var context : GdxSettingsSession.Context.values()) {
+                GdxFrameRateLimit.reset(settings);
+                GdxFrameRateLimit.CUSTOM.select(settings, 165);
+                session.begin(context, settings);
+                var draft = session.frameRateDraft();
+                assertEquals(165, GdxFrameRateLimit.CUSTOM.value(draft));
+                GdxFrameRateLimit.CUSTOM.select(draft, 197);
+                GdxFrameRateLimit.selectMode(draft, 0);
+                assertTrue(session.propertiesChanged(settings));
+                assertEquals(165, presentation.effectiveFrameRateLimit(240));
+                prefs.save();
+                try (var reloaded = new PreferencesService(file)) {
+                    assertEquals(165, GdxFrameRateLimit.CUSTOM.value(reloaded.properties()));
+                    assertFalse(GdxFrameRateLimit.matchRefresh(reloaded.properties()));
+                }
+
+                session.restore(settings, prefs);
+                assertEquals(165, GdxFrameRateLimit.CUSTOM.value(draft));
+                assertFalse(session.propertiesChanged(settings));
+                assertEquals(165, presentation.effectiveFrameRateLimit(240));
+
+                int graphics = GdxSettingsContract.appearanceGraphicsPageIndex();
+                GdxSettingsContract.restoreAppearancePageDefaults(settings, draft, graphics, true, false);
+                assertTrue(GdxSettingsContract.appearancePageAtDefaults(settings, draft, graphics, true, false));
+                assertEquals(165, presentation.effectiveFrameRateLimit(240));
+                session.commitFrameRate(settings);
+                assertEquals(120, presentation.effectiveFrameRateLimit(240));
+                session.close();
+
+                session.begin(context, settings);
+                GdxFrameRateLimit.CUSTOM.select(draft, 197);
+                GdxFrameRateLimit.selectMode(draft, 0);
+                assertEquals(120, presentation.effectiveFrameRateLimit(240));
+                session.commitFrameRate(settings);
+                assertEquals(241, presentation.effectiveFrameRateLimit(240));
+                assertEquals(197, GdxFrameRateLimit.CUSTOM.value(settings));
+                session.close();
+            }
+        }
+    }
+
+    @Test
     void menuAndLiveTableUseTheSameSessionWithContextualSections() {
         GdxSettingsSession session = new GdxSettingsSession();
         session.begin(GdxSettingsSession.Context.MENU, new Properties());

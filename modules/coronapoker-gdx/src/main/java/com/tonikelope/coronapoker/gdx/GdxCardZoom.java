@@ -5,7 +5,7 @@ import com.badlogic.gdx.math.MathUtils;
 import java.util.Properties;
 
 /** Percent of one community card on the felt, stored separately for each view. */
-enum GdxCardZoom {
+enum GdxCardZoom implements GdxSettingsSlider.Setting {
     SHUFFLE_2D("zoom_barajado_2d", 150, 300),
     SHUFFLE_3D("zoom_barajado_3d", 150, 300);
 
@@ -44,6 +44,20 @@ enum GdxCardZoom {
 
     int snap(float value) {
         return STEP * Math.round(MathUtils.clamp(value, MIN, max) / STEP);
+    }
+
+    @Override public int min() { return MIN; }
+    @Override public int max() { return max; }
+    @Override public int step() { return STEP; }
+    @Override public int value(Properties settings) { return percent(settings); }
+
+    @Override public boolean enabled(Properties settings) {
+        return this == shuffle(GdxAppearanceOptions.perspectiveTable(settings))
+                && GdxShuffleAngle.enabled(settings);
+    }
+
+    @Override public void select(Properties settings, int percent) {
+        settings.setProperty(key, Integer.toString(percent));
     }
 
     String display(int percent) {

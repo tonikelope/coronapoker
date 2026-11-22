@@ -66,7 +66,13 @@ final class GdxSettingsContract {
             default -> null;
         };
     }
-    static final int APPEARANCE_GRAPHICS_ROW_COUNT = 8;
+    static final int GRAPHICS_FPS_MODE_ROW = 3;
+    static final int GRAPHICS_FPS_SLIDER_ROW = 4;
+    static final List<String> APPEARANCE_GRAPHICS_KEYS = List.of(
+            "gdx_window_mode", "auto_fullscreen", "gdx_vsync",
+            GdxFrameRateLimit.KEY, GdxFrameRateLimit.KEY, MSAA_KEY,
+            CARD_RENDERING_KEY, "gdx_show_fps", "gpu_renderer");
+    static final int APPEARANCE_GRAPHICS_ROW_COUNT = APPEARANCE_GRAPHICS_KEYS.size();
     /** AUTO/action rows rendered before the editable shortcut bindings. */
     static final int CONTROL_ROWS = 6;
     static final int BLIND_STRUCTURE_ROW = 0;
@@ -769,7 +775,7 @@ final class GdxSettingsContract {
             "swap_velocidad", "swap_arco", "downgrade_velocidad",
             "zoom_level", "vista_compacta", "auto_zoom", "dialog_zoom",
             "auto_fullscreen", "gdx_window_mode", "gdx_vsync",
-            "gdx_fps_limit",
+            GdxFrameRateLimit.KEY, GdxFrameRateLimit.MODE_KEY,
             MSAA_KEY, CARD_RENDERING_KEY,
             "confirmar_todo",
             "auto_action_buttons", "auto_action_persist",
@@ -1113,13 +1119,6 @@ final class GdxSettingsContract {
         return antialiasingValue("MSAA", requested, text);
     }
 
-    static String frameRateLimitLabel(int limit, GdxGameText text) {
-        return limit == 0
-                ? translatedUpper(text, "gdx.settings.value.monitor_refresh",
-                        "FRECUENCIA DEL MONITOR")
-                : limit + " FPS";
-    }
-
     /** The actual format can differ from the format requested at startup. */
     static String msaaStatusDetail(int selected, int windowRequest, int actual,
             GdxGameText text) {
@@ -1226,7 +1225,8 @@ final class GdxSettingsContract {
      * live table use the same frame, insets, scrolling and hit geometry.
      */
     static List<RowGroup> appearanceGraphicsGroups() {
-        return List.of(new RowGroup(0, 1, 0));
+        return List.of(new RowGroup(0, 1, 0),
+                new RowGroup(GRAPHICS_FPS_MODE_ROW, GRAPHICS_FPS_SLIDER_ROW, 0));
     }
 
     static List<RowGroup> controlGroups() {
@@ -1311,12 +1311,6 @@ final class GdxSettingsContract {
 
     static String markDefault(String value, boolean factoryDefault) {
         return factoryDefault ? value + " *" : value;
-    }
-
-    static boolean isDefaultFrameRateLimit(Properties properties) {
-        Properties values = properties == null ? new Properties() : properties;
-        return integer(values, "gdx_fps_limit", DEFAULT_FRAME_RATE_LIMIT)
-                == DEFAULT_FRAME_RATE_LIMIT;
     }
 
     static String vsyncStatusLabel(boolean enabled, GdxGameText text) {
@@ -1505,6 +1499,11 @@ final class GdxSettingsContract {
 
     static void restoreAppearancePageDefaults(Properties properties,
             int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
+        restoreAppearancePageDefaults(properties, properties, pageIndex, includeStartupGraphics, shuffleLocked);
+    }
+
+    static void restoreAppearancePageDefaults(Properties properties, Properties frameRateSettings,
+            int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
         if (index == 0) {
@@ -1529,8 +1528,7 @@ final class GdxSettingsContract {
         if (isAppearanceGraphicsPage(index)) {
             properties.setProperty("gdx_vsync",
                     Boolean.toString(DEFAULT_VSYNC));
-            properties.setProperty("gdx_fps_limit",
-                    Integer.toString(DEFAULT_FRAME_RATE_LIMIT));
+            GdxFrameRateLimit.reset(frameRateSettings);
             properties.setProperty("gdx_show_fps", "false");
             properties.setProperty("auto_fullscreen", "true");
             properties.setProperty(CARD_RENDERING_KEY,
@@ -1570,6 +1568,11 @@ final class GdxSettingsContract {
 
     static boolean appearancePageAtDefaults(Properties properties,
             int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
+        return appearancePageAtDefaults(properties, properties, pageIndex, includeStartupGraphics, shuffleLocked);
+    }
+
+    static boolean appearancePageAtDefaults(Properties properties, Properties frameRateSettings,
+            int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
         if (index == 0) {
@@ -1591,8 +1594,7 @@ final class GdxSettingsContract {
         if (isAppearanceGraphicsPage(index)) {
             boolean runtime = booleanAtDefault(properties, "gdx_vsync",
                     DEFAULT_VSYNC)
-                    && stringAtDefault(properties, "gdx_fps_limit",
-                            Integer.toString(DEFAULT_FRAME_RATE_LIMIT))
+                    && GdxFrameRateLimit.isDefault(frameRateSettings)
                     && booleanAtDefault(properties, "auto_fullscreen", true)
                     && booleanAtDefault(properties, "gdx_show_fps", false)
                     && cardRenderingMode(properties) == DEFAULT_CARD_RENDERING_MODE;

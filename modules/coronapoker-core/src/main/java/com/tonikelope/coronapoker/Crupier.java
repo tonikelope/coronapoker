@@ -354,17 +354,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private int buyinCap() {
+        return buyinCap(Crupier::rebuyTableExposure);
+    }
+
+    private int buyinCap(java.util.function.ToDoubleFunction<GamePlayerController> stack) {
         if (configuration().rebuyCapPolicy() == 1) {
             int standard = configuration().fixedBuyin()
                     ? configuration().buyin() : buyinDefault();
             double highest = players().stream()
                     .filter(java.util.Objects::nonNull)
                     .filter(player -> !player.isExit() && !player.isSpectator())
-                    // Chips committed to the current hand still belong to the
-                    // player's table bankroll for rebuy-cap purposes. Looking
-                    // only at the visible stack would make the cap shrink as
-                    // soon as the current chip leader bets.
-                    .mapToDouble(Crupier::rebuyTableExposure)
+                    .mapToDouble(stack)
                     .max().orElse(0d);
             return Math.max(standard, (int) Math.floor(highest));
         }
@@ -372,22 +372,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 configuration().bigBlind(), configuration().buyinMaxBb());
     }
 
-    private int rebuyHeadroom(double stack) {
-        return Math.max(0, buyinCap() - (int) Math.ceil(stack));
+    private static int rebuyHeadroom(int cap, double stack) {
+        return Math.max(0, cap - (int) Math.ceil(stack));
     }
 
     private int immediateRebuyHeadroom(GamePlayerController player) {
-        return rebuyHeadroom(player == null
+        return rebuyHeadroom(buyinCap(), player == null
                 ? 0d : rebuyTableExposure(player));
     }
 
-    static double rebuyTableExposure(double stack, double potContribution) {
+    static double rebuyTableExposure(double stack, double potContribution,
+            double pendingPayout) {
+        // During settlement a player's contribution can still be recorded
+        // alongside the payout that replaces it.
         return MoneyMath.clean(Math.max(0d, stack)
-                + Math.max(0d, potContribution));
+                + Math.max(0d, Math.max(potContribution, pendingPayout)));
     }
 
     private static double rebuyTableExposure(GamePlayerController player) {
-        return rebuyTableExposure(player.getStack(), player.getBote());
+        return rebuyTableExposure(player.getStack(), player.getBote(),
+                player.getPagar());
+    }
+
+    private static double rebuyOpeningStack(GamePlayerController player) {
+        return MoneyMath.clean(player.getStack() + player.getPagar());
     }
 
     private double bigBlindForSmallBlind(double smallBlind) {
@@ -1242,8 +1250,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     getGamePot().addPlayerController(player);
                 }
             });
-            player.bindCommittedRebuy(() -> consumeCommittedRebuy(
-                    nickname, player.getStack()));
+            player.bindCommittedRebuy(() -> consumeCommittedRebuy(nickname));
             updatePlayers(roster -> {
                 if (previous != null) roster.remove(previous);
                 if (!roster.contains(player)) roster.add(player);
@@ -7707,7 +7714,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // rebuyer's stack rises to its post-rebuy value together, with the till sound. The
     // barrier lets the count finish before the hand advances; reComprar then lands the
     // model on the same value (no flash) and, via the shared gate, skips the sound.
-    // 'applied' mirrors reComprar's headroom calc so the destination matches exactly.
+    // The sealed amount also drives the next hand's actual and signed balances.
     private void animateRebuyStacks(java.util.Set<String> rebuy_nicks) {
         // Not animated by default: each reComprar plays its own sound. Only set true if we
         // actually run the fill (which plays the till sound), so reComprar stays silent.
@@ -7728,14 +7735,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (p == null || amount == null) {
                 continue;
             }
-            double old_stack = p.getStack();
-            int applied = Math.min(amount, rebuyHeadroom(old_stack));
-            if (applied <= 0) {
-                continue;
-            }
+            double openingStack = rebuyOpeningStack(p);
             players.add(p);
-            froms.add(old_stack);
-            tos.add(old_stack + applied);
+            froms.add(openingStack);
+            tos.add(MoneyMath.clean(openingStack + amount));
         }
 
         if (players.isEmpty()) {
@@ -7813,15 +7816,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return nick == null ? null : rebuy_committed.remove(nick);
     }
 
-    /**
-     * Consumes and applies the same final headroom clamp used by the Swing
-     * players when a frontend-neutral player opens the next hand.
-     */
-    public Integer consumeCommittedRebuy(String nick, double currentStack) {
-        Integer amount = consumeCommittedRebuy(nick);
-        return amount == null ? null : Math.min(amount, rebuyHeadroom(currentStack));
-    }
-
     static void commitPendingRebuys(Map<String, Integer> pending,
             Map<String, Integer> committed) {
         if (pending == null || committed == null || pending == committed) {
@@ -7855,6 +7849,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.Set<String> committedNicks
                     = new java.util.LinkedHashSet<>(rebuy_now.keySet());
             commitPendingRebuys(rebuy_now, rebuy_committed);
+            if (!rebuy_committed.isEmpty()) {
+                // Freeze the ceiling from settled stacks before any rebuy
+                // can increase the chip leader's stack for another seat.
+                int cap = buyinCap(Crupier::rebuyOpeningStack);
+                rebuy_committed.replaceAll((nick, requested) -> {
+                    GamePlayerController player = nick2player.get(nick);
+                    // Preserve unknown targets for the boundary roster check.
+                    if (player == null) return requested;
+                    return atRebuyLimit(nick) ? 0 : canonicalImmediateRebuyAmount(
+                            requested, rebuyHeadroom(cap, rebuyOpeningStack(player)));
+                });
+                rebuy_committed.values().removeIf(amount -> amount <= 0);
+            }
             for (String nick : committedNicks) {
                 publishImmediateRebuyStatus(nick, 0);
             }
@@ -8344,7 +8351,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 broadcast_now = false;
             } else {
                 // The host is the bank: clamp to headroom (table ceiling minus
-                // every chip the player still has in play: stack + hand investment)
+                // the player's stack and chips still being settled)
                 // so a tampered client can't fabricate chips or exceed the ceiling via
                 // REBUYNOW#nick#<arbitrary int>. The RebuyDialog spinner already clamps
                 // this; here is the server-side defense.
@@ -8451,15 +8458,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (arrivalSequence > 0L) {
                     rebuy_remote_sequences.put(nick, arrivalSequence);
                 }
-                GamePlayerController player = nick2player.get(nick);
-                int headroom = immediateRebuyHeadroom(player);
-                int safeAmount = canonicalImmediateRebuyAmount(canonicalAmount, headroom);
-                if (safeAmount > 0) {
-                    rebuy_now.put(nick, safeAmount);
-                } else {
-                    rebuy_now.remove(nick);
-                }
-                appliedAmount = safeAmount;
+                // The host validated the request. Our asynchronous worker may
+                // observe a different settlement phase, so clamp only at the
+                // shared boundary when both sides have the settled balances.
+                applyCanonicalRemoteRebuy(rebuy_now, nick, canonicalAmount);
+                appliedAmount = rebuy_now.getOrDefault(nick, 0);
                 appliedStatus = true;
             }
         } finally {
@@ -9699,7 +9702,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // "REBUY!" if they rebought (with only one busted player the wait
                         // ends instantly, so without this there'd be no time to see the
                         // result); otherwise restore, and setSpectator below repaints over it.
-                        int headroom = rebuyHeadroom(jugador.getStack());
+                        int headroom = rebuyHeadroom(buyinCap(Crupier::rebuyOpeningStack),
+                                rebuyOpeningStack(jugador));
                         boolean deniedByLimit = hostDeniedByRebuyLimit(
                                 gameSession().isHost(), atRebuyLimit(nick));
                         String canonicalRebuy = canonicalRemoteRebuyAmount(
@@ -12181,7 +12185,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             continue;
                         }
                         int amount = canonicalImmediateRebuyAmount(requested,
-                                rebuyHeadroom(0f));
+                                rebuyHeadroom(buyinCap(), 0d));
                         if (amount > 0) {
                             rebuy_now.put(nick, amount);
                             if (presentation_settings.testMode()) {
@@ -12888,10 +12892,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (player != null
                     && !deferredHotJoins.contains(player.getNickname())) {
                 rows.put(player.getNickname(), projectNextHandBalanceRow(
-                        player.getStack(), player.getPagar(), player.getBuyin(),
+                        rebuyOpeningStack(player), player.getBuyin(),
                         getRebuyCount(player.getNickname()),
-                        rebuy_committed.get(player.getNickname()),
-                        rebuyHeadroom(player.getStack())));
+                        rebuy_committed.get(player.getNickname())));
             }
         }
         // Pending hot joins did not exist in the hand being closed, but this
@@ -12909,10 +12912,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int openingBuyin = previous != null && previous.isExit()
                     ? previous.getBuyin() : player.getBuyin();
             rows.put(player.getNickname(), projectNextHandBalanceRow(
-                    openingStack, 0d, openingBuyin,
+                    openingStack, openingBuyin,
                     getRebuyCount(player.getNickname()),
-                    rebuy_committed.get(player.getNickname()),
-                    rebuyHeadroom(openingStack)));
+                    rebuy_committed.get(player.getNickname())));
         }
         return rows;
     }
@@ -12931,14 +12933,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    static double[] projectNextHandBalanceRow(double stack, double pendingPayout,
-            int buyin, int rebuyCount, Integer pendingRebuy, int rebuyHeadroom) {
-        int appliedRebuy = pendingRebuy == null || pendingRebuy <= 0
-                ? 0 : Math.min(pendingRebuy, Math.max(0, rebuyHeadroom));
+    static double[] projectNextHandBalanceRow(double openingStack,
+            int buyin, int rebuyCount, Integer appliedRebuy) {
+        int amount = appliedRebuy == null ? 0 : appliedRebuy;
         return new double[]{
-            MoneyMath.clean(stack + appliedRebuy + pendingPayout),
-            buyin + appliedRebuy,
-            rebuyCount + (appliedRebuy > 0 ? 1 : 0)
+            MoneyMath.clean(openingStack + amount),
+            buyin + amount,
+            rebuyCount + (amount > 0 ? 1 : 0)
         };
     }
 

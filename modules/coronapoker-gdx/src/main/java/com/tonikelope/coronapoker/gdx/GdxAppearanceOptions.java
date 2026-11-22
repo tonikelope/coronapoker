@@ -12,6 +12,16 @@ final class GdxAppearanceOptions {
     private static final int LIGHT_MAX = 90;
     private static final int LIGHT_STEP = 5;
     static final int DEFAULT_LIGHT_LEVEL = 35;
+    static final GdxSettingsSlider.Setting LIGHT_OFF = new GdxSettingsSlider.Setting() {
+        @Override public int min() { return LIGHT_MIN; }
+        @Override public int max() { return LIGHT_MAX; }
+        @Override public int step() { return LIGHT_STEP; }
+        @Override public int value(Properties settings) { return lightLevel(settings); }
+        @Override public boolean enabled(Properties settings) { return true; }
+        @Override public void select(Properties settings, int value) {
+            settings.setProperty("nivel_luz", Integer.toString(snapLightLevel(value)));
+        }
+    };
 
     record Choice(String key, String label, List<String> values,
             List<String> labels, String fallback, boolean numericNearest) {
@@ -171,10 +181,6 @@ final class GdxAppearanceOptions {
         };
     }
 
-    static String lightLevelLabel(Properties properties) {
-        return lightLevel(properties) + "%";
-    }
-
     static String deckLabel(String deck) {
         if (deck == null) return "";
         return switch (deck.toLowerCase(java.util.Locale.ROOT)) {
@@ -222,30 +228,19 @@ final class GdxAppearanceOptions {
                 + felt.toLowerCase(Locale.ROOT), fallback);
     }
 
-    static void cycleLightLevel(Properties properties) {
-        int current = lightLevel(properties);
-        int next = current + LIGHT_STEP;
-        if (next > LIGHT_MAX) next = LIGHT_MIN;
-        properties.setProperty("nivel_luz", Integer.toString(next));
-    }
-
-    static void adjustLightLevel(Properties properties, int direction) {
-        int next = lightLevel(properties)
-                + Integer.signum(direction) * LIGHT_STEP;
-        properties.setProperty("nivel_luz", Integer.toString(
-                Math.max(LIGHT_MIN, Math.min(LIGHT_MAX, next))));
-    }
-
     private static int lightLevel(Properties properties) {
         try {
             int configured = Integer.parseInt(properties.getProperty(
                     "nivel_luz", Integer.toString(DEFAULT_LIGHT_LEVEL)));
-            int clamped = Math.max(LIGHT_MIN, Math.min(LIGHT_MAX, configured));
-            return LIGHT_MIN + Math.round((clamped - LIGHT_MIN)
-                    / (float) LIGHT_STEP) * LIGHT_STEP;
+            return snapLightLevel(configured);
         } catch (NumberFormatException invalid) {
             return DEFAULT_LIGHT_LEVEL;
         }
+    }
+
+    private static int snapLightLevel(int value) {
+        int clamped = Math.max(LIGHT_MIN, Math.min(LIGHT_MAX, value));
+        return LIGHT_MIN + Math.round((clamped - LIGHT_MIN) / (float) LIGHT_STEP) * LIGHT_STEP;
     }
 
     static int selectedIndex(Choice choice, Properties properties) {

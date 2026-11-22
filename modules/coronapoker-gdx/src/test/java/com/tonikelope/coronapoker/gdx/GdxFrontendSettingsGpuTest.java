@@ -57,6 +57,7 @@ final class GdxFrontendSettingsGpuTest {
                     long window = ((Lwjgl3Graphics) Gdx.graphics).getWindow().getWindowHandle();
                     assertEquals(GLFW.GLFW_FALSE,
                             GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_VISIBLE));
+                    verifyStepperSignCenters();
                     verify(dir);
                 } catch (Throwable error) {
                     failure.set(error);
@@ -66,6 +67,45 @@ final class GdxFrontendSettingsGpuTest {
             }
         }, config);
         if (failure.get() != null) throw new AssertionError(failure.get());
+    }
+
+    private static void verifyStepperSignCenters() {
+        int screenWidth = Gdx.graphics.getBackBufferWidth();
+        int screenHeight = Gdx.graphics.getBackBufferHeight();
+        Gdx.gl.glViewport(0, 0, screenWidth, screenHeight);
+        Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
+        Gdx.gl.glClear(com.badlogic.gdx.graphics.GL20.GL_COLOR_BUFFER_BIT);
+        var shapes = new com.badlogic.gdx.graphics.glutils.ShapeRenderer();
+        try {
+            shapes.setProjectionMatrix(new com.badlogic.gdx.math.Matrix4()
+                    .setToOrtho2D(0, 0, screenWidth, screenHeight));
+            shapes.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 2; i++) {
+                GdxUiButtonStyle.drawStepperSign(shapes, 100 + 80 * i, 100,
+                        60, 44, i == 1, com.badlogic.gdx.graphics.Color.WHITE, 1f);
+            }
+            shapes.end();
+            for (int i = 0; i < 2; i++) {
+                byte[] pixels = com.badlogic.gdx.utils.ScreenUtils.getFrameBufferPixels(
+                        100 + 80 * i, 100, 60, 44, false);
+                int minX = 60, maxX = -1, minY = 44, maxY = -1;
+                for (int y = 0; y < 44; y++) {
+                    for (int x = 0; x < 60; x++) {
+                        if (Byte.toUnsignedInt(pixels[4 * (60 * y + x)]) < 128) continue;
+                        minX = Math.min(minX, x);
+                        maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+                assertTrue(maxX > minX && maxY > minY);
+                assertEquals(59, minX + maxX, "The sign is centered horizontally");
+                assertEquals(43, minY + maxY, "The sign is centered vertically");
+                assertEquals(i == 1, maxX - minX == maxY - minY);
+            }
+        } finally {
+            shapes.dispose();
+        }
     }
 
     private static void verify(Path dir) throws Exception {
@@ -150,6 +190,7 @@ final class GdxFrontendSettingsGpuTest {
                 assertPressHits(screen, context + "/" + section + "/" + page);
             }
         }
+        verifyPercentageTracks(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
         verifyZoomTracks(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         verifyAngleTrack(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
@@ -504,8 +545,8 @@ final class GdxFrontendSettingsGpuTest {
                 if (box.height == 40f) break;
             }
             assertEquals(40f, box.height);
-            assertEquals(0f, ((Rectangle) field(slider, "minus")).width);
-            assertEquals(0f, ((Rectangle) field(slider, "plus")).width);
+            assertEquals(12f, box.x - track.x - track.width, .01f,
+                    "Only the track and the exact-value field occupy the control");
             assertEquals(box.x + box.width / 2f, control.textCenterX());
             var boxPoint = viewport.project(box.getCenter(new Vector2()));
             int boxX = Math.round(boxPoint.x), boxY = HEIGHT - 1 - Math.round(boxPoint.y);
@@ -557,28 +598,27 @@ final class GdxFrontendSettingsGpuTest {
                 properties.setProperty(GdxSettingsContract.TABLE_VIEW_KEY, perspective ? "3d" : "2d");
                 invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, 1);
                 var other = GdxCardZoom.shuffle(!perspective);
-                int initial = zoom.percent(properties), otherValue = other.percent(properties);
-                Rectangle plus = (Rectangle) field(slider, "plus"), minus = (Rectangle) field(slider, "minus");
+                int otherValue = other.percent(properties);
                 for (int offset = 0; offset < 1100; offset += 48) {
                     scroll.setFloat(owner, offset);
                     render.run();
-                    if (field(slider, "visible") == zoom && ((Rectangle) field(slider, "hit"))
-                            .contains(plus.x + plus.width / 2, plus.y + plus.height / 2)) break;
+                    if (field(slider, "visible") == zoom) {
+                        var track = (Rectangle) field(slider, "track");
+                        var hit = (Rectangle) field(slider, "hit");
+                        if (hit.contains(track.x, track.y + track.height / 2f)) break;
+                    }
                 }
                 assertSame(zoom, field(slider, "visible"));
-                for (Rectangle button : List.of(plus, minus)) {
-                    var p = viewport.project(button.getCenter(new Vector2()));
-                    int x = Math.round(p.x), y = HEIGHT - 1 - Math.round(p.y);
-                    assertTrue(input.touchDown(x, y, 0, Input.Buttons.LEFT));
-                    assertTrue(input.touchUp(x, y, 0, Input.Buttons.LEFT));
-                    assertEquals(button == plus ? initial + 5 : initial, zoom.percent(properties));
-                }
                 var track = (Rectangle) field(slider, "track");
                 var start = viewport.project(new Vector2(track.x, track.y + track.height / 2));
                 var end = viewport.project(new Vector2(track.x + track.width, track.y + track.height / 2));
                 int y = HEIGHT - 1 - Math.round(start.y);
                 assertTrue(input.touchDown(Math.round(start.x), y, 0, Input.Buttons.LEFT));
                 assertEquals(GdxCardZoom.MIN, zoom.percent(properties));
+                int middle = Math.round(start.x + (end.x - start.x) * .38f);
+                assertTrue(input.touchDragged(middle, y, 0));
+                assertEquals(145, zoom.percent(properties),
+                        "The full-width track preserves five-point zoom steps");
                 assertTrue(input.touchDragged(Math.round(end.x), y, 0));
                 assertTrue(input.touchUp(Math.round(end.x), y, 0, Input.Buttons.LEFT));
                 assertEquals(zoom.max, zoom.percent(properties));
@@ -589,6 +629,65 @@ final class GdxFrontendSettingsGpuTest {
             restoreKey(properties, saved, GdxSettingsContract.TABLE_VIEW_KEY);
             scroll.setFloat(owner, 0f);
         }
+    }
+
+    private static void verifyPercentageTracks(Object owner, com.badlogic.gdx.InputProcessor input,
+            Runnable render, Properties properties) throws Exception {
+        var session = (GdxSettingsSession) field(owner, "settingsSession");
+        var slider = field(owner, "percentageSlider");
+        var volume = (GdxMasterVolumeSetting) field(owner, "masterVolumeSetting");
+        var audio = (GdxAudioControl) field(owner, "audioControl");
+        boolean soundEnabled = audio.enabled();
+        var saved = (Properties) properties.clone();
+        Object overlay = field(owner, "volumeOverlayUntil");
+        try {
+            session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.AUDIO));
+            invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
+            audio.restoreSessionEnabled(false);
+            render.run();
+            assertNull(field(slider, "visible"));
+            audio.restoreSessionEnabled(true);
+            render.run();
+            assertSame(volume, field(slider, "visible"));
+            dragPercentageTrack(owner, input, slider, () -> volume.value(properties), 0, 37, 100);
+            assertEquals(1, volume.step());
+            assertEquals(overlay, field(owner, "volumeOverlayUntil"),
+                    "Settings volume changes must not open the global volume overlay");
+            if (owner instanceof CoronaPokerGdxTable) {
+                assertEquals(1f, field(owner, "effectsVolume"));
+            }
+
+            session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
+            invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
+            render.run();
+            var light = GdxAppearanceOptions.LIGHT_OFF;
+            assertSame(light, field(slider, "visible"));
+            dragPercentageTrack(owner, input, slider, () -> light.value(properties), 10, 40, 90);
+        } finally {
+            audio.restoreSessionEnabled(soundEnabled);
+            invoke(owner, owner instanceof CoronaPokerGdxTable
+                    ? "applyMasterVolume" : "applyFrontendMasterVolume", new Class<?>[]{float.class},
+                    GdxSettingsContract.masterVolume(saved));
+            restoreKey(properties, saved, "master_volume");
+            restoreKey(properties, saved, "nivel_luz");
+        }
+    }
+
+    private static void dragPercentageTrack(Object owner, com.badlogic.gdx.InputProcessor input,
+            Object slider, java.util.function.IntSupplier value, int min, int middle, int max) throws Exception {
+        var view = (Viewport) field(owner, "viewport");
+        var track = (Rectangle) field(slider, "track");
+        float center = track.y + track.height / 2f;
+        Vector2 start = view.project(new Vector2(track.x, center));
+        Vector2 end = view.project(new Vector2(track.x + track.width, center));
+        int y = HEIGHT - 1 - Math.round(start.y);
+        assertTrue(input.touchDown(Math.round(start.x), y, 0, Input.Buttons.LEFT));
+        assertEquals(min, value.getAsInt());
+        assertTrue(input.touchDragged(Math.round(start.x + (end.x - start.x) * .37f), y, 0));
+        assertEquals(middle, value.getAsInt());
+        assertTrue(input.touchDragged(Math.round(end.x), y, 0));
+        assertTrue(input.touchUp(Math.round(end.x), y, 0, Input.Buttons.LEFT));
+        assertEquals(max, value.getAsInt());
     }
 
     private static void restoreKey(java.util.Properties properties, java.util.Properties saved, String key) {
@@ -697,6 +796,7 @@ final class GdxFrontendSettingsGpuTest {
             // Exercise the remaining appearance previews once, on their original perspective table.
             if (lobby != null) return;
             var session = (GdxSettingsSession) field(table, "settingsSession");
+            verifyPercentageTracks(table, table.inputProcessor(), table::render, preferences.properties());
             session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
             verifyZoomTracks(table, table.inputProcessor(), table::render, preferences.properties());
             verifyAngleTrack(table, table.inputProcessor(), table::render, preferences.properties());

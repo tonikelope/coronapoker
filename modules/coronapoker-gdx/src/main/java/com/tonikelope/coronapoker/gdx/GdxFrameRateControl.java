@@ -11,7 +11,7 @@ import java.util.function.ToDoubleFunction;
 /** Keeps the exact-value editor and slider on the same FPS preference. */
 final class GdxFrameRateControl {
     private static final String FIELD = GdxFrameRateLimit.KEY;
-    private final GdxSettingsSlider slider = new GdxSettingsSlider(false);
+    private final GdxSettingsSlider slider = new GdxSettingsSlider();
     private final GdxTextEditState edit = new GdxTextEditState();
     private final Rectangle box = new Rectangle();
     private final Rectangle boxHit = new Rectangle();

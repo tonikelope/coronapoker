@@ -215,23 +215,6 @@ final class GdxSettingsStyle {
                 bounds.width - 2f, bounds.height - 2f, 15f, 2f);
     }
 
-    static void drawVolumeRow(ShapeRenderer shapes,
-            GdxSettingsLayout.VolumeRow row, float progress, float alpha) {
-        Rectangle bounds = row.bounds();
-        Rectangle slider = row.slider();
-        drawRow(shapes, bounds.x, bounds.y, bounds.width, bounds.height,
-                ROW_BORDER, ROW_FILL, alpha);
-        shapes.setColor(TOGGLE_OFF.r, TOGGLE_OFF.g, TOGGLE_OFF.b,
-                TOGGLE_OFF.a * alpha);
-        roundedRect(shapes, slider.x, slider.y, slider.width, slider.height,
-                6f);
-        shapes.setColor(ROW_HOVER_BORDER.r, ROW_HOVER_BORDER.g,
-                ROW_HOVER_BORDER.b, ROW_HOVER_BORDER.a * alpha);
-        roundedRect(shapes, slider.x, slider.y,
-                slider.width * Math.max(0f, Math.min(1f, progress)),
-                slider.height, 6f);
-    }
-
     static void drawAngleSlider(ShapeRenderer shapes, Rectangle row, Rectangle track, float progress, float alpha) {
         drawRow(shapes, row.x, row.y, row.width, row.height, ROW_BORDER, ROW_FILL, alpha);
         shapes.setColor(ROW_BORDER.r, ROW_BORDER.g, ROW_BORDER.b, alpha);

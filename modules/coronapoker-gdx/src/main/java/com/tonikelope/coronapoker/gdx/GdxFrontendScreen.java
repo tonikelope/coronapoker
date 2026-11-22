@@ -724,7 +724,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final Rectangle settingsRowsClip = new Rectangle();
     private boolean settingsRowsActive;
     private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
-    private final GdxSettingsSlider cardZoomSlider = new GdxSettingsSlider(true);
+    private final GdxSettingsSlider cardZoomSlider = new GdxSettingsSlider();
+    private final GdxSettingsSlider percentageSlider = new GdxSettingsSlider();
+    private final GdxMasterVolumeSetting masterVolumeSetting;
     private final GdxFrameRateControl fpsControl = new GdxFrameRateControl();
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
     private final GdxPointerHold scrollPointer = new GdxPointerHold();
@@ -899,6 +901,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         this.connection = defaultConnection(initialProperties,
                 NewGameConnectionDraft.Mode.CREATE);
         audioControl = new GdxAudioControl(initialProperties, this.preferences);
+        masterVolumeSetting = new GdxMasterVolumeSetting(audioControl::enabled,
+                value -> applyFrontendMasterVolume((float) value));
         shortcutBindings = new GdxShortcutBindings(initialProperties);
         submissions = new NewGameSubmissionCoordinator(this.preferences,
                 Objects.requireNonNull(gateway, "gateway"));
@@ -1435,6 +1439,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDebugViewport.set(0f, 0f, 0f, 0f);
         shuffleAngleSlider.hide();
         cardZoomSlider.hide();
+        percentageSlider.hide();
         fpsControl.hide();
         // The clipped chat layer belongs only to the message history. Clear
         // its previous-frame viewport before drawing a gallery or emoji
@@ -5393,6 +5398,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void captureFrontendModalInput() {
         cardZoomSlider.cancel();
+        percentageSlider.cancel();
         fpsControl.cancel();
         shuffleAngleSlider.cancel();
         editMenu = null;
@@ -9630,10 +9636,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (GdxSettingsContract.hasMasterVolume(page)) {
             float volumeY = rows.rowY(
                     GdxSettingsContract.masterVolumeRow(page));
-            drawFrontendVolumeControl(baseX, volumeY, baseWidth,
-                    audioControl.enabled());
-            settingsTooltip(GdxSettingsLayout.volumeRow(
-                    baseX, volumeY, baseWidth).bounds(), "master_volume");
+            GdxSettingsLayout.SliderRow volume = GdxSettingsLayout.sliderRow(baseX, volumeY, baseWidth);
+            drawPercentageControl(volume, rows, masterVolumeSetting,
+                    "gdx.settings.row.master_volume",
+                    Math.round(GdxSettingsContract.DEFAULT_MASTER_VOLUME * 100f));
+            settingsTooltip(volume.bounds(), "master_volume");
         }
         for (int optionIndex = 0; optionIndex < page.options().size();
                 optionIndex++) {
@@ -9845,35 +9852,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || lobby == null || lobby.host();
     }
 
-    private void drawFrontendVolumeControl(float x, float y, float w,
-            boolean enabled) {
-        GdxSettingsLayout.VolumeRow row = GdxSettingsLayout.volumeRow(x, y, w);
+    private void drawPercentageControl(GdxSettingsLayout.SliderRow row,
+            GdxSettingsLayout.PixelRows rows, GdxSettingsSlider.Setting setting,
+            String labelKey, int defaultValue) {
         Rectangle label = row.label();
-        Rectangle percentage = row.percentage();
-        Rectangle minus = row.minusButton();
-        Rectangle plus = row.plusButton();
-        GdxSettingsStyle.drawVolumeRow(shapes, row, masterVolume(),
-                enabled ? 1f : 0.42f);
-        textFit(smallFont, uppercase(gameText.translate(
-                "gdx.settings.row.master_volume")), label.x,
-                GdxSettingsLayout.volumeTextBaseline(row),
+        Rectangle percentage = row.value();
+        int value = setting.value(initialProperties);
+        boolean enabled = setting.enabled(initialProperties);
+        percentageSlider.draw(shapes, row.bounds(), rows, setting,
+                value, enabled, 1f);
+        textFit(smallFont, uppercase(gameText.translate(labelKey)), label.x,
+                GdxSettingsLayout.sliderTextBaseline(row),
                 enabled ? Color.WHITE : DISABLED,
                 false, label.width);
         textFit(smallFont, GdxSettingsContract.markDefault(
-                Math.round(masterVolume() * 100f) + "%",
-                Float.compare(masterVolume(), 0.8f) == 0),
+                value + "%", value == defaultValue),
                 percentage.x + percentage.width / 2f,
-                GdxSettingsLayout.volumeTextBaseline(row),
+                GdxSettingsLayout.sliderTextBaseline(row),
                 enabled ? GOLD : DISABLED, true,
                 percentage.width - 8f);
-        themedButton(minus.x, minus.y, minus.width, minus.height, "-",
-                ButtonTone.NEUTRAL,
-                () -> adjustFrontendMasterVolume(-GdxSettingsContract.MASTER_VOLUME_STEP), enabled,
-                settingsStepperSignFont);
-        themedButton(plus.x, plus.y, plus.width, plus.height, "+",
-                ButtonTone.NEUTRAL,
-                () -> adjustFrontendMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP), enabled,
-                settingsStepperSignFont);
     }
 
     private void drawAppearanceSettings(float x, float y, float w, float h) {
@@ -9941,22 +9938,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                                             configuredFelt())),
                             Dropdown.FELT, true);
                 } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
-                    settingsStepper(baseX, currentY, baseWidth,
-                            GdxSettingsLayout.ROW_HEIGHT,
-                            uppercase(gameText.translate(
-                                    "gdx.settings.row.light_off")),
-                            GdxSettingsContract.markDefault(
-                                    GdxAppearanceOptions.lightLevelLabel(
-                                            initialProperties),
-                                    Integer.toString(GdxAppearanceOptions
-                                            .DEFAULT_LIGHT_LEVEL).equals(
-                                            initialProperties.getProperty(
-                                                    "nivel_luz",
-                                                    Integer.toString(
-                                                            GdxAppearanceOptions
-                                                                    .DEFAULT_LIGHT_LEVEL)))),
-                            () -> adjustLightLevel(-1),
-                            () -> adjustLightLevel(1));
+                    drawPercentageControl(GdxSettingsLayout.sliderRow(bounds),
+                            rows, GdxAppearanceOptions.LIGHT_OFF,
+                            "gdx.settings.row.light_off", GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL);
                 } else if (GdxSettingsContract.appearanceTableChoice(row) != null) {
                     var choice = GdxSettingsContract.appearanceTableChoice(row);
                     Rectangle anchor = settingsDropdownAnchor(
@@ -10458,10 +10442,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     GdxSettingsLayout.stepperLabelBaseline(y),
                     valueColor, true, statusWidth);
         }
-        text(settingsStepperSignFont, "-",
-                minusBounds.x + minusBounds.width / 2f,
-                GdxSettingsLayout.stepperSignBaseline(y),
-                enabled ? Color.WHITE : DISABLED, true);
+        GdxUiButtonStyle.drawStepperSign(shapes, minusBounds.x, minusBounds.y,
+                minusBounds.width, minusBounds.height, false, enabled ? Color.WHITE : DISABLED, 1f);
         float valueX = valueBounds.x + valueBounds.width / 2f;
         float valueBaseline = GdxSettingsLayout.stepperValueBaseline(y);
         if (label.equals(settingsGameText("row.cap"))) {
@@ -10471,10 +10453,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             textFit(uiFont, value, valueX, valueBaseline,
                     valueColor, true, valueBounds.width - 12f);
         }
-        text(settingsStepperSignFont, "+",
-                plusBounds.x + plusBounds.width / 2f,
-                GdxSettingsLayout.stepperSignBaseline(y),
-                enabled ? Color.WHITE : DISABLED, true);
+        GdxUiButtonStyle.drawStepperSign(shapes, plusBounds.x, plusBounds.y,
+                plusBounds.width, plusBounds.height, true, enabled ? Color.WHITE : DISABLED, 1f);
         if (enabled) {
             repeatHit(minusBounds.x, minusBounds.y, minusBounds.width,
                     minusBounds.height, minus);
@@ -10498,10 +10478,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFitRight(uiFont, value,
                 GdxSettingsLayout.infoValueRight(x, w),
                 GdxSettingsLayout.infoValueBaseline(y), GOLD, valueWidth);
-    }
-
-    private void adjustLightLevel(int direction) {
-        GdxAppearanceOptions.adjustLightLevel(initialProperties, direction);
     }
 
     private void drawLobbyGameSettings(float x, float y, float w, float h) {
@@ -12775,9 +12751,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         embeddedButtonSurface(x, y, side + 3f, 72f, true);
         embeddedButtonSurface(x + width - side - 3f, y,
                 side + 3f, 72f, true);
-        text(headingFont, "-", x + 38f, y + 48f, Color.WHITE, true);
-        text(headingFont, "+", x + width - 38f, y + 48f,
-                Color.WHITE, true);
+        GdxUiButtonStyle.drawStepperSign(shapes, x, y, side + 3f, 72f, false, Color.WHITE, 1f);
+        GdxUiButtonStyle.drawStepperSign(shapes, x + width - side - 3f, y,
+                side + 3f, 72f, true, Color.WHITE, 1f);
         moneyTextFit(headingFont, formatBlind(value), x + width / 2f,
                 y + 49f, GOLD, true, width - side * 2f - 24f);
         repeatHit(x, y, side + 6f, 72f, minus);
@@ -14603,8 +14579,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         embeddedButtonSurface(x, y, side + 3f, 72f, enabled);
         embeddedButtonSurface(x + w - side - 3f, y, side + 3f, 72f,
                 enabled);
-        text(headingFont, "-", x + 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
-        text(headingFont, "+", x + w - 38f, y + 48f, enabled ? Color.WHITE : DISABLED, true);
+        Color signColor = enabled ? Color.WHITE : DISABLED;
+        GdxUiButtonStyle.drawStepperSign(shapes, x, y, side + 3f, 72f, false, signColor, 1f);
+        GdxUiButtonStyle.drawStepperSign(shapes, x + w - side - 3f, y,
+                side + 3f, 72f, true, signColor, 1f);
         textFit(headingFont, value, x + w / 2f, y + 49f,
                 enabled ? GOLD : DISABLED, true,
                 Math.max(0f, w - 2f * side - 24f));
@@ -14632,12 +14610,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         embeddedButtonSurface(x, y, side + 3f, height, enabled);
         embeddedButtonSurface(x + w - side - 3f, y,
                 side + 3f, height, enabled);
-        textFit(headingFont, "-", x + 3f + side / 2f,
-                y + 45f, enabled ? Color.WHITE : DISABLED,
-                true, side - 18f);
-        textFit(headingFont, "+", x + w - 3f - side / 2f,
-                y + 45f, enabled ? Color.WHITE : DISABLED,
-                true, side - 18f);
+        Color signColor = enabled ? Color.WHITE : DISABLED;
+        GdxUiButtonStyle.drawStepperSign(shapes, x, y,
+                side + 3f, height, false, signColor, 1f);
+        GdxUiButtonStyle.drawStepperSign(shapes, x + w - side - 3f, y,
+                side + 3f, height, true, signColor, 1f);
         textFit(headingFont, Integer.toString(value), x + w / 2f,
                 y + 46f, enabled ? GOLD : DISABLED, true,
                 Math.max(0f, w - side * 2f - 24f));
@@ -15422,7 +15399,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     hoverAmount, down, 1f);
             Color labelColor = GdxUiButtonStyle.labelColor(sharedTone, enabled);
             if ("-".equals(label) || "+".equals(label)) {
-                pixelSnappedTextInBox(labelFont, label, x, y, w, h, labelColor);
+                GdxUiButtonStyle.drawStepperSign(shapes, x, y, w, h,
+                        "+".equals(label), labelColor, 1f);
             } else {
                 crispButtonTextInBox(labelFont, label, x, y, w, h, labelColor);
             }
@@ -16692,6 +16670,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         if (button == Input.Buttons.LEFT && settingsSlidersInteractive()
                 && (fpsControl.begin(pointer.x, pointer.y, pointerIndex, settingsSession.frameRateDraft())
+                        || percentageSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
                         || shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
                         || cardZoomSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties))) return true;
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
@@ -16784,6 +16763,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         viewport.unproject(pointer);
         if (settingsSlidersInteractive()
                 && (fpsControl.drag(pointer.x, pointerIndex, settingsSession.frameRateDraft())
+                        || percentageSlider.drag(pointer.x, pointerIndex, initialProperties)
                         || shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)
                         || cardZoomSlider.drag(pointer.x, pointerIndex, initialProperties))) return true;
         if (rulesWindow.isOpen()) {
@@ -16859,12 +16839,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (hitPointer.release(pointerIndex, button)) {
             released = pressedHit;
             pressedHit = null;
+            clearPointerRepeat();
         }
         if (pendingLanguage != null) return true;
         if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
-        if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
+        if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex)
+                || percentageSlider.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
                 || cardZoomSlider.release(pointerIndex))) return true;
         if (lobbyVoicePointer.release(pointerIndex, button)) {
             clearPressedHit();
@@ -16912,7 +16894,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         boolean passwordWasRevealed = revealedPasswordField != null;
         revealedPasswordField = null;
-        clearPointerRepeat();
         pointerSelectionField = null;
         if (scrollPointer.release(pointerIndex, button)) {
             scrollDrag = ScrollDrag.NONE;
@@ -17781,22 +17762,22 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textKeyRepeat.update(frameDelta, nativeEditing ? activeField : null, this::handleActiveFieldKey);
     }
 
-    private void adjustFrontendMasterVolume(float delta) {
-        adjustFrontendMasterVolume(delta, true);
+    private void adjustFrontendMasterVolume(float delta, boolean playCue) {
+        applyFrontendMasterVolume(MathUtils.clamp(
+                Math.round((masterVolume() + delta) * 100f) / 100f,
+                0f, 1f));
+        volumeOverlayUntil = elapsed + GdxVolumeOverlayStyle.DURATION_SECONDS;
+        if (playCue) playVolumePreview();
     }
 
-    private void adjustFrontendMasterVolume(float delta, boolean playCue) {
-        float volume = MathUtils.clamp(
-                Math.round((masterVolume() + delta) * 100f) / 100f,
-                0f, 1f);
+    private void applyFrontendMasterVolume(float volume) {
+        if (volume == masterVolume()) return;
         initialProperties.setProperty("master_volume",
                 Float.toString(volume));
         if (preferences != null && surface != Surface.SETTINGS) {
             preferences.saveDeferred();
         }
         syncMusicForSurface();
-        volumeOverlayUntil = elapsed + GdxVolumeOverlayStyle.DURATION_SECONDS;
-        if (playCue) playVolumePreview();
     }
 
     private void playVolumePreview() {
@@ -18243,8 +18224,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
-        if (hitPointer.release(p, b)) pressedHit = null;
-        if (b == Input.Buttons.LEFT && (fpsControl.release(p) || shuffleAngleSlider.release(p) || cardZoomSlider.release(p))) return true;
+        if (hitPointer.release(p, b)) {
+            pressedHit = null;
+            clearPointerRepeat();
+        }
+        if (b == Input.Buttons.LEFT && (fpsControl.release(p) || percentageSlider.release(p)
+                || shuffleAngleSlider.release(p) || cardZoomSlider.release(p))) return true;
         if (pendingLanguage != null) return true;
         if (rulesWindow.cancel(p, b)) return true;
         if (lobbyGallery.cancel(p, b)) return true;
@@ -18282,7 +18267,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             clearPointerRepeat();
             return true;
         }
-        clearPointerRepeat();
         return hasBlockingFrontendModal();
     }
     @Override public boolean mouseMoved(int x, int y) {

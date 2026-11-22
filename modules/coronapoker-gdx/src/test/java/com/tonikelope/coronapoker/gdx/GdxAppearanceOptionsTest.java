@@ -75,28 +75,21 @@ final class GdxAppearanceOptionsTest {
     }
 
     @Test
-    void lightLevelUsesSwingRangeStepAndWraps() {
+    void lightOffSliderPreservesRangeStepAndSavedPreferences() {
         Properties properties = new Properties();
-        assertEquals("35%", GdxAppearanceOptions.lightLevelLabel(properties));
+        var light = GdxAppearanceOptions.LIGHT_OFF;
+        assertEquals(10, light.min());
+        assertEquals(90, light.max());
+        assertEquals(5, light.step());
+        assertEquals(35, light.value(properties));
         properties.setProperty("nivel_luz", "88");
-        assertEquals("90%", GdxAppearanceOptions.lightLevelLabel(properties));
-        GdxAppearanceOptions.cycleLightLevel(properties);
-        assertEquals("10%", GdxAppearanceOptions.lightLevelLabel(properties));
-    }
-
-    @Test
-    void lightLevelCanBeAdjustedInBothDirectionsWithoutWrapping() {
-        Properties properties = new Properties();
-        GdxAppearanceOptions.adjustLightLevel(properties, 1);
-        assertEquals("40%", GdxAppearanceOptions.lightLevelLabel(properties));
-        GdxAppearanceOptions.adjustLightLevel(properties, -1);
-        assertEquals("35%", GdxAppearanceOptions.lightLevelLabel(properties));
-        properties.setProperty("nivel_luz", "10");
-        GdxAppearanceOptions.adjustLightLevel(properties, -1);
-        assertEquals("10%", GdxAppearanceOptions.lightLevelLabel(properties));
-        properties.setProperty("nivel_luz", "90");
-        GdxAppearanceOptions.adjustLightLevel(properties, 1);
-        assertEquals("90%", GdxAppearanceOptions.lightLevelLabel(properties));
+        assertEquals(90, light.value(properties));
+        light.select(properties, 43);
+        assertEquals("45", properties.getProperty("nivel_luz"));
+        light.select(properties, 0);
+        assertEquals(10, light.value(properties));
+        light.select(properties, 100);
+        assertEquals(90, light.value(properties));
     }
 
     @Test

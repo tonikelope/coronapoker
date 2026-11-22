@@ -34,11 +34,10 @@ final class GdxShuffleAngle {
 
     void draw(ShapeRenderer shapes, Rectangle row, GdxSettingsLayout.PixelRows rows,
             int angle, boolean enabled, float alpha) {
-        float left = row.x + row.width * .42f;
-        track.set(left, row.y + row.height * .5f - 4f, row.width * .58f - 106f, 8f);
+        GdxSettingsLayout.setSliderTrack(track, row);
         float bottom = Math.max(row.y, rows.viewportBottom());
         float top = Math.min(row.y + row.height, rows.viewportTop());
-        if (enabled && top > bottom) hit.set(left - 8f, bottom, track.width + 16f, top - bottom);
+        if (enabled && top > bottom) hit.set(track.x - 8f, bottom, track.width + 16f, top - bottom);
         else hide();
         float progress = (angle + 180f) / 360f;
         GdxSettingsStyle.drawAngleSlider(shapes, row, track, progress, enabled ? alpha : alpha * .42f);

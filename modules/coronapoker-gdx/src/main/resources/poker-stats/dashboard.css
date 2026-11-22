@@ -103,6 +103,14 @@ nav button[aria-selected=true]::after {
 .primary { border-color: var(--cyan); background: var(--cyan); color: #051724; }
 .primary:hover:not(:disabled) { border-color: #9af0ff; background: #9af0ff; }
 .zoom-tools .ghost { min-width: 2rem; padding-inline: .34rem; font-variant-numeric: tabular-nums; }
+.zoom-tools .zoom-step { display: grid; place-items: center; padding-inline: 0; }
+.zoom-step::before, #zoom-in::after {
+  content: "";
+  grid-area: 1 / 1;
+  background: currentColor;
+}
+.zoom-step::before { width: .8rem; height: 2px; }
+#zoom-in::after { width: 2px; height: .8rem; }
 .zoom-tools #zoom-reset { min-width: 3.2rem; }
 .zoom-tools #reset-charts { margin-inline-end: .4rem; padding-inline: .62rem; color: var(--gold); }
 

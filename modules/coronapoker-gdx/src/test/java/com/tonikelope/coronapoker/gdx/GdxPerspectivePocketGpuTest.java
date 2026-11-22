@@ -308,6 +308,33 @@ final class GdxPerspectivePocketGpuTest {
                 table.acceptEvent(new TableVisualEvent.ActionControls(13L, controls),
                         new CompletableFuture<>());
                 table.render();
+                Point plus = screenCenter(viewport, layout.plus());
+                mouse.move(plus);
+                double before = ((Number) field(table, "liveBetAmount")).doubleValue();
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(plus.x, plus.y, 0, Input.Buttons.LEFT);
+                table.render();
+                double firstStep = ((Number) field(table, "liveBetAmount")).doubleValue();
+                assertTrue(firstStep > before, "A press steps the bet amount immediately");
+                mouse.justPressed = false;
+                var repeat = table.getClass().getDeclaredMethod("updatePointerRepeat", float.class);
+                repeat.setAccessible(true);
+                repeat.invoke(table, 0.8f);
+                double held = ((Number) field(table, "liveBetAmount")).doubleValue();
+                assertTrue(held > firstStep, "A held plus button repeats");
+                mouse.down = false;
+                input.touchUp(plus.x, plus.y, 0, Input.Buttons.LEFT);
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(plus.x, plus.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertEquals(held + firstStep - before,
+                        ((Number) field(table, "liveBetAmount")).doubleValue(), .001d,
+                        "A second click starts a new repeat even without a frame between gestures");
+                mouse.down = mouse.justPressed = false;
+                input.touchUp(plus.x, plus.y, 0, Input.Buttons.LEFT);
+                table.render();
+
+                mouse.move(call);
                 mouse.down = mouse.justPressed = true;
                 input.touchDown(call.x, call.y, 0, Input.Buttons.LEFT);
                 table.render();

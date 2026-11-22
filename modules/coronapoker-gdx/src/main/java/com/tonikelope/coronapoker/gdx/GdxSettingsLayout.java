@@ -107,11 +107,9 @@ final class GdxSettingsLayout {
     static final float ROW_TEXT_BASELINE = 43f;
     static final float STEPPER_LABEL_BASELINE = 44f;
     static final float STEPPER_VALUE_BASELINE = 45f;
-    static final float STEPPER_SIGN_BASELINE = 48f;
     static final float INFO_LABEL_BASELINE = 44f;
     static final float INFO_VALUE_BASELINE = 45f;
     static final float INFO_VALUE_RIGHT_INSET = 20f;
-    static final float VOLUME_TEXT_BASELINE = 41f;
     static final float SHORTCUT_KEY_BASELINE = 38f;
     static final float SHORTCUT_DESCRIPTION_BASELINE = 38f;
 
@@ -196,19 +194,24 @@ final class GdxSettingsLayout {
      * disjoint rectangles so font metrics or fractional DPI scaling cannot
      * make the percentage cross the slider.
      */
-    static VolumeRow volumeRow(float x, float y, float width) {
-        Rectangle bounds = new Rectangle(x, y, width, 66f);
-        Rectangle minus = new Rectangle(x + width - 158f, y + 10f,
-                62f, 46f);
-        Rectangle plus = new Rectangle(x + width - 84f, y + 10f,
-                62f, 46f);
-        Rectangle label = new Rectangle(x + 18f, y + 10f, 210f, 46f);
-        Rectangle percentage = new Rectangle(x + 230f, y + 10f,
-                76f, 46f);
-        float barX = x + 326f;
-        Rectangle slider = new Rectangle(barX, y + 27f,
-                Math.max(100f, minus.x - 20f - barX), 12f);
-        return new VolumeRow(bounds, label, percentage, slider, minus, plus);
+    static SliderRow sliderRow(float x, float y, float width) {
+        return sliderRow(new Rectangle(x, y, width, ROW_HEIGHT));
+    }
+
+    static SliderRow sliderRow(Rectangle bounds) {
+        float x = bounds.x, y = bounds.y, width = bounds.width, height = bounds.height;
+        float trackRight = x + width - 106f;
+        Rectangle label = new Rectangle(x + 18f, y, width * .42f - 30f, height);
+        Rectangle track = setSliderTrack(new Rectangle(), bounds);
+        Rectangle value = new Rectangle(trackRight + 12f, y, 82f, height);
+        return new SliderRow(bounds, label, track, value);
+    }
+
+    static Rectangle setSliderTrack(Rectangle track, Rectangle row) {
+        float start = row.x + row.width * .42f;
+        float end = row.x + row.width - 106f;
+        return track.set(start, row.y + row.height / 2f - 4f,
+                Math.max(0f, end - start), 8f);
     }
 
     /**
@@ -531,10 +534,6 @@ final class GdxSettingsLayout {
         return y + STEPPER_VALUE_BASELINE;
     }
 
-    static float stepperSignBaseline(float y) {
-        return y + STEPPER_SIGN_BASELINE;
-    }
-
     static float infoLabelBaseline(float y) {
         return y + INFO_LABEL_BASELINE;
     }
@@ -543,8 +542,8 @@ final class GdxSettingsLayout {
         return y + INFO_VALUE_BASELINE;
     }
 
-    static float volumeTextBaseline(VolumeRow row) {
-        return row.bounds().y + VOLUME_TEXT_BASELINE;
+    static float sliderTextBaseline(SliderRow row) {
+        return row.bounds().y + row.bounds().height / 2f + 9f;
     }
 
     static float shortcutKeyBaseline(ShortcutRow row) {
@@ -814,9 +813,8 @@ final class GdxSettingsLayout {
         }
     }
 
-    record VolumeRow(Rectangle bounds, Rectangle label,
-            Rectangle percentage, Rectangle slider, Rectangle minusButton,
-            Rectangle plusButton) {
+    record SliderRow(Rectangle bounds, Rectangle label, Rectangle track,
+            Rectangle value) {
     }
 
     record StepperRow(Rectangle bounds, Rectangle label,

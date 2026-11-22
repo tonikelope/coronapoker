@@ -132,20 +132,15 @@ final class GdxSettingsLayoutTest {
     }
 
     @Test
-    void masterVolumeTextSliderAndButtonsNeverOverlap() {
-        GdxSettingsLayout.VolumeRow row = GdxSettingsLayout.volumeRow(
+    void sliderTrackFitsBetweenItsLabelAndValue() {
+        GdxSettingsLayout.SliderRow row = GdxSettingsLayout.sliderRow(
                 100f, 200f, 1120f);
 
-        assertTrue(row.label().x + row.label().width
-                <= row.percentage().x);
-        assertTrue(row.percentage().x + row.percentage().width
-                <= row.slider().x);
-        assertTrue(row.slider().x + row.slider().width
-                <= row.minusButton().x);
-        assertTrue(row.minusButton().x + row.minusButton().width
-                <= row.plusButton().x);
-        assertTrue(row.plusButton().x + row.plusButton().width
+        assertTrue(row.label().x + row.label().width <= row.track().x);
+        assertTrue(row.track().x + row.track().width <= row.value().x);
+        assertTrue(row.value().x + row.value().width
                 <= row.bounds().x + row.bounds().width);
+        assertEquals(GdxSettingsLayout.setSliderTrack(new Rectangle(), row.bounds()), row.track());
     }
 
     @Test
@@ -203,11 +198,10 @@ final class GdxSettingsLayoutTest {
         assertEquals(243f, GdxSettingsLayout.rowTextBaseline(200f));
         assertEquals(244f, GdxSettingsLayout.stepperLabelBaseline(200f));
         assertEquals(245f, GdxSettingsLayout.stepperValueBaseline(200f));
-        assertEquals(248f, GdxSettingsLayout.stepperSignBaseline(200f));
         assertEquals(244f, GdxSettingsLayout.infoLabelBaseline(200f));
         assertEquals(245f, GdxSettingsLayout.infoValueBaseline(200f));
-        assertEquals(241f, GdxSettingsLayout.volumeTextBaseline(
-                GdxSettingsLayout.volumeRow(100f, 200f, 1_120f)));
+        assertEquals(243f, GdxSettingsLayout.sliderTextBaseline(
+                GdxSettingsLayout.sliderRow(100f, 200f, 1_120f)));
     }
 
     @Test

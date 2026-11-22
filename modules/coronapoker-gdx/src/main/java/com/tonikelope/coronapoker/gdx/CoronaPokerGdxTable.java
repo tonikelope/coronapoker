@@ -1536,7 +1536,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont dialogAmountFont;
     private BitmapFont settingsTitleFont;
     private BitmapFont settingsHeadingFont;
-    private BitmapFont settingsStepperSignFont;
     private BitmapFont settingsActionFont;
     private BitmapFont settingsBodyFont;
     private BitmapFont settingsSmallFont;
@@ -1828,7 +1827,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GdxShuffleDealerFlight dealerFlight;
     private float shufflePotRelief;
     private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
-    private final GdxSettingsSlider cardZoomSlider = new GdxSettingsSlider(true);
+    private final GdxSettingsSlider cardZoomSlider = new GdxSettingsSlider();
+    private final GdxSettingsSlider percentageSlider = new GdxSettingsSlider();
+    private final GdxMasterVolumeSetting masterVolumeSetting;
+    private boolean settingsSliderPressedThisFrame;
     private final GdxFrameRateControl fpsControl = new GdxFrameRateControl();
     private final Matrix4 shuffleProjection = new Matrix4();
     private final GdxShuffleOverlayCamera tiltedShuffleCamera = new GdxShuffleOverlayCamera();
@@ -2329,8 +2331,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
                 if (fpsControl.begin(pointer.x, pointer.y, pointerIndex, settingsSession.frameRateDraft())
+                        || percentageSlider.begin(pointer.x, pointer.y, pointerIndex, tableSettingsProperties())
                         || (liveShuffle == null && shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, tableSettingsProperties()))
                         || cardZoomSlider.begin(pointer.x, pointer.y, pointerIndex, tableSettingsProperties())) {
+                    settingsSliderPressedThisFrame = true;
                     capturePrimaryPointerGesture();
                     return true;
                 }
@@ -2394,6 +2398,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
                 if (fpsControl.drag(pointer.x, pointerIndex, settingsSession.frameRateDraft())) return true;
+                if (percentageSlider.drag(pointer.x, pointerIndex, tableSettingsProperties())) return true;
                 if (liveShuffle == null && shuffleAngleSlider.drag(pointer.x, pointerIndex, tableSettingsProperties())) return true;
                 if (cardZoomSlider.drag(pointer.x, pointerIndex, tableSettingsProperties())) return true;
             }
@@ -2473,12 +2478,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchUp(int screenX, int screenY, int pointerIndex,
                 int button) {
+            if (pointerIndex == 0 && button == Input.Buttons.LEFT) clearPointerRepeat();
             TableClickTarget pressed = null;
             if (tableClickPointer.release(pointerIndex, button)) {
                 pressed = pressedTableClick;
                 pressedTableClick = null;
             }
-            if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
+            if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex)
+                    || percentageSlider.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
                     || cardZoomSlider.release(pointerIndex))) return true;
             if (releasePocketPeekPointer(pointerIndex, button)) return true;
             if (voicePointer.release(pointerIndex, button)) {
@@ -2603,12 +2610,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchCancelled(int screenX, int screenY,
                 int pointerIndex, int button) {
+            if (pointerIndex == 0 && button == Input.Buttons.LEFT) clearPointerRepeat();
             if (chipCatalogPointer.release(pointerIndex, button)) pressedChipCatalogClick = null;
             if (finalSummaryPointer.release(pointerIndex, button)) finalSummaryPointerTarget = -1;
             if (tableClickPointer.release(pointerIndex, button)) {
                 pressedTableClick = null;
             }
-            if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
+            if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex)
+                    || percentageSlider.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
                     || cardZoomSlider.release(pointerIndex))) return true;
             if (releasePocketPeekPointer(pointerIndex, button)) return true;
             if (rulesWindow.cancel(pointerIndex, button) || tableGallery.cancel(pointerIndex, button)) {
@@ -2985,6 +2994,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Properties audioProperties = tableProperties;
         shortcutBindings = new GdxShortcutBindings(audioProperties);
         audioControl = new GdxAudioControl(audioProperties, preferences);
+        masterVolumeSetting = new GdxMasterVolumeSetting(audioControl::enabled,
+                value -> applyMasterVolume((float) value));
         tableChat = lobby == null ? null : new GdxTableChatSession(lobby);
         textToSpeech = lobby == null ? null : new GdxTextToSpeechPlayback(
                 () -> audioControl.enabled() ? effectsVolume : 0d,
@@ -3440,6 +3451,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             settingsSession.commitFrameRate(tableProperties);
         }
         cardZoomSlider.cancel();
+        percentageSlider.cancel();
         fpsControl.cancel();
         shuffleAngleSlider.cancel();
         imagePreview.dispose();
@@ -3636,6 +3648,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 gameText.translate("gdx.settings.unsaved.continue"),
                 gameText.translate("gdx.settings.unsaved.discard"));
         cardZoomSlider.cancel();
+        percentageSlider.cancel();
         fpsControl.cancel();
         shuffleAngleSlider.cancel();
         shortcutCaptureId = null;
@@ -4196,9 +4209,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             case 13 -> settingsHeadingFont = font(creationFontGenerator,
                     GdxSettingsStyle.HEADING_FONT_SIZE,
                     0f);
-            case 14 -> settingsStepperSignFont = font(creationFontGenerator,
-                    GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE,
-                    0f);
+            case 14 -> pauseCompactFont = font(creationFontGenerator, 58, 0f,
+                    PAUSE_RED, new Color(0x640000cc));
             case 15 -> settingsActionFont = font(creationFontGenerator,
                     GdxSettingsStyle.ACTION_FONT_SIZE,
                     0f);
@@ -4247,10 +4259,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     localOutcomeFont(creationFontGenerator, 24));
             case 32 -> localOutcomeNanoFont = cacheLocalOutcomeFont(21,
                     localOutcomeFont(creationFontGenerator, 21));
-            case 33 -> {
-                pauseCompactFont = font(creationFontGenerator, 58, 0f,
-                        PAUSE_RED, new Color(0x640000cc));
-            }
             default -> {
                 int missingSize = nextMissingLocalOutcomeFontSize();
                 if (missingSize >= 0) {
@@ -4962,10 +4970,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 DEFAULT_FONT_BORDER, characters,
                 font -> settingsHeadingFont = replaceFont(settingsHeadingFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren,
-                GdxSettingsStyle.STEPPER_SIGN_FONT_SIZE, 0f,
-                DEFAULT_FONT_BORDER, characters,
-                font -> settingsStepperSignFont = replaceFont(settingsStepperSignFont, font)));
-        fonts.add(new GdxFontRefresh.Font(mclaren,
                 GdxSettingsStyle.ACTION_FONT_SIZE, 0f,
                 DEFAULT_FONT_BORDER, characters,
                 font -> settingsActionFont = replaceFont(settingsActionFont, font)));
@@ -5063,7 +5067,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         nativeTextTiers.clear();
         BitmapFont[] standard = {
             finalTitleFont, settingsTitleFont, dialogAmountFont,
-            mediumUiFont, settingsStepperSignFont, finalDetailFont,
+            mediumUiFont, finalDetailFont,
             seatActionFont, uiFont, settingsHeadingFont,
             settingsActionFont, finalButtonFont, stackFont,
             settingsBodyFont, playerNameFont, actionFont, smallFont,
@@ -6297,6 +6301,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (event instanceof TableVisualEvent.ActionControls controls) {
+                if (activePointerRepeat != null && activePointerRepeat.owner == RepeatOwner.HUD) {
+                    clearPointerRepeat();
+                }
                 armedHudTarget = 0;
                 localActionControlsSequence = controls.sequence();
                 liveBetAmount = controls.state().raiseAmount();
@@ -7221,6 +7228,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     public void render() {
         shuffleAngleSlider.hide();
         cardZoomSlider.hide();
+        percentageSlider.hide();
         fpsControl.hide();
         finishScreenshotReadback(false);
         synchronizeCardSampling();
@@ -7300,6 +7308,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateBetShortcutRepeat(delta);
         updateFastAccessBar(delta);
         handleInput();
+        settingsSliderPressedThisFrame = false;
         releasedTableClick = null;
         pocketPeekInputThisFrame = false;
         mediaPressedThisFrame = false;
@@ -8042,8 +8051,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
                 capturePrimaryPointerGesture();
                 if (uiLayer == UI_SETTINGS
-                        && settingsSelectionList == SettingsSelectionList.NONE
-                        && beginPointerRepeat(RepeatOwner.SETTINGS)) {
+                        && (settingsSliderPressedThisFrame
+                        || (settingsSelectionList == SettingsSelectionList.NONE
+                        && beginPointerRepeat(RepeatOwner.SETTINGS)))) {
                     return;
                 }
                 pointer.set(Gdx.input.getX(), Gdx.input.getY());
@@ -11312,6 +11322,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         releasedTableClick = null;
     }
 
+    private void clearPointerRepeat() {
+        activePointerRepeat = null;
+        pointerRepeat.clear();
+    }
+
     private boolean beginPointerRepeat(RepeatOwner owner) {
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
@@ -11446,6 +11461,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             bounds.set(left, bottom, right - left, top - bottom);
         }
         pointerRepeatHits.add(new RepeatHit(bounds, action, owner, dialog));
+    }
+
+    private void registerSettingsStepperRepeat(Rectangle bounds) {
+        registerPointerRepeatHit(bounds.x, bounds.y, bounds.width, bounds.height,
+                RepeatOwner.SETTINGS, null, () -> handleSettingsClick(
+                        bounds.x + bounds.width / 2f, bounds.y + bounds.height / 2f));
     }
 
     private static boolean sameBounds(Rectangle first, Rectangle second) {
@@ -19563,14 +19584,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         GdxVoicePlayback.refreshVolume(effectsVolume);
     }
 
-    private void adjustMasterVolume(float delta) {
-        adjustMasterVolume(delta, true);
+    private void adjustMasterVolume(float delta, boolean playCue) {
+        applyMasterVolume(MathUtils.clamp(
+                Math.round((effectsVolume + delta) * 100f) / 100f,
+                0f, 1f));
+        volumeOverlayUntil = totalTime + GdxVolumeOverlayStyle.DURATION_SECONDS;
+        if (playCue) playVolumePreview();
     }
 
-    private void adjustMasterVolume(float delta, boolean playCue) {
-        effectsVolume = MathUtils.clamp(
-                Math.round((effectsVolume + delta) * 100f) / 100f,
-                0f, 1f);
+    private void applyMasterVolume(float value) {
+        if (value == effectsVolume) return;
+        effectsVolume = value;
         musicVolume = 0.40f * effectsVolume;
         if (preferences != null) {
             tableProperties.setProperty("master_volume",
@@ -19580,8 +19604,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         refreshDealerLoopVolumes();
         if (textToSpeech != null) textToSpeech.refreshVolume();
         GdxVoicePlayback.refreshVolume(effectsVolume);
-        volumeOverlayUntil = totalTime + GdxVolumeOverlayStyle.DURATION_SECONDS;
-        if (playCue) playVolumePreview();
     }
 
     private void playVolumePreview() {
@@ -23426,14 +23448,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     allInX, actionY, allInWidth, actionHeight,
                     allInVisualText, allInContentAlpha);
             batch.setColor(Color.WHITE);
-            drawFittedCenteredInBox(settingsStepperSignFont, "-",
-                    minusX + 6f, actionY + 8f,
-                    stepperWidth - 12f, actionHeight - 16f,
-                    Color.WHITE, betContentAlpha);
-            drawFittedCenteredInBox(settingsStepperSignFont, "+",
-                    plusX + 6f, actionY + 8f,
-                    stepperWidth - 12f, actionHeight - 16f,
-                    Color.WHITE, betContentAlpha);
         }
         batch.end();
         if (pendingIconHover && pendingRebuyTooltipDelay.ready(
@@ -23582,6 +23596,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 sideAlpha, enabled,
                 plusHover ? 1f : 0f, pointerDown && plusHover,
                 1f, CYAN);
+        float signAlpha = enabled ? 1f : .34f;
+        GdxUiButtonStyle.drawStepperSign(shapes, minusX, y, stepperWidth, height,
+                false, Color.WHITE, signAlpha);
+        GdxUiButtonStyle.drawStepperSign(shapes, plusX, y, stepperWidth, height,
+                true, Color.WHITE, signAlpha);
     }
 
     static Color hudCallSurfaceColor(ActionControlState.CallAction action) {
@@ -24070,6 +24089,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelW = panel.width;
         for (int i = 0; i < sections.size(); i++) {
             if (frame.mainTab(i).contains(x, y)) {
+                clearPointerRepeat();
                 audioPreview.stop();
                 settingsSession.selectTab(i);
                 settingsGameScroll = 0f;
@@ -24105,21 +24125,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxSettingsLayout.PixelRows rows = settingsAudioRows(content,
                     firstRowY, page, settingsAudioScroll);
             settingsAudioScroll = rows.offset();
-            if (GdxSettingsContract.hasMasterVolume(page)
-                    && audioControl.enabled()) {
-                GdxSettingsLayout.VolumeRow volume =
-                        GdxSettingsLayout.volumeRow(contentX, rows.rowY(
-                                GdxSettingsContract.masterVolumeRow(page)),
-                                rowW);
-                if (volume.minusButton().contains(x, y)) {
-                    adjustMasterVolume(-GdxSettingsContract.MASTER_VOLUME_STEP);
-                    return;
-                }
-                if (volume.plusButton().contains(x, y)) {
-                    adjustMasterVolume(GdxSettingsContract.MASTER_VOLUME_STEP);
-                    return;
-                }
-            }
             Rectangle audioViewport = settingsAudioRowsViewport(content,
                     firstRowY, page);
             for (int optionIndex = 0;
@@ -24229,13 +24234,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 SettingsSelectionList.CARD_BACK);
                     } else if (row == GdxSettingsContract.APPEARANCE_FELT_ROW && presentationSettings != null) {
                         openSettingsSelectionList(SettingsSelectionList.FELT);
-                    } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
-                        int direction = settingsStepperDirection(x, contentX,
-                                rowW);
-                        if (direction != 0) {
-                            GdxAppearanceOptions.adjustLightLevel(
-                                    tableSettingsProperties(), direction);
-                        }
                     } else if (GdxSettingsContract.appearanceTableChoice(row) != null) {
                         openSettingsAppearanceSelectionList(
                                 GdxSettingsContract.appearanceTableChoice(row));
@@ -24828,6 +24826,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void selectSettingsSubpage(int index) {
+        clearPointerRepeat();
         audioPreview.stop();
         settingsSession.selectSubpage(index);
         switch (settingsSection()) {
@@ -26417,14 +26416,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     : new Rectangle(panelX + panelW / 2f + 118f,
                             panelY + 155f, 72f, 64f);
             if (dialog.isAutoCall()) {
-                Rectangle amount = autoCallLayout.amount().bounds();
-                drawSettingsStepperShape(amount.x, amount.y, amount.width,
-                        amountAlpha);
+                drawSettingsAmountStepperShape(autoCallLayout.amount(), amountAlpha);
             } else {
                 drawDialogButton(minus.x, minus.y, minus.width, minus.height,
                         CYAN, minus.contains(pointer.x, pointer.y), amountAlpha);
                 drawDialogButton(plus.x, plus.y, plus.width, plus.height,
                         CYAN, plus.contains(pointer.x, pointer.y), amountAlpha);
+                GdxUiButtonStyle.drawStepperSign(shapes, minus, false, Color.WHITE, amountAlpha);
+                GdxUiButtonStyle.drawStepperSign(shapes, plus, true, Color.WHITE, amountAlpha);
             }
             if (amountAlpha > 0.5f) {
                 registerPointerRepeatHit(minus.x, minus.y,
@@ -26559,10 +26558,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         amount.label().x, amount.label().y,
                         amount.label().width, amount.label().height,
                         Color.WHITE, amountAlpha);
-                drawFittedCenteredInBox(seatActionFont, "-",
-                        amount.minusButton().x, amount.minusButton().y,
-                        amount.minusButton().width, amount.minusButton().height,
-                        Color.WHITE, amountAlpha);
                 Rectangle value = amount.value();
                 if (dialog.autoCallAmountEditable()) {
                     drawFittedCenteredInBox(uiFont, amountText,
@@ -26573,35 +26568,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             value.x, value.y, value.width, value.height,
                             POT_GOLD, amountAlpha);
                 }
-                drawFittedCenteredInBox(seatActionFont, "+",
-                        amount.plusButton().x, amount.plusButton().y,
-                        amount.plusButton().width, amount.plusButton().height,
-                        Color.WHITE, amountAlpha);
             } else {
                 RebuyAmountLayout rebuyLayout = dialog.isRebuy()
                         ? rebuyAmountLayout(panelX, panelY, panelW) : null;
-                Rectangle minus = rebuyLayout == null
-                        ? new Rectangle(panelX + panelW / 2f - 190f,
-                                panelY + 155f, 72f, 64f)
-                        : rebuyLayout.minus();
                 Rectangle value = rebuyLayout == null
                         ? new Rectangle(panelX + panelW / 2f - 110f,
                                 panelY + 155f, 220f, 64f)
                         : rebuyLayout.value();
-                Rectangle plus = rebuyLayout == null
-                        ? new Rectangle(panelX + panelW / 2f + 118f,
-                                panelY + 155f, 72f, 64f)
-                        : rebuyLayout.plus();
-                drawFittedCenteredInBox(seatActionFont, "-",
-                        minus.x, minus.y, minus.width, minus.height,
-                        Color.WHITE, 1f);
                 drawFittedMoneyInBox(dialog.isRebuy()
                                 ? dialogAmountFont : uiFont, amountText,
                         value.x, value.y, value.width, value.height, POT_GOLD,
                         dialog.waitingForExternalClose() ? 0.52f : 1f);
-                drawFittedCenteredInBox(seatActionFont, "+",
-                        plus.x, plus.y, plus.width, plus.height,
-                        Color.WHITE, 1f);
             }
             if (dialog.showsMinimumAmount()) {
                 drawFittedMoneyInBox(smallFont,
@@ -27679,7 +27656,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 float volumeY = rows.rowY(
                         GdxSettingsContract.masterVolumeRow(page));
                 SettingsTooltipHover volume = settingsTooltipHover(
-                        GdxSettingsLayout.volumeRow(x, volumeY, width).bounds(),
+                        GdxSettingsLayout.sliderRow(x, volumeY, width).bounds(),
                         "master_volume", viewportBounds);
                 if (volume != null) return volume;
             }
@@ -28285,9 +28262,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             GdxSettingsLayout.drawGroups(shapes, x, width, rows, groups,
                     alpha);
             if (GdxSettingsContract.hasMasterVolume(page)) {
-                drawSettingsVolumeShape(x, rows.rowY(
-                        GdxSettingsContract.masterVolumeRow(page)), width,
-                        audioControl.enabled(), alpha);
+                Rectangle row = GdxSettingsLayout.sliderRow(x, rows.rowY(
+                        GdxSettingsContract.masterVolumeRow(page)), width).bounds();
+                percentageSlider.draw(shapes, row, rows, masterVolumeSetting,
+                        Math.round(effectsVolume * 100f), audioControl.enabled(), alpha);
             }
             for (int optionIndex = 0;
                     optionIndex < page.options().size(); optionIndex++) {
@@ -28366,7 +28344,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (row < GdxSettingsContract
                             .APPEARANCE_PRIMARY_ROW_COUNT) {
                         if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
-                            drawSettingsStepperShape(x, rowY, width, true, alpha);
+                            Rectangle bounds = GdxSettingsLayout.sliderRow(x, rowY, width).bounds();
+                            var light = GdxAppearanceOptions.LIGHT_OFF;
+                            percentageSlider.draw(shapes, bounds, rows, light,
+                                    light.value(tableSettingsProperties()), true, alpha);
                         } else {
                             boolean enabled = GdxSettingsContract.appearanceTableChoice(row) != null
                                     || presentationSettings != null;
@@ -28754,20 +28735,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
-    private void drawSettingsVolumeShape(float x, float y, float width,
-            boolean enabled, float alpha) {
-        GdxSettingsLayout.VolumeRow row = GdxSettingsLayout.volumeRow(
-                x, y, width);
-        Rectangle minus = row.minusButton();
-        Rectangle plus = row.plusButton();
-        float rowAlpha = enabled ? alpha : alpha * 0.42f;
-        GdxSettingsStyle.drawVolumeRow(shapes, row, effectsVolume, rowAlpha);
-        drawDialogButton(minus.x, minus.y, minus.width, minus.height,
-                BUTTON_LINE, enabled && minus.contains(pointer), rowAlpha);
-        drawDialogButton(plus.x, plus.y, plus.width, plus.height,
-                BUTTON_LINE, enabled && plus.contains(pointer), rowAlpha);
-    }
-
     private void drawSettingsDebugShape(float x, float firstY,
             float width, float alpha) {
         Rectangle performance = GdxSettingsLayout.debugPerformanceRow(
@@ -28982,36 +28949,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 baseline, 96f, enabled ? POT_GOLD : SETTINGS_DISABLED, alpha);
     }
 
-    private void drawSettingsStepperShape(float x, float y, float width,
+    private void drawSettingsAmountStepperShape(GdxSettingsLayout.StepperRow row,
             float alpha) {
-        drawSettingsStepperShape(x, y, width, true, alpha);
-    }
-
-    private void drawSettingsStepperShape(float x, float y, float width,
-            boolean enabled, float alpha) {
-        drawSettingsStepperShape(x, y, width, enabled, alpha, false);
-    }
-
-    private void drawSettingsAudioDeviceStepperShape(float x, float y,
-            float width, boolean enabled, float alpha) {
-        drawSettingsStepperShape(x, y, width, enabled, alpha, true);
-    }
-
-    private void drawSettingsStepperShape(float x, float y, float width,
-            boolean enabled, float alpha, boolean audioDevice) {
-        GdxSettingsLayout.StepperRow row = audioDevice
-                ? GdxSettingsLayout.audioDeviceStepperRow(x, y, width,
-                        GdxSettingsLayout.ROW_HEIGHT)
-                : GdxSettingsLayout.stepperRow(x, y, width,
-                        GdxSettingsLayout.ROW_HEIGHT);
-        boolean hovered = enabled && row.bounds().contains(pointer);
-        GdxSettingsStyle.drawRow(shapes, x, y, width,
-                GdxSettingsLayout.ROW_HEIGHT, enabled, hovered, false,
-                alpha);
-        drawCanonicalSettingsEmbeddedButton(row.minusButton(), enabled,
-                alpha);
-        drawCanonicalSettingsEmbeddedButton(row.plusButton(), enabled,
-                alpha);
+        Rectangle bounds = row.bounds();
+        GdxSettingsStyle.drawRow(shapes, bounds.x, bounds.y, bounds.width,
+                bounds.height, true, bounds.contains(pointer), false, alpha);
+        drawCanonicalSettingsEmbeddedButton(row.minusButton(), true, alpha);
+        drawCanonicalSettingsEmbeddedButton(row.plusButton(), true, alpha);
+        drawSettingsStepperSigns(row, true, alpha);
     }
 
     private void drawLiveSettingsStepperShape(float x, float y, float width,
@@ -29024,6 +28969,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 alpha);
         drawCanonicalSettingsEmbeddedButton(row.plusButton(), enabled,
                 alpha);
+        drawSettingsStepperSigns(row, enabled, alpha);
+    }
+
+    private void drawSettingsStepperSigns(GdxSettingsLayout.StepperRow row,
+            boolean enabled, float alpha) {
+        Color color = enabled ? Color.WHITE : SETTINGS_DISABLED;
+        GdxUiButtonStyle.drawStepperSign(shapes, row.minusButton(), false, color, alpha);
+        GdxUiButtonStyle.drawStepperSign(shapes, row.plusButton(), true, color, alpha);
     }
 
     private void drawCanonicalSettingsEmbeddedButton(Rectangle bounds,
@@ -29108,47 +29061,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         MOD_OVERRIDE, alpha);
             }
             if (GdxSettingsContract.hasMasterVolume(page)) {
-                boolean enabled = audioControl.enabled();
-                GdxSettingsLayout.VolumeRow row =
-                        GdxSettingsLayout.volumeRow(x, rows.rowY(
+                GdxSettingsLayout.SliderRow row =
+                        GdxSettingsLayout.sliderRow(x, rows.rowY(
                                 GdxSettingsContract.masterVolumeRow(page)),
                                 width);
-                Rectangle label = row.label();
-                Rectangle percentage = row.percentage();
-                Rectangle minus = row.minusButton();
-                Rectangle plus = row.plusButton();
-                drawFittedLeft(settingsSmallFont,
-                        uppercase(gameText.translate(
-                        "gdx.settings.row.master_volume")),
-                        label.x, GdxSettingsLayout.volumeTextBaseline(row),
-                        label.width,
-                        enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
-                drawFittedCentered(settingsSmallFont,
-                        GdxSettingsContract.markDefault(
-                                Math.round(effectsVolume * 100f) + "%",
-                                Float.compare(effectsVolume, 0.8f) == 0),
-                        percentage.x + percentage.width / 2f,
-                        GdxSettingsLayout.volumeTextBaseline(row),
-                        percentage.width - 8f,
-                        enabled ? POT_GOLD : SETTINGS_DISABLED, alpha);
-                drawDialogButtonLabel(settingsStepperSignFont, "-",
-                        minus.x, minus.y, minus.width, minus.height,
-                        enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
-                drawDialogButtonLabel(settingsStepperSignFont, "+",
-                        plus.x, plus.y, plus.width, plus.height,
-                        enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
-                if (enabled) {
-                    registerPointerRepeatHit(minus.x, minus.y, minus.width,
-                            minus.height, RepeatOwner.SETTINGS, null,
-                            () -> handleSettingsClick(minus.x
-                                    + minus.width / 2f,
-                                    minus.y + minus.height / 2f));
-                    registerPointerRepeatHit(plus.x, plus.y, plus.width,
-                            plus.height, RepeatOwner.SETTINGS, null,
-                            () -> handleSettingsClick(plus.x
-                                    + plus.width / 2f,
-                                    plus.y + plus.height / 2f));
-                }
+                drawSettingsPercentageText(row, "gdx.settings.row.master_volume",
+                        Math.round(effectsVolume * 100f),
+                        Math.round(GdxSettingsContract.DEFAULT_MASTER_VOLUME * 100f),
+                        audioControl.enabled(), alpha);
             }
             for (int optionIndex = 0;
                     optionIndex < page.options().size(); optionIndex++) {
@@ -29307,21 +29227,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                                                 .felt())),
                                 presentationSettings != null, alpha);
                     } else if (row == GdxSettingsContract.APPEARANCE_LIGHT_ROW) {
-                        drawSettingsStepperText(x, rowY, width,
-                                uppercase(gameText.translate(
-                                        "gdx.settings.row.light_off")),
-                                GdxSettingsContract.markDefault(
-                                        GdxAppearanceOptions.lightLevelLabel(
-                                                tableSettingsProperties()),
-                                        Integer.toString(GdxAppearanceOptions
-                                                .DEFAULT_LIGHT_LEVEL).equals(
-                                                tableSettingsProperties()
-                                                        .getProperty(
-                                                                "nivel_luz",
-                                                                Integer.toString(
-                                                                        GdxAppearanceOptions
-                                                                                .DEFAULT_LIGHT_LEVEL)))),
-                                alpha);
+                        drawSettingsPercentageText(GdxSettingsLayout.sliderRow(x, rowY, width),
+                                "gdx.settings.row.light_off",
+                                GdxAppearanceOptions.LIGHT_OFF.value(tableSettingsProperties()),
+                                GdxAppearanceOptions.DEFAULT_LIGHT_LEVEL, true, alpha);
                     } else if (GdxSettingsContract.appearanceTableChoice(row) != null) {
                         var choice = GdxSettingsContract.appearanceTableChoice(row);
                         drawSettingsChoiceText(x, rowY, width, choice.label(gameText),
@@ -30190,84 +30099,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 valueWidth, POT_GOLD, alpha);
     }
 
-    private void drawSettingsStepperText(float x, float y, float width,
-            String label, String value, float alpha) {
-        drawSettingsStepperText(x, y, width, label, value, true, alpha);
-    }
-
-    private void drawSettingsStepperText(float x, float y, float width,
-            String label, String value, boolean enabled, float alpha) {
-        drawSettingsStepperText(x, y, width, label, value, "", enabled,
-                alpha);
-    }
-
-    private void drawSettingsStepperText(float x, float y, float width,
-            String label, String value, String status, boolean enabled,
-            float alpha) {
-        drawSettingsStepperText(x, y, width, label, value, status, enabled,
-                alpha, false);
-    }
-
-    private void drawSettingsAudioDeviceStepperText(float x, float y,
-            float width, String label, String value, boolean enabled,
-            float alpha) {
-        drawSettingsStepperText(x, y, width, label, value, "", enabled,
-                alpha, true);
-    }
-
-    private void drawSettingsStepperText(float x, float y, float width,
-            String label, String value, String status, boolean enabled,
-            float alpha, boolean audioDevice) {
-        GdxSettingsLayout.StepperRow row = audioDevice
-                ? GdxSettingsLayout.audioDeviceStepperRow(x, y, width,
-                        GdxSettingsLayout.ROW_HEIGHT)
-                : GdxSettingsLayout.stepperRow(x, y, width,
-                        GdxSettingsLayout.ROW_HEIGHT);
-        Color labelColor = enabled ? Color.WHITE : SETTINGS_DISABLED;
-        boolean modOverrideValue = GdxModSettingsIndicator.marked(value)
-                || GdxModSettingsIndicator.marked(status);
-        Color valueColor = modOverrideValue
-                ? enabled ? MOD_OVERRIDE : MOD_OVERRIDE_DISABLED
-                : enabled ? POT_GOLD : SETTINGS_DISABLED;
-        boolean hasStatus = status != null && !status.isBlank();
-        float labelWidth = hasStatus
-                ? row.label().width * 0.38f : row.label().width;
-        drawFittedLeft(settingsSmallFont, uppercase(label),
-                row.label().x, GdxSettingsLayout.stepperLabelBaseline(y),
-                labelWidth, labelColor, alpha);
-        if (hasStatus) {
-            float statusWidth = row.label().width - labelWidth - 18f;
-            drawFittedCentered(settingsSmallFont, status,
-                    row.label().x + labelWidth + 18f + statusWidth / 2f,
-                    GdxSettingsLayout.stepperLabelBaseline(y), statusWidth,
-                    valueColor, alpha);
-        }
-        drawFittedCentered(settingsStepperSignFont, "-",
-                row.minusButton().x + row.minusButton().width / 2f,
-                GdxSettingsLayout.stepperSignBaseline(y),
-                row.minusButton().width, labelColor, alpha);
-        drawFittedCentered(settingsBodyFont, value,
-                row.value().x + row.value().width / 2f,
-                GdxSettingsLayout.stepperValueBaseline(y),
-                row.value().width - 12f, valueColor, alpha);
-        drawFittedCentered(settingsStepperSignFont, "+",
-                row.plusButton().x + row.plusButton().width / 2f,
-                GdxSettingsLayout.stepperSignBaseline(y),
-                row.plusButton().width, labelColor, alpha);
-        if (enabled) {
-            registerPointerRepeatHit(row.minusButton().x, row.value().y,
-                    row.minusButton().width, row.value().height,
-                    RepeatOwner.SETTINGS, null,
-                    () -> handleSettingsClick(row.minusButton().x
-                            + row.minusButton().width / 2f,
-                            row.value().y + row.value().height / 2f));
-            registerPointerRepeatHit(row.plusButton().x, row.value().y,
-                    row.plusButton().width, row.value().height,
-                    RepeatOwner.SETTINGS, null,
-                    () -> handleSettingsClick(row.plusButton().x
-                            + row.plusButton().width / 2f,
-                            row.value().y + row.value().height / 2f));
-        }
+    private void drawSettingsPercentageText(GdxSettingsLayout.SliderRow row,
+            String labelKey, int value, int defaultValue, boolean enabled, float alpha) {
+        Rectangle label = row.label();
+        Rectangle number = row.value();
+        float baseline = GdxSettingsLayout.sliderTextBaseline(row);
+        drawFittedLeft(settingsSmallFont, uppercase(gameText.translate(labelKey)),
+                label.x, baseline, label.width,
+                enabled ? Color.WHITE : SETTINGS_DISABLED, alpha);
+        drawFittedCentered(settingsSmallFont,
+                GdxSettingsContract.markDefault(value + "%", value == defaultValue),
+                number.x + number.width / 2f, baseline, number.width,
+                enabled ? POT_GOLD : SETTINGS_DISABLED, alpha);
     }
 
     private void drawLiveSettingsStepperText(float x, float y, float width,
@@ -30280,10 +30123,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
                 GdxSettingsLayout.stepperLabelBaseline(y), row.label().width,
                 labelColor, alpha);
-        drawFittedCentered(settingsStepperSignFont, "-",
-                row.minusButton().x + row.minusButton().width / 2f,
-                GdxSettingsLayout.stepperSignBaseline(y),
-                row.minusButton().width, labelColor, alpha);
         float valueX = row.value().x + row.value().width / 2f;
         float baseline = GdxSettingsLayout.stepperValueBaseline(y);
         float valueWidth = row.value().width - 12f;
@@ -30299,23 +30138,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawFittedCentered(settingsBodyFont, value, valueX, baseline,
                     valueWidth, valueColor, alpha);
         }
-        drawFittedCentered(settingsStepperSignFont, "+",
-                row.plusButton().x + row.plusButton().width / 2f,
-                GdxSettingsLayout.stepperSignBaseline(y),
-                row.plusButton().width, labelColor, alpha);
         if (access == SettingsRowAccess.EDITABLE) {
-            registerPointerRepeatHit(row.minusButton().x, row.value().y,
-                    row.minusButton().width, row.value().height,
-                    RepeatOwner.SETTINGS, null,
-                    () -> handleSettingsClick(row.minusButton().x
-                            + row.minusButton().width / 2f,
-                            row.value().y + row.value().height / 2f));
-            registerPointerRepeatHit(row.plusButton().x, row.value().y,
-                    row.plusButton().width, row.value().height,
-                    RepeatOwner.SETTINGS, null,
-                    () -> handleSettingsClick(row.plusButton().x
-                            + row.plusButton().width / 2f,
-                            row.value().y + row.value().height / 2f));
+            registerSettingsStepperRepeat(row.minusButton());
+            registerSettingsStepperRepeat(row.plusButton());
         }
     }
 
@@ -33683,7 +33508,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         dialogAmountFont.dispose();
         settingsTitleFont.dispose();
         settingsHeadingFont.dispose();
-        settingsStepperSignFont.dispose();
         settingsActionFont.dispose();
         settingsBodyFont.dispose();
         settingsSmallFont.dispose();

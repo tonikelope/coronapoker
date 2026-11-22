@@ -4,11 +4,32 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
 
 /** One renderer-native button material shared by every GDX screen. */
 final class GdxUiButtonStyle {
 
     enum Tone { NEUTRAL, FEATURED, POSITIVE, DANGER }
+
+    static void drawStepperSign(ShapeRenderer shapes, Rectangle button,
+            boolean plus, Color color, float alpha) {
+        drawStepperSign(shapes, button.x, button.y, button.width, button.height,
+                plus, color, alpha);
+    }
+
+    static void drawStepperSign(ShapeRenderer shapes, float x, float y,
+            float width, float height, boolean plus, Color color, float alpha) {
+        float size = Math.min(width, height);
+        float arm = Math.min(11f, size * .18f);
+        float halfStroke = Math.min(1.75f, size * .035f);
+        float cx = x + width / 2f, cy = y + height / 2f;
+        shapes.setColor(color.r, color.g, color.b, color.a * alpha);
+        shapes.rect(cx - arm, cy - halfStroke, arm * 2f, halfStroke * 2f);
+        if (plus) {
+            shapes.rect(cx - halfStroke, cy - arm, halfStroke * 2f, arm - halfStroke);
+            shapes.rect(cx - halfStroke, cy + halfStroke, halfStroke * 2f, arm - halfStroke);
+        }
+    }
 
     private static final Color CYAN = new Color(0x36d9ffff);
     private static final Color CYAN_DARK = new Color(0x176b83ff);

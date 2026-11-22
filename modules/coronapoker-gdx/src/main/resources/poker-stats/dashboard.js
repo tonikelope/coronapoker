@@ -947,6 +947,45 @@ function changeZoom(delta) {
   $('zoom-in').disabled = zoom === 160;
 }
 
+function bindZoomHold(button, delta) {
+  let pointer = null;
+  let timer;
+  const stop = () => {
+    pointer = null;
+    clearTimeout(timer);
+  };
+  const step = delay => {
+    if (button.disabled) {
+      stop();
+      return;
+    }
+    changeZoom(delta);
+    if (button.disabled) stop();
+    else timer = setTimeout(() => step(45), delay);
+  };
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || pointer !== null || button.disabled) return;
+    pointer = event.pointerId;
+    // The button moves as the dashboard scales. Its held gesture still owns
+    // the release even if the resized button is no longer under the pointer.
+    button.setPointerCapture(pointer);
+    step(420);
+  });
+  for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    button.addEventListener(eventName, event => {
+      if (event.pointerId === pointer) stop();
+    });
+  }
+  window.addEventListener('blur', stop);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stop();
+  });
+  button.addEventListener('click', event => {
+    // Mouse presses already stepped. Keep keyboard and assistive activation.
+    if (event.detail === 0 && !button.disabled) changeZoom(delta);
+  });
+}
+
 for (const tab of tabs) tab.addEventListener('click', () => selectTab(tab.dataset.tab));
 $('tabs').addEventListener('keydown', event => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -957,8 +996,8 @@ $('tabs').addEventListener('keydown', event => {
     : (current + (event.key === 'ArrowRight' ? 1 : -1) + visible.length) % visible.length;
   selectTab(visible[next].dataset.tab, true);
 });
-$('zoom-out').addEventListener('click', () => changeZoom(-10));
-$('zoom-in').addEventListener('click', () => changeZoom(10));
+bindZoomHold($('zoom-out'), -10);
+bindZoomHold($('zoom-in'), 10);
 $('zoom-reset').addEventListener('click', () => changeZoom(0));
 $('stats-view').addEventListener('scroll', () => {
   for (const chart of charts.values()) chart.dispatchAction({type:'hideTip'});

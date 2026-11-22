@@ -225,19 +225,34 @@ final class GdxUiDialogStyle {
 
     static NoticeLayout noticeLayout(float worldWidth, float worldHeight,
             float singleLineWidth) {
+        return noticeLayout(worldWidth, worldHeight,
+                messagePanelWidth(900f, 1080f, 65f, singleLineWidth), 142f);
+    }
+
+    static NoticeLayout noticeLayout(float worldWidth, float worldHeight,
+            GlyphLayout glyph, BitmapFont font, String message) {
+        float panelWidth = messagePanelWidth(900f, 1080f, 65f,
+                singleLineWidth(glyph, font, message));
+        glyph.setText(font, formatNoticeMessage(message), Color.WHITE,
+                panelWidth - 130f, Align.center, true);
+        float messageHeight = Math.min(Math.max(142f, worldHeight - 328f),
+                Math.max(142f, (float) Math.ceil(glyph.height)));
+        return noticeLayout(worldWidth, worldHeight, panelWidth, messageHeight);
+    }
+
+    private static NoticeLayout noticeLayout(float worldWidth, float worldHeight,
+            float panelWidth, float messageHeight) {
         float messageInset = 65f;
-        float panelWidth = messagePanelWidth(900f, 1080f, messageInset,
-                singleLineWidth);
-        float panelHeight = 390f;
+        float panelHeight = messageHeight + 248f;
         float panelX = (worldWidth - panelWidth) / 2f;
         float panelY = (worldHeight - panelHeight) / 2f;
         Rectangle panel = new Rectangle(panelX, panelY,
                 panelWidth, panelHeight);
         return new NoticeLayout(panel,
-                new Rectangle(panelX + 50f, panelY + 292f,
+                new Rectangle(panelX + 50f, panelY + panelHeight - 98f,
                         panelWidth - 100f, 48f),
                 new Rectangle(panelX + messageInset, panelY + 128f,
-                        panelWidth - 2f * messageInset, 142f),
+                        panelWidth - 2f * messageInset, messageHeight),
                 new Rectangle(panelX + panelWidth / 2f - 190f,
                         panelY + 40f, 380f, 72f));
     }

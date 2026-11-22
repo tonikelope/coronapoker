@@ -451,7 +451,6 @@ class CorePlayerControllerTest {
         assertTrue(player.getState().snapshot().warming());
 
         player.unsetSpectator();
-
         assertFalse(player.isCalentando());
         assertFalse(player.getState().snapshot().warming());
         assertTrue(player.isActivo());
@@ -497,6 +496,31 @@ class CorePlayerControllerTest {
         assertFalse(player.isActivo());
         assertEquals(GamePlayerController.FOLD, player.getDecision());
         assertEquals(0d, player.getBote());
+    }
+
+    @Test
+    void rebuyReadmissionPublishesNoOldCardsForLocalOrRemoteSeats() {
+        for (CorePlayerController player : List.of(CorePlayerController.local("local"),
+                CorePlayerController.remote("remote"), CorePlayerController.bot("Bot$"))) {
+            player.getHoleCard1().iniciarCarta(true);
+            player.getHoleCard2().iniciarCarta(true);
+            player.setStack(0d);
+            player.setSpectator("ESPECTADOR");
+            player.bindCommittedRebuy(() -> 10);
+
+            assertTrue(TableSnapshotMapper.player(player.getState().snapshot()).holeCards()
+                    .stream().allMatch(TableSnapshot.CardSnapshot::visible), player.getNickname());
+
+            player.unsetSpectator();
+            TableSnapshot.PlayerSnapshot admitted = TableSnapshotMapper.player(
+                    player.getState().snapshot());
+
+            assertTrue(admitted.active(), player.getNickname());
+            assertFalse(admitted.spectator(), player.getNickname());
+            assertEquals(2, admitted.holeCards().size(), player.getNickname());
+            assertFalse(admitted.holeCards().stream().anyMatch(TableSnapshot.CardSnapshot::visible),
+                    player.getNickname());
+        }
     }
 
     @Test

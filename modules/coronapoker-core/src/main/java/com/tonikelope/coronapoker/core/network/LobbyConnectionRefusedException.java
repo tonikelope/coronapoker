@@ -11,6 +11,7 @@ import java.util.Objects;
 public final class LobbyConnectionRefusedException extends IOException {
 
     public enum Reason {
+        AUTHENTICATION_FAILED,
         BAD_VERSION,
         TABLE_STARTED,
         HOT_JOIN_DISABLED,
@@ -28,7 +29,12 @@ public final class LobbyConnectionRefusedException extends IOException {
 
     LobbyConnectionRefusedException(Reason reason, long retryAfterSeconds,
             String diagnosticMessage) {
-        super(diagnosticMessage);
+        this(reason, retryAfterSeconds, diagnosticMessage, null);
+    }
+
+    LobbyConnectionRefusedException(Reason reason, long retryAfterSeconds,
+            String diagnosticMessage, Throwable cause) {
+        super(diagnosticMessage, cause);
         this.reason = Objects.requireNonNull(reason, "reason");
         this.retryAfterSeconds = Math.max(0L, retryAfterSeconds);
     }

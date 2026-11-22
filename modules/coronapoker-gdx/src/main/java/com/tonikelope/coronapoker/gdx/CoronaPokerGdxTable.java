@@ -9038,7 +9038,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float x, float y) {
         GdxUiDialogStyle.NoticeLayout layout =
                 GdxUiDialogStyle.noticeLayout(
-                        viewport.getWorldWidth(), viewport.getWorldHeight());
+                        viewport.getWorldWidth(), viewport.getWorldHeight(),
+                        glyph, settingsBodyFont, dialog.message());
         if (!layout.button().contains(x, y)) return;
         if (dialog.showsPositive()) {
             resolveActiveDialogChoice(true);
@@ -26637,7 +26638,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float worldWidth, float worldHeight) {
         GdxUiDialogStyle.ConfirmationLayout layout =
                 GdxUiDialogStyle.confirmationLayout(worldWidth, worldHeight,
-                        GdxUiDialogStyle.singleLineWidth(glyph, settingsActionFont,
+                        GdxUiDialogStyle.singleLineWidth(glyph, settingsBodyFont,
                                 dialog.message()));
         Rectangle panel = layout.panel();
         Rectangle title = layout.title();
@@ -26670,7 +26671,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         drawLeftInBox(settingsHeadingFont, uppercase(dialog.title()),
                 title.x, title.y, title.width, title.height, POT_GOLD, 1f);
-        drawDialogMessage(dialog.message(), message, settingsActionFont);
+        drawDialogMessage(dialog.message(), message, settingsBodyFont);
         if (dialog.showsNegative()) {
             drawDialogButtonLabel(settingsActionFont,
                     uppercase(dialog.negativeLabel()),
@@ -26690,8 +26691,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float worldWidth, float worldHeight) {
         GdxUiDialogStyle.NoticeLayout layout =
                 GdxUiDialogStyle.noticeLayout(worldWidth, worldHeight,
-                        GdxUiDialogStyle.singleLineWidth(glyph, settingsBodyFont,
-                                dialog.message()));
+                        glyph, settingsBodyFont, dialog.message());
         Rectangle panel = layout.panel();
         Rectangle title = layout.title();
         Rectangle message = layout.message();
@@ -26780,7 +26780,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         String text = uppercase(dialog.message());
         GdxUiDialogStyle.ConfirmationLayout layout =
                 GdxUiDialogStyle.confirmationLayout(worldWidth, worldHeight,
-                        GdxUiDialogStyle.singleLineWidth(glyph, settingsActionFont, text));
+                        GdxUiDialogStyle.singleLineWidth(glyph, settingsBodyFont, text));
         Rectangle panel = layout.panel();
         Rectangle title = layout.title();
         Rectangle message = layout.message();
@@ -26802,7 +26802,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         batch.begin();
         drawLeftInBox(settingsHeadingFont, uppercase(dialog.title()),
                 title.x, title.y, title.width, title.height, POT_GOLD, 1f);
-        drawDialogMessage(text, message, settingsActionFont);
+        drawDialogMessage(text, message, settingsBodyFont);
         drawDialogButtonLabel(settingsActionFont,
                 uppercase(dialog.negativeLabel()), negative.x, negative.y,
                 negative.width, negative.height, Color.WHITE, 1f);

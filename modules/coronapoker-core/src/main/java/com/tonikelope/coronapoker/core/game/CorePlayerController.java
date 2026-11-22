@@ -629,13 +629,15 @@ public final class CorePlayerController implements GamePlayerController {
     }
     @Override public synchronized void unsetSpectator() {
         clearCalentando();
-        state.setSpectator(false);
         // Spectator/CALENTANDO uses FOLD as its canonical inactive state.
         // Admission happens at a hand boundary and may publish SeatRoster
         // before nuevaMano() performs its ordinary reset. Clear the completed
         // hand presentation here so no renderer can observe the impossible
-        // transient "active but still folded" seat.
+        // transient "active but still folded" seat or draw stale card backs.
         resetPresentationForNewHand();
+        firstCard.resetearCarta(false);
+        secondCard.resetearCarta(false);
+        state.setSpectator(false);
         state.setActive(!isExit());
     }
     @Override public void setSpectatorBB(boolean bigBlind) {

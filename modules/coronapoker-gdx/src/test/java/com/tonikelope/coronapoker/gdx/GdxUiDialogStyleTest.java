@@ -261,6 +261,25 @@ final class GdxUiDialogStyleTest {
     }
 
     @Test
+    void longNoticeMakesRoomForTheSameBodyFont() {
+        var glyph = new GlyphLayout();
+        BitmapFont font = messageFont();
+        String message = ("a b c\n").repeat(14) + "p";
+        var layout = GdxUiDialogStyle.noticeLayout(1920f, 1080f, glyph, font, message);
+        float requiredHeight = glyph.height;
+        assertTrue(requiredHeight > GdxUiDialogStyle.noticeLayout(1920f, 1080f)
+                .message().height);
+        assertTrue(layout.message().height >= requiredHeight);
+        assertTrue(layout.title().y > layout.message().y + layout.message().height);
+        assertTrue(layout.button().y + layout.button().height < layout.message().y);
+
+        GdxUiDialogStyle.layoutMessage(glyph, font, message, Color.WHITE,
+                layout.message().width, layout.message().height, Align.center);
+        assertEquals(15, glyph.runs.size);
+        assertEquals(requiredHeight, glyph.height);
+    }
+
+    @Test
     void tooltipsUseDialogJustificationAndLeaveParagraphEndingsLeftAligned() {
         var glyph = new GlyphLayout();
         GdxUiDialogStyle.layoutTooltip(glyph, messageFont(), "a b c\r\n\r\np:q",

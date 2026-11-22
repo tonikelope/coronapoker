@@ -589,8 +589,10 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
          * lobby rejections remain final and are never retried.
          */
         private static boolean transientHandshakeFailure(Exception failure) {
-            return failure instanceof SocketException
-                    || failure instanceof EOFException;
+            Throwable cause = failure instanceof LobbyConnectionRefusedException refusal
+                    && refusal.reason() == LobbyConnectionRefusedException.Reason.AUTHENTICATION_FAILED
+                    ? refusal.getCause() : failure;
+            return cause instanceof SocketException || cause instanceof EOFException;
         }
 
         private static Connection clientHandshake(Socket socket, NewGameRequest request,
@@ -617,9 +619,14 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                     + "#" + (avatar == null ? "*" : Base64.getEncoder().encodeToString(avatar))
                     + "#JOIN#" + Base64.getEncoder().encodeToString(identity.publicKey())
                     + "#" + Base64.getEncoder().encodeToString(identity.signJoin(sessionId));
-            connection.writeEncrypted(join);
-            String response = connection.readEncryptedText();
-            if (response == null) throw new IOException("Secure channel not established");
+            String response;
+            try {
+                connection.writeEncrypted(join);
+                response = connection.readEncryptedText();
+            } catch (SocketException | EOFException | java.security.KeyException failure) {
+                throw joinAuthenticationFailed(failure);
+            }
+            if (response == null) throw joinAuthenticationFailed(null);
             String[] parts = response.split("#", -1);
             if (!"NICKOK".equals(parts[0])) throw rejection(parts);
             connection.hotJoin = parts.length > 4
@@ -644,6 +651,15 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
                 }
             }
             return connection;
+        }
+
+        private static LobbyConnectionRefusedException joinAuthenticationFailed(
+                Exception cause) {
+            // A host with a different password closes the connection before
+            // sending an authenticated reply. A transport failure can look identical.
+            return new LobbyConnectionRefusedException(
+                    LobbyConnectionRefusedException.Reason.AUTHENTICATION_FAILED,
+                    0L, "Lobby authentication could not be confirmed", cause);
         }
 
         private Connection clientReconnectHandshake(Connection established)

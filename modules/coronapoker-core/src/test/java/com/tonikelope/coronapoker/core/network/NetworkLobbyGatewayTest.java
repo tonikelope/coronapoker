@@ -64,6 +64,38 @@ class NetworkLobbyGatewayTest {
     @TempDir Path temporary;
 
     @Test
+    void wrongOrMissingPasswordHasAnAuthenticationSpecificRefusal() throws Exception {
+        int port;
+        try (ServerSocket reservation = new ServerSocket(0)) {
+            port = reservation.getLocalPort();
+        }
+        try (NetworkLobbyGateway hostGateway = new NetworkLobbyGateway(
+                temporary.resolve("password-host"));
+                NetworkLobbyGateway clientGateway = new NetworkLobbyGateway(
+                        temporary.resolve("password-client"))) {
+            hostGateway.open(request(false, "Anfitrion", port, "correct"))
+                    .get(5, TimeUnit.SECONDS);
+            for (String password : List.of("incorrect", "")) {
+                Exception rejection = assertThrows(Exception.class,
+                        () -> clientGateway.open(request(true, "Invitado", port, password))
+                                .get(5, TimeUnit.SECONDS));
+                Throwable cause = rejection;
+                while (cause != null && !(cause instanceof LobbyConnectionRefusedException)) {
+                    cause = cause.getCause();
+                }
+                var refusal = org.junit.jupiter.api.Assertions.assertInstanceOf(LobbyConnectionRefusedException.class, cause);
+                assertEquals(LobbyConnectionRefusedException.Reason.AUTHENTICATION_FAILED,
+                        refusal.reason());
+            }
+            LobbySession client = clientGateway
+                    .open(request(true, "Invitado", port, "correct"))
+                    .get(5, TimeUnit.SECONDS);
+            assertEquals(com.tonikelope.coronapoker.core.LobbySnapshot.Phase.CONNECTED,
+                    client.snapshot().phase());
+        }
+    }
+
+    @Test
     void connectionStatusBypassesAnUnconfirmedPokerHeadWithoutAcknowledgingIt() throws Exception {
         int port;
         try (ServerSocket reservation = new ServerSocket(0)) {
@@ -1737,9 +1769,13 @@ class NetworkLobbyGatewayTest {
     }
 
     private static NewGameRequest request(boolean joining, String nickname, int port) {
+        return request(joining, nickname, port, "");
+    }
+
+    private static NewGameRequest request(boolean joining, String nickname, int port, String password) {
         NewGameConnectionDraft.Submission connection = new NewGameConnectionDraft.Submission(
                 joining ? NewGameConnectionDraft.Mode.JOIN : NewGameConnectionDraft.Mode.CREATE,
-                nickname, "", "127.0.0.1", Integer.toString(port), null,
+                nickname, password, "127.0.0.1", Integer.toString(port), null,
                 false, false, null);
         return new NewGameRequest(connection,
                 joining ? null : new NewGameTableDraft().snapshot());

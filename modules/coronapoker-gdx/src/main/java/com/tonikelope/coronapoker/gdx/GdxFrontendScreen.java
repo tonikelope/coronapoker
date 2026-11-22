@@ -3039,7 +3039,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String title, String message) {
         GdxUiDialogStyle.ConfirmationLayout layout =
                 GdxUiDialogStyle.confirmationLayout(WIDTH, HEIGHT,
-                        GdxUiDialogStyle.singleLineWidth(glyph, actionFont, message));
+                        GdxUiDialogStyle.singleLineWidth(glyph, uiFont, message));
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
@@ -3049,15 +3049,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 titleBounds.y + titleBounds.height * 0.76f,
                 GOLD, false, titleBounds.width);
 
-        dialogMessage(actionFont, message, messageBounds, Color.WHITE);
+        dialogMessage(uiFont, message, messageBounds, Color.WHITE);
         return layout;
     }
 
     private GdxUiDialogStyle.NoticeLayout drawNoticeChrome(String title,
             String message, boolean error) {
         GdxUiDialogStyle.NoticeLayout layout =
-                GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT,
-                        GdxUiDialogStyle.singleLineWidth(glyph, smallFont, message));
+                GdxUiDialogStyle.noticeLayout(WIDTH, HEIGHT, glyph, uiFont, message);
         Rectangle panel = layout.panel();
         Rectangle titleBounds = layout.title();
         Rectangle messageBounds = layout.message();
@@ -3068,7 +3067,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 titleBounds.y + titleBounds.height * 0.76f,
                 error ? ORANGE : GOLD, true, titleBounds.width);
 
-        dialogMessage(smallFont, message, messageBounds, Color.WHITE);
+        dialogMessage(uiFont, message, messageBounds, Color.WHITE);
         return layout;
     }
 
@@ -13970,6 +13969,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 = lobbyConnectionRefusal(failure);
         if (refusal != null) {
             return switch (refusal.reason()) {
+                case AUTHENTICATION_FAILED -> gameText.translate(
+                    "gdx.lobby.reject.authentication_failed");
                 case BAD_VERSION -> gameText.translate(
                     "gdx.lobby.reject.bad_version");
                 case TABLE_STARTED -> gameText.translate(

@@ -153,7 +153,7 @@ final class GdxFinalSummaryNoticeTest {
         return table(null);
     }
 
-    private static CoronaPokerGdxTable table(LobbySession lobby) {
+    static CoronaPokerGdxTable table(LobbySession lobby) {
         var player = new TableSnapshot.PlayerSnapshot("local", 20d, 0d, 20d,
                 true, false, false, false, -2, -2, 0, 0L, false,
                 TableSnapshot.Position.DEALER, "", "", List.of());

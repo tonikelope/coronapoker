@@ -1187,6 +1187,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GdxTableChatFeed.Visible newestFeedLine;
     private float feedSlideStartedAt;
     private final Map<String, Texture> tableAvatarTextures = new HashMap<>();
+    private final Map<String, Texture> lastTableAvatars = new HashMap<>();
     private final Set<String> blockedSeatMediaNotices = new HashSet<>();
     private GdxEmojiAtlas emojiAtlas;
     private final GdxImageGalleryWindow tableGallery = new GdxImageGalleryWindow();
@@ -1212,6 +1213,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GdxTableDialog forceReconnectConfirmation;
     private GdxTableDialog timeoutKickConfirmation;
     private String timeoutKickNickname;
+    private boolean tableEndReceived;
     private TableSessionSummary finalSummary;
     private CompletableFuture<Void> finalSummaryBarrier;
     private float finalSummaryOpenedAt;
@@ -5486,6 +5488,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     "The startup intro cannot consume table events");
         }
         Objects.requireNonNull(barrier, "barrier");
+        if (event instanceof TableVisualEvent.CloseTable && !tableEndReceived) {
+            tableEndReceived = true;
+            stopTableSounds();
+        }
         if (event instanceof TableVisualEvent.HotJoinState
                 || event instanceof TableVisualEvent.CloseTable close
                 && (close.serverEnded()
@@ -5548,6 +5554,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void applyVisualEvent(TableVisualEvent event, CompletableFuture<Void> barrier) {
         if (event instanceof TableVisualEvent.CloseTable close) {
+            clearLiveShuffle();
             if (!close.serverEnded()
                     && close.summary().reason() == TableSessionSummary.CloseReason.COMPLETED) {
                 collectCompletedHandCards(new CompletableFuture<>());
@@ -5558,6 +5565,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             recoverableTerminationRequested = false;
             terminationConfirmation = null;
             liveState.apply(event);
+            if (textToSpeech != null) textToSpeech.close();
             if (autoActionDialog != null) {
                 autoActionDialog.dismiss();
                 autoActionDialog = null;
@@ -5600,10 +5608,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             voiceCapture.reset();
             voicePointer.clear();
             voiceKey = Input.Keys.UNKNOWN;
-            stopQuickChatVoice();
-            stopTableVoiceNotePreview();
-            GdxVoicePlayback.stop();
             finalSummary = close.summary();
+            for (var balance : finalSummary.balances()) {
+                tableAvatar(balance.nickname());
+            }
+            if (tableChat != null) tableChat.close();
             stopAudioLoop("misc/recovering.mp3");
             liveAudioLoopsMuted = false;
             activateBackgroundMusic();
@@ -5632,7 +5641,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             != TableSessionSummary.CloseReason.FAILURE;
             if (hasAnimatedResult && finalCounterAnimationEnabled()
                     && tablePreference("sonido_conteo", true)) {
-                play(balanceCountSound, 0.74f, 1f);
+                playSurfaceSound(balanceCountSound, 0.74f, 1f);
             }
         } else if (event instanceof TableVisualEvent.HotJoinState) {
             /*
@@ -6298,14 +6307,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void clearCardPresentationForHotJoin() {
         resetHandCardCollection();
-        if (liveShuffle != null) {
-            if (shuffleSound != null) stopShuffleSound();
-            if (liveShuffle.finishBarrier != null
-                    && !liveShuffle.finishBarrier.isDone()) {
-                liveShuffle.finishBarrier.complete(null);
-            }
-            liveShuffle = null;
-        }
+        clearLiveShuffle();
         for (LiveCardFlight flight : liveCardFlights) {
             if (!flight.barrier.isDone()) flight.barrier.complete(null);
         }
@@ -7200,9 +7202,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         Objects.requireNonNull(liveState,
                 "A product table frame requires authoritative live state");
-        networkBlockCache.update(delta, tableHost && lobby != null);
+        networkBlockCache.update(delta, tableHost && lobby != null && !tableEndReceived);
         networkBlocksAvailable = !networkBlockCache.current().isEmpty();
-        warmDeckImages();
+        if (!tableEndReceived) warmDeckImages();
         renderFrameNanos = System.nanoTime();
         userLightDimmer = advanceUserLightDimmer(userLightDimmer, userLightsOff, delta);
         updateHandCardCollection();
@@ -7693,7 +7695,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         screenshotControl, screenshotShift))) {
             screenshotRequested = true;
             if (tablePreference("sonido_screenshot", true)) {
-                play(screenshotSound, 0.92f, 1f);
+                playSurfaceSound(screenshotSound, 0.92f, 1f);
             }
             return;
         }
@@ -11937,7 +11939,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         autoActionDialog = null;
         try {
-            submit(command);
+            if (submit(command)) {
+                stopTableSounds();
+            } else {
+                terminationRequested = false;
+                recoverableTerminationRequested = false;
+            }
         } catch (RuntimeException failure) {
             terminationRequested = false;
             recoverableTerminationRequested = false;
@@ -14813,7 +14820,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     message.nickname());
             // OpenAL can remain instantiated without a physical output.
             // The message is already in the feed and history in that case.
-            boolean audibleOutput = chatAudioAvailable(
+            boolean audibleOutput = tableGameplayAudioAllowed() && chatAudioAvailable(
                     audioControl.enabled(),
                     audioOutputAvailable());
             boolean voiceNotice = shouldShowVoiceSeatNotice(
@@ -17823,10 +17830,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return (viewport.getWorldHeight() - pauseBannerHeight()) / 2f;
     }
 
+    boolean tableClosingOverlayVisible() {
+        return (terminationRequested || tableEndReceived) && finalSummary == null && !intro
+                && activeDialog == null && recoveryStopBarrier == null;
+    }
+
     /** Visible acknowledgement of the real dealer/network shutdown path. */
     private void drawTerminationOverlay() {
-        if (!terminationRequested || finalSummary != null || intro
-                || activeDialog != null) return;
+        if (!tableClosingOverlayVisible()) return;
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         float panelW = Math.min(760f, width - 80f);
@@ -17847,7 +17858,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? uppercase(gameText.translate(
                                 "gdx.stopping_and_saving"))
                         : uppercase(gameText.translate(
-                                "gdx.leaving_game")),
+                                tableEndReceived ? "gdx.final.closing_table" : "gdx.leaving_game")),
                 panelX + 34f, panelY + 46f, panelW - 68f, 66f,
                 Color.WHITE, 1f);
         batch.end();
@@ -18659,8 +18670,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 0, 0, texture.getWidth(), texture.getHeight(), false, false);
     }
 
+    private boolean tableGameplayAudioAllowed() {
+        return !terminationRequested && !tableEndReceived && !disposed;
+    }
+
     private void play(Sound sound, float volume, float pitch) {
-        if (voiceCapture.busy()
+        if (tableGameplayAudioAllowed()) playSurfaceSound(sound, volume, pitch);
+    }
+
+    private void playSurfaceSound(Sound sound, float volume, float pitch) {
+        if ((!tableGameplayAudioAllowed() && finalSummary == null)
+                || finalExitPending || disposed || voiceCapture.busy()
                 || chatTextToSpeechDucking
                 || !audioOutputAvailable()
                 || !audioControl.enabled()
@@ -18675,7 +18695,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void playFunny(Sound sound, float volume, float pitch) {
-        if (voiceCapture.busy()
+        if (!tableGameplayAudioAllowed() || voiceCapture.busy()
                 || chatTextToSpeechDucking || !audioOutputAvailable()
                 || !funnySoundsEnabled()) {
             return;
@@ -18689,7 +18709,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void playSwitchSound(boolean enabled) {
         if (!tablePreference("sonido_interruptor", true)) return;
-        play(enabled ? buttonOnSound : buttonOffSound, 0.60f, 1f);
+        playSurfaceSound(enabled ? buttonOnSound : buttonOffSound, 0.60f, 1f);
     }
 
     private void runSwitchAction(boolean enabledBefore, Runnable action) {
@@ -18924,6 +18944,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void playAudioCue(String resource, boolean waitForCompletion,
             boolean forceClose, boolean forceSilent,
             CompletableFuture<Void> barrier) {
+        if (!tableGameplayAudioAllowed()) {
+            barrier.complete(null);
+            return;
+        }
         boolean familyEnabled;
         if (GdxSoundFeedback.funnyResource(resource)) {
             familyEnabled = funnySoundsEnabled(resource);
@@ -19077,7 +19101,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void playAudioLoop(String resource) {
-        if (!audioOutputAvailable()) return;
+        if (!tableGameplayAudioAllowed() || !audioOutputAvailable()) return;
         if ("misc/background_music.mp3".equals(resource)) {
             try {
                 if (!backgroundMusic.isPlaying()) backgroundMusic.play();
@@ -19156,6 +19180,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void startDangerAudioLoop(String resource) {
         stopDangerAudioLoop();
+        if (!tableGameplayAudioAllowed()) return;
         FileHandle file = gameAudioResource(resource);
         if (file == null || !audioOutputAvailable() || !audioControl.enabled()
                 || !tablePreference("sonido_efectos", true)) return;
@@ -19188,7 +19213,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean startShuffleSound(Sound track, float phase) {
-        if (!voiceCapture.busy()
+        if (tableGameplayAudioAllowed() && !voiceCapture.busy()
                 && audioOutputAvailable() && audioControl.enabled()
                 && !chatTextToSpeechDucking
                 && liveShuffleSoundEnabled()) {
@@ -19511,15 +19536,59 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean musicEnabled() {
-        return audioOutputAvailable() && audioControl.enabled()
+        return (sharedBackgroundMusic || tableGameplayAudioAllowed())
+                && audioOutputAvailable() && audioControl.enabled()
                 && tablePreference("musica", true)
                 && tablePreference("sonido_ascensor", true);
     }
 
+    private void stopTableSounds() {
+        stopShuffleSound();
+        markLiveShuffleSoundStopped();
+        stopDangerAudioLoop();
+        for (Sound sound : new Sound[]{dealSound, uncoverSound, checkSound, callSound,
+            betSound, raiseSound, foldSound, allInSound, buttonOnSound, buttonOffSound,
+            balanceCountSound, cardViewerSound, screenshotSound, feltChangeSound}) {
+            stopSound(sound);
+        }
+        liveAudioCueSounds.values().forEach(CoronaPokerGdxTable::stopSound);
+        liveAudioCueLoops.keySet().forEach(this::stopAudioLoop);
+        // These barriers only pace presentation. Release the dealer when an
+        // interrupted clip can no longer finish normally.
+        for (LiveAudioPlayback playback : List.copyOf(liveAudioCueWaits)) {
+            finishAudioCue(playback, null);
+        }
+        if (!sharedBackgroundMusic && backgroundMusic != null) {
+            stopAudioLoop("misc/background_music.mp3");
+        }
+        audioPreview.stop();
+        stopQuickChatVoice();
+        stopTableVoiceNotePreview();
+        GdxVoicePlayback.stop();
+        if (textToSpeech != null) textToSpeech.stop();
+    }
+
+    private static void stopSound(Sound sound) {
+        if (sound == null) return;
+        try {
+            sound.stop();
+        } catch (RuntimeException unavailable) {
+            // The output device may already have discarded its sources.
+        }
+    }
+
     private void stopShuffleSound() {
         shuffleSoundId = -1L;
-        if (shuffleSound != null) shuffleSound.stop();
-        riffleTracks.values().forEach(Sound::stop);
+        stopSound(shuffleSound);
+        riffleTracks.values().forEach(CoronaPokerGdxTable::stopSound);
+    }
+
+    private void clearLiveShuffle() {
+        LiveShuffle active = liveShuffle;
+        if (active == null) return;
+        stopShuffleSound();
+        liveShuffle = null;
+        if (active.finishBarrier != null) active.finishBarrier.complete(null);
     }
 
     private void markLiveShuffleSoundStopped() {
@@ -19607,7 +19676,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         int cycle = active.cycleAt(elapsed);
-        if (active.soundEnabled && active.soundStopped && cycle >= active.minimumSoundCycle
+        if (tableGameplayAudioAllowed() && active.soundEnabled && active.soundStopped
+                && cycle >= active.minimumSoundCycle
                 && cycle != active.lastSoundAttempt) {
             active.lastSoundAttempt = cycle;
             float phase = elapsed - cycle * active.cycleSeconds;
@@ -20596,28 +20666,34 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private Texture tableAvatar(String nickname) {
         if (tableChat != null && nickname != null) {
-            for (com.tonikelope.coronapoker.core.LobbyParticipant participant
-                    : tableChat.snapshot().participants()) {
+            for (LobbyParticipant participant : tableChat.snapshot().participants()) {
                 if (!participant.nickname().equals(nickname)) continue;
                 if (participant.avatar() == null) {
-                    return participant.bot() ? avatarBot : avatarDefault;
+                    lastTableAvatars.remove(nickname);
+                    break;
                 }
                 String path = participant.avatar().toString();
-                Texture cached = tableAvatarTextures.get(path);
-                if (cached != null) return cached;
                 try {
-                    Texture loaded = new Texture(Gdx.files.absolute(path), true);
-                    loaded.setFilter(TextureFilter.MipMapLinearLinear,
-                            TextureFilter.Linear);
-                    tableAvatarTextures.put(path, loaded);
-                    return loaded;
+                    Texture avatar = tableAvatarTextures.computeIfAbsent(path, key -> {
+                        Texture loaded = new Texture(Gdx.files.absolute(key), true);
+                        loaded.setFilter(TextureFilter.MipMapLinearLinear,
+                                TextureFilter.Linear);
+                        return loaded;
+                    });
+                    lastTableAvatars.put(nickname, avatar);
                 } catch (RuntimeException invalidAvatar) {
-                    return participant.bot() ? avatarBot : avatarDefault;
+                    // The previous portrait can still be available after its
+                    // temporary file or roster entry has disappeared.
                 }
+                break;
             }
         }
-        return BotNickname.isBot(nickname)
-                ? avatarBot : avatarDefault;
+        return lastTableAvatar(nickname);
+    }
+
+    private Texture lastTableAvatar(String nickname) {
+        return lastTableAvatars.getOrDefault(nickname,
+                BotNickname.isBot(nickname) ? avatarBot : avatarDefault);
     }
 
     boolean isClientTransportReconnecting() {
@@ -25336,7 +25412,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private boolean canAutoplayVoice() {
-        return !disposed && finalSummary == null && !voiceCapture.busy()
+        return tableGameplayAudioAllowed() && !voiceCapture.busy()
                 && quickChatVoice == null && voiceNotePreview == null
                 && voicePlaybackBlock() == null;
     }
@@ -32604,8 +32680,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float animatedCardW = motion.width();
             float animatedCardH = motion.height();
             float cardAlpha = motion.alpha();
-            boolean localCard = balance.nickname().equals(
-                    summary.localNickname());
             float identitySize = Math.min(104f * motion.scale(),
                     Math.min(animatedCardW - 34f * motion.scale(),
                             animatedCardH - 134f * motion.scale()));
@@ -32613,25 +32687,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     - 12f * motion.scale();
             float resultRowY = finalCardResultRowY(animatedCardY,
                     identityY, motion.scale());
-            if (localCard) {
-                float logoW = Math.min(112f * motion.scale(),
-                        animatedCardW - 34f * motion.scale());
-                float logoH = logoW * logo.getHeight() / logo.getWidth();
-                batch.setColor(1f, 1f, 1f, cardAlpha);
-                batch.draw(logo, x + (animatedCardW - logoW) / 2f,
-                        identityY + (identitySize - logoH) / 2f,
-                        logoW, logoH);
-            } else {
-                // Keep the same identity projection used by the live seats.
-                // The old fallback replaced every remote human's custom
-                // avatar with the generic silhouette on the final screen.
-                Texture avatar = tableAvatar(balance.nickname());
-                drawRoundedTextureInBatch(avatar,
-                        x + (animatedCardW - identitySize) / 2f,
-                        identityY, identitySize, identitySize,
-                        finalSummaryAvatarCornerRadius(identitySize), 0f,
-                        Color.WHITE, cardAlpha);
-            }
+            drawRoundedTextureInBatch(lastTableAvatar(balance.nickname()),
+                    x + (animatedCardW - identitySize) / 2f,
+                    identityY, identitySize, identitySize,
+                    finalSummaryAvatarCornerRadius(identitySize), 0f,
+                    Color.WHITE, cardAlpha);
             drawFittedCenteredInBox(finalCardResultFont, balance.nickname(),
                     x + 10f * motion.scale(),
                     identityY - 31f * motion.scale(),
@@ -32696,7 +32756,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             finalSummaryScreenshotTaken = true;
             screenshotRequested = true;
             if (tablePreference("sonido_screenshot", true)) {
-                play(screenshotSound, 0.92f, 1f);
+                playSurfaceSound(screenshotSound, 0.92f, 1f);
             }
         }
     }
@@ -32744,6 +32804,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void beginFinalExitPending() {
         finalExitPending = true;
         finalExitPendingAt = totalTime;
+        stopTableSounds();
     }
 
     /** True only when the final-screen recovery action was selected. */
@@ -33435,6 +33496,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        disposed = true;
+        if (!startupIntroOnly) stopTableSounds();
         cancelDeferredPresentation();
         finishScreenshotReadback(true);
         screenshotReadback.dispose();
@@ -33448,7 +33511,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         disposeSafely(perspectiveTable);
         perspectiveTable = null;
-        disposed = true;
         deckImageLoader.close();
         fontRefresh.close();
         screenshotPreview.close();
@@ -33629,8 +33691,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             texture.dispose();
         }
         liveCardBacks.clear();
-        if (liveShuffle != null && liveShuffle.finishBarrier != null) liveShuffle.finishBarrier.complete(null);
-        liveShuffle = null;
+        clearLiveShuffle();
         releaseGameOverAnimation();
         releaseRemoteRebuyPresentation();
         releaseRecoveryAnimation();
@@ -33673,6 +33734,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             avatarTexture.dispose();
         }
         tableAvatarTextures.clear();
+        lastTableAvatars.clear();
         for (SeatChatNotice notice : seatChatNotices.values()) notice.dispose();
         seatChatNotices.clear();
         chatFeed.clear();

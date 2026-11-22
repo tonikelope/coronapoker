@@ -560,7 +560,7 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(180, GdxShuffleAngle.value(properties));
         assertTrue(((GdxSettingsSession) field(owner, "settingsSession")).propertiesChanged(properties));
         GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
-        assertEquals(35, GdxShuffleAngle.value(properties));
+        assertEquals(GdxShuffleAngle.DEFAULT, GdxShuffleAngle.value(properties));
     }
 
     private static void verifyDeckPreview(GdxFrontendScreen screen,

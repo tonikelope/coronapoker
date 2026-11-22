@@ -553,6 +553,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean startupAudioHeld;
     private boolean tableAudioSuspended;
     private Hit pressedHit;
+    private final GdxPointerHold hitPointer = new GdxPointerHold();
     private boolean settingsPressHits;
     private Hit pointerRepeatHit;
     private Surface pointerRepeatSurface;
@@ -1286,7 +1287,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (initialBuyinInput != null) closeInitialBuyinEditor();
         }
         surface = next;
-        pressedHit = null;
+        clearPressedHit();
         pointerSelectionField = null;
         clearScrollDrag();
         clearPointerRepeat();
@@ -2353,7 +2354,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         startupMenuDeferredByUpdate = false;
         menuRevealStartedAt = startupMenuWasSkipped
                 ? Float.NaN : elapsed;
-        pressedHit = null;
+        clearPressedHit();
     }
 
     void openLobby(LobbySession session) {
@@ -5395,7 +5396,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         fpsControl.cancel();
         shuffleAngleSlider.cancel();
         editMenu = null;
-        pressedHit = null;
+        clearPressedHit();
         pointerSelectionField = null;
         clearScrollDrag();
         clearPointerRepeat();
@@ -8268,7 +8269,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void closeLobbyConfirmation() {
         lobbyConfirmation = null;
         lobbyKickTarget = null;
-        pressedHit = null;
+        clearPressedHit();
     }
 
     private void drawLoadingOverlay() {
@@ -9000,7 +9001,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         settingsDiscardConfirmation = false;
         GdxAudioDevices.refreshCaptureDevicesAsync();
         clearActiveField();
-        pressedHit = null;
+        clearPressedHit();
         activateSurface(Surface.SETTINGS);
     }
 
@@ -16501,6 +16502,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && Math.abs(b.width - w) < 0.5f && Math.abs(b.height - h) < 0.5f;
     }
 
+    private void pressHit(Hit hit, int pointerIndex, int button) {
+        if (hitPointer.capture(pointerIndex, button)) pressedHit = hit;
+    }
+
+    private void clearPressedHit() {
+        hitPointer.clear();
+        pressedHit = null;
+    }
+
     private void updatePointerRepeat() {
         if (pointerRepeatHit == null) return;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
@@ -16566,6 +16576,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public void resize(int width, int height) {
+        clearPressedHit();
         viewport.update(width, height, true);
         lobbyGallery.resize(viewport);
         rulesWindow.resize();
@@ -16582,9 +16593,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     public boolean touchDown(int screenX, int screenY, int pointerIndex, int button) {
         if (pendingLanguage != null || fileChooserPending()) return true;
         if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
+        if (hitPointer.active()) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
-        pressedHit = null;
+        clearPressedHit();
         if (rulesWindow.isOpen()) {
             rulesWindow.touchDown(pointer.x, pointer.y, pointerIndex, button);
             return true;
@@ -16674,7 +16686,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (lobbyVoiceKey == Input.Keys.UNKNOWN
                     && !lobbyVoicePointer.active() && beginLobbyVoiceRecording()) {
                 lobbyVoicePointer.capture(pointerIndex, button);
-                pressedHit = new Hit(voiceBounds, () -> { }, HitActivation.RELEASE);
+                pressedHit = new Hit(voiceBounds, () -> { }, HitActivation.PRESS);
             }
             return true;
         }
@@ -16705,7 +16717,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             for (int i = editMenuHits.size() - 1; i >= 0; i--) {
                 Hit hit = editMenuHits.get(i);
                 if (hit.bounds.contains(pointer)) {
-                    pressedHit = hit;
+                    pressHit(hit, pointerIndex, button);
                     return true;
                 }
             }
@@ -16739,7 +16751,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             for (int i = secondaryHits.size() - 1; i >= 0; i--) {
                 Hit hit = secondaryHits.get(i);
                 if (hit.bounds.contains(pointer)) {
-                    pressedHit = hit;
+                    pressHit(hit, pointerIndex, button);
                     return true;
                 }
             }
@@ -16748,7 +16760,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit hit = hits.get(i);
             if (hit.bounds.contains(pointer)) {
-                pressedHit = hit;
+                pressHit(hit, pointerIndex, button);
                 if (button == Input.Buttons.LEFT
                         && hit.activation != HitActivation.RELEASE) {
                     hit.action.run();
@@ -16843,6 +16855,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointerIndex, int button) {
+        Hit released = null;
+        if (hitPointer.release(pointerIndex, button)) {
+            released = pressedHit;
+            pressedHit = null;
+        }
         if (pendingLanguage != null) return true;
         if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
         pointer.set(screenX, screenY);
@@ -16850,7 +16867,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
                 || cardZoomSlider.release(pointerIndex))) return true;
         if (lobbyVoicePointer.release(pointerIndex, button)) {
-            pressedHit = null;
+            clearPressedHit();
             clearPointerRepeat();
             pointerSelectionField = null;
             finishLobbyVoiceRecording(false);
@@ -16895,8 +16912,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         boolean passwordWasRevealed = revealedPasswordField != null;
         revealedPasswordField = null;
-        Hit released = pressedHit;
-        pressedHit = null;
         clearPointerRepeat();
         pointerSelectionField = null;
         if (scrollPointer.release(pointerIndex, button)) {
@@ -16920,7 +16935,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (scrollPointer.owns(pointerIndex, button)) clearScrollDrag();
         if (lobbyVoicePointer.release(pointerIndex, button)) finishLobbyVoiceRecording(true);
         if (button == Input.Buttons.LEFT) {
-            pressedHit = null;
+            clearPressedHit();
             pointerSelectionField = null;
             revealedPasswordField = null;
             clearPointerRepeat();
@@ -18228,6 +18243,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return false;
     }
     @Override public boolean touchCancelled(int x, int y, int p, int b) {
+        if (hitPointer.release(p, b)) pressedHit = null;
         if (b == Input.Buttons.LEFT && (fpsControl.release(p) || shuffleAngleSlider.release(p) || cardZoomSlider.release(p))) return true;
         if (pendingLanguage != null) return true;
         if (rulesWindow.cancel(p, b)) return true;
@@ -18243,18 +18259,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             avatarCropDrag = GdxAvatarCropModel.DragTarget.NONE;
             avatarCropPointer = -1;
             avatarCropResizeStart = null;
-            pressedHit = null;
+            clearPressedHit();
             return true;
         }
         if (statsEvidenceWindowPointer.release(p, b)) {
             statsEvidenceWindowDrag = StatsEvidenceWindowDrag.NONE;
             statsEvidenceResizeHandle =
                     GdxFloatingGameLogLayout.ResizeHandle.NONE;
-            pressedHit = null;
+            clearPressedHit();
             return true;
         }
         if (lobbyVoicePointer.release(p, b)) {
-            pressedHit = null;
+            clearPressedHit();
             clearPointerRepeat();
             finishLobbyVoiceRecording(true);
             return true;
@@ -18262,11 +18278,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (scrollPointer.release(p, b)) {
             scrollDrag = ScrollDrag.NONE;
             scrollDragGrabOffset = 0f;
-            pressedHit = null;
+            clearPressedHit();
             clearPointerRepeat();
             return true;
         }
-        pressedHit = null;
         clearPointerRepeat();
         return hasBlockingFrontendModal();
     }

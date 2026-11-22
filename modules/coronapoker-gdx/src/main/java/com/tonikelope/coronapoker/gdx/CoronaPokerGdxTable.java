@@ -1198,8 +1198,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private GdxTableDialog autoActionDialog;
     private boolean chipCatalogVisible;
     private ChipCatalogTarget chipCatalogTarget;
-    private boolean chipCatalogCloseArmed;
-    private boolean chipCatalogRebuyArmed;
+    private final GdxPointerHold chipCatalogPointer = new GdxPointerHold();
+    private ChipCatalogClick pressedChipCatalogClick;
     private int chipCatalogRackSeed;
     private int chipCatalogOpenSequence;
     private ChipCatalogTarget chipCatalogReturnTarget;
@@ -1878,10 +1878,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float userLightDimmer;
     private boolean leftButtonReleasedThisFrame;
     private final GdxPointerCapture primaryPointer = new GdxPointerCapture();
+    private final GdxPointerHold tableClickPointer = new GdxPointerHold();
+    private TableClickTarget pressedTableClick;
+    private TableClickRelease releasedTableClick;
+    private long localActionControlsSequence;
+    private long tableClickRevision;
+    private long presentedTableClickRevision = -1L;
 
 
 
-    private boolean finalSummaryPointerCaptured;
+    private final GdxPointerHold finalSummaryPointer = new GdxPointerHold();
     private int finalSummaryPointerTarget = -1;
     private float finalSummaryPointerDownX;
     private float finalSummaryPointerDownY;
@@ -2191,7 +2197,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (isClientTransportReconnecting() || imagePreview.isOpen()) return true;
             if (tableVoiceConfirmationVisible()) return true;
             if (tableIdentityDialog != null) return true;
-            if (chipCatalogVisible) return true;
+            if (chipCatalogVisible) {
+                if (button == Input.Buttons.LEFT
+                        && tableClickRevision == presentedTableClickRevision
+                        && chipCatalogPointer.capture(pointerIndex, button)) {
+                    pressedChipCatalogClick = chipCatalogClickAt(screenX, screenY);
+                }
+                return true;
+            }
             if (activeDialog != null) {
                 // Dialog buttons are resolved once per frame by
                 // handleDialogInput().  Consume the raw press here as well so
@@ -2205,13 +2218,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pointer.set(screenX, screenY);
                 viewport.unproject(pointer);
                 if (tableRulesVisible() && rulesWindow.touchDown(pointer.x, pointer.y, pointerIndex, button)) {
-                    if (button == Input.Buttons.LEFT) primaryPointer.capturePressedGesture();
+                    if (button == Input.Buttons.LEFT) capturePrimaryPointerGesture();
 
                     floatingWindowInputThisFrame = true;
                     return true;
                 }
                 if (tableGalleryInteractive() && tableGallery.touchDown(pointer.x, pointer.y, pointerIndex, button)) {
-                    if (button == Input.Buttons.LEFT) primaryPointer.capturePressedGesture();
+                    if (button == Input.Buttons.LEFT) capturePrimaryPointerGesture();
 
                     floatingWindowInputThisFrame = true;
                     return true;
@@ -2254,7 +2267,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     pocketPeekInputThisFrame = true;
 
 
-                    if (button == Input.Buttons.LEFT) primaryPointer.capturePressedGesture();
+                    if (button == Input.Buttons.LEFT) capturePrimaryPointerGesture();
                     mousePeekHeld = peekButton && button == Input.Buttons.LEFT && canPeekPerspectivePocket();
                     if (drag) {
                         pocketPeekDragStartY = pointer.y;
@@ -2280,15 +2293,15 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (finalSummary != null && uiLayer == UI_NONE) {
-                if (button == Input.Buttons.LEFT) {
+                if (button == Input.Buttons.LEFT
+                        && tableClickRevision == presentedTableClickRevision
+                        && finalSummaryPointer.capture(pointerIndex, button)) {
                     pointer.set(screenX, screenY);
                     viewport.unproject(pointer);
                     finalSummaryPointerTarget = finalSummaryPointerTargetAt(
                             viewport.getWorldWidth(),
                             viewport.getWorldHeight(), pointer.x, pointer.y,
                             finalSummaryPage, finalSummary.balances().size());
-                    finalSummaryPointerCaptured
-                            = finalSummaryPointerTarget >= 0;
                     finalSummaryPointerDownX = pointer.x;
                     finalSummaryPointerDownY = pointer.y;
                 }
@@ -2318,7 +2331,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (fpsControl.begin(pointer.x, pointer.y, pointerIndex, settingsSession.frameRateDraft())
                         || (liveShuffle == null && shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, tableSettingsProperties()))
                         || cardZoomSlider.begin(pointer.x, pointer.y, pointerIndex, tableSettingsProperties())) {
-                    primaryPointer.capturePressedGesture();
+                    capturePrimaryPointerGesture();
                     return true;
                 }
                 if (settingsRowScrollTrackContains(pointer.x, pointer.y)) {
@@ -2328,6 +2341,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (settingsDebugTrackContains(pointer.x, pointer.y)) {
                     return beginTableScrollDrag(TableScrollDrag.SETTINGS_DEBUG,
                             pointer.y, pointerIndex, button);
+                }
+            }
+            if (button == Input.Buttons.LEFT && uiLayerAllowsTablePointer()
+                    && tableClickRevision == presentedTableClickRevision
+                    && !blockingTablePointerSurface() && !imagePreview.isOpen()) {
+                pointer.set(screenX, screenY);
+                viewport.unproject(pointer);
+                if (!gameLogPanelContains(pointer.x, pointer.y)
+                        && !floatingWindowOwnsPointer(pointer.x, pointer.y)
+                        && tableClickPointer.capture(pointerIndex, button)) {
+                    TableClick hit = tableClickAt(pointer.x, pointer.y);
+                    pressedTableClick = hit == null ? null : hit.target();
                 }
             }
             if (uiLayer != UI_GAME_LOG || button != Input.Buttons.LEFT
@@ -2407,13 +2432,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (finalSummary != null && uiLayer == UI_NONE) {
-                if (finalSummaryPointerCaptured) {
+                if (finalSummaryPointer.owns(pointerIndex, Input.Buttons.LEFT)) {
                     pointer.set(screenX, screenY);
                     viewport.unproject(pointer);
                     if (Vector2.dst(finalSummaryPointerDownX,
                             finalSummaryPointerDownY, pointer.x, pointer.y)
                             > FINAL_SUMMARY_CLICK_DRIFT) {
-                        finalSummaryPointerCaptured = false;
+                        finalSummaryPointer.clear();
                         finalSummaryPointerTarget = -1;
                     }
                 }
@@ -2448,6 +2473,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchUp(int screenX, int screenY, int pointerIndex,
                 int button) {
+            TableClickTarget pressed = null;
+            if (tableClickPointer.release(pointerIndex, button)) {
+                pressed = pressedTableClick;
+                pressedTableClick = null;
+            }
             if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
                     || cardZoomSlider.release(pointerIndex))) return true;
             if (releasePocketPeekPointer(pointerIndex, button)) return true;
@@ -2504,7 +2534,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (tableIdentityDialog != null) return true;
-            if (chipCatalogVisible) return true;
+            if (chipCatalogVisible) {
+                if (chipCatalogPointer.release(pointerIndex, button)) {
+                    ChipCatalogClick pressedClick = pressedChipCatalogClick;
+                    pressedChipCatalogClick = null;
+                    if (pressedClick != null
+                            && pressedClick == chipCatalogClickAt(screenX, screenY)) {
+                        if (pressedClick == ChipCatalogClick.CLOSE) closeChipCatalog();
+                        else requestRebuyFromChipCatalog();
+                    }
+                }
+                return true;
+            }
             if (tableVoiceConfirmationVisible()) return true;
             if (activeDialog != null) {
                 chatPointerSelectionDragging = false;
@@ -2515,12 +2556,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (finalSummary != null && uiLayer == UI_NONE) {
 
-                boolean activate = button == Input.Buttons.LEFT
-                        && finalSummaryPointerCaptured;
+                if (!finalSummaryPointer.release(pointerIndex, button)) return true;
                 int pressedTarget = finalSummaryPointerTarget;
-                finalSummaryPointerCaptured = false;
                 finalSummaryPointerTarget = -1;
-                if (activate) {
+                if (pressedTarget >= 0) {
                     pointer.set(screenX, screenY);
                     viewport.unproject(pointer);
                     int releasedTarget = finalSummaryPointerTargetAt(
@@ -2550,6 +2589,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (!gameLogSelectionDragging) {
+                if (pressed != null && releasedTableClick == null) {
+                    releasedTableClick = new TableClickRelease(
+                            pressed, screenX, screenY);
+                    return true;
+                }
                 return blockingTablePointerSurface();
             }
             gameLogSelectionDragging = false;
@@ -2559,6 +2603,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchCancelled(int screenX, int screenY,
                 int pointerIndex, int button) {
+            if (chipCatalogPointer.release(pointerIndex, button)) pressedChipCatalogClick = null;
+            if (finalSummaryPointer.release(pointerIndex, button)) finalSummaryPointerTarget = -1;
+            if (tableClickPointer.release(pointerIndex, button)) {
+                pressedTableClick = null;
+            }
             if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
                     || cardZoomSlider.release(pointerIndex))) return true;
             if (releasePocketPeekPointer(pointerIndex, button)) return true;
@@ -5553,6 +5602,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             CompletableFuture<Void> barrier) {}
 
     private void applyVisualEvent(TableVisualEvent event, CompletableFuture<Void> barrier) {
+        // libGDX can drain posted table updates before it delivers a mouse
+        // press. Do not arm a target the last frame has not shown yet.
+        if (!(event instanceof TableVisualEvent.AudioCue)
+                && !(event instanceof TableVisualEvent.SharedProgress)
+                && !(event instanceof TableVisualEvent.TurnTimer timer
+                        && timer.phase() == TableVisualEvent.TurnTimer.Phase.UPDATE)) {
+            tableClickRevision++;
+        }
         if (event instanceof TableVisualEvent.CloseTable close) {
             clearLiveShuffle();
             if (!close.serverEnded()
@@ -5603,7 +5660,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             imagePreview.dispose();
             tableGallery.close();
             rulesWindow.close();
-            finalSummaryPointerCaptured = false;
+            finalSummaryPointer.clear();
             finalSummaryPointerTarget = -1;
             voiceCapture.reset();
             voicePointer.clear();
@@ -6241,6 +6298,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             if (event instanceof TableVisualEvent.ActionControls controls) {
                 armedHudTarget = 0;
+                localActionControlsSequence = controls.sequence();
                 liveBetAmount = controls.state().raiseAmount();
                 autoActionControlsReady = true;
                 autoActionEligibleAt = totalTime + 0.08f;
@@ -7242,6 +7300,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         updateBetShortcutRepeat(delta);
         updateFastAccessBar(delta);
         handleInput();
+        releasedTableClick = null;
         pocketPeekInputThisFrame = false;
         mediaPressedThisFrame = false;
         floatingWindowInputThisFrame = false;
@@ -7409,6 +7468,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             screenshotRequested = false;
             captureScreenshot();
         }
+        presentedTableClickRevision = tableClickRevision;
     }
 
     private void drawTableTransientOverlay() {
@@ -7664,7 +7724,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
                     settingsSelectionList = SettingsSelectionList.NONE;
                 } else if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-                    primaryPointer.capturePressedGesture();
+                    capturePrimaryPointerGesture();
                     if (tableScrollDrag != TableScrollDrag.SETTINGS_SELECTION) {
                         pointer.set(Gdx.input.getX(), Gdx.input.getY());
                         viewport.unproject(pointer);
@@ -7676,7 +7736,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (imagePreview.isOpen() && activeDialog == null) {
             if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-                primaryPointer.capturePressedGesture();
+                capturePrimaryPointerGesture();
                 imagePreview.dispose();
             } else if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
                 imagePreview.dispose();
@@ -7709,7 +7769,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (floatingWindowInputThisFrame || windowBlocksPolledPress
                 || tableRulesVisible() && rulesWindow.focused()
                 || tableGalleryInteractive() && tableGallery.focused()) {
-            if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) primaryPointer.capturePressedGesture();
+            if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) capturePrimaryPointerGesture();
             return;
         }
         // A visible confirmation is always the topmost modal surface. In
@@ -7734,7 +7794,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     activeDialog, dialogDecisionInputHeld);
             if (!dialogDecisionInputReady) return;
             if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-                primaryPointer.capturePressedGesture();
+                capturePrimaryPointerGesture();
                 if (beginPointerRepeat(RepeatOwner.DIALOG)) return;
             }
             handleDialogInput();
@@ -7882,7 +7942,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     ? null : avatarSeatAt(pointer.x, pointer.y);
             if (identitySeat != null
                     && openTableIdentityDialog(identitySeat.name)) {
-                primaryPointer.capturePressedGesture();
+                capturePrimaryPointerGesture();
                 clearAvatarZoom();
                 return;
             }
@@ -7957,7 +8017,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 viewport.unproject(pointer);
                 if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
                         && gameLogPanelContains(pointer.x, pointer.y)) {
-                    primaryPointer.capturePressedGesture();
+                    capturePrimaryPointerGesture();
                     handleGameLogClick(pointer.x, pointer.y);
                     return;
                 }
@@ -7980,7 +8040,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
             if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-                primaryPointer.capturePressedGesture();
+                capturePrimaryPointerGesture();
                 if (uiLayer == UI_SETTINGS
                         && settingsSelectionList == SettingsSelectionList.NONE
                         && beginPointerRepeat(RepeatOwner.SETTINGS)) {
@@ -8115,7 +8175,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             && !pocketOrder.busy() && card.faceUp() && !card.code().isBlank();
                     if (forViewer && !faceExposed) return null;
                     // The card back still owns non-viewer gestures.
-                    return faceExposed ? viewedCard(card) : new ViewedCard(activeCardBack(), false);
+                    return faceExposed ? viewedCard(card, player.nickname(), slot)
+                            : new ViewedCard(activeCardBack(), false, player.nickname(), slot);
                 }
                 continue;
             }
@@ -8130,7 +8191,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (!restingHoleCardOwnsPointer(card,
                         transientPresentation)) continue;
                 if (placementContains(liveHolePlacement(seat, slot), x, y)) {
-                    return viewedCard(card);
+                    return viewedCard(card, player.nickname(), slot);
                 }
             }
         }
@@ -8150,7 +8211,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     || !presentsRestingCommunityCard(slot, card)) continue;
             LiveCardPlacement placement = communityCardPlacement(slot,
                     firstX, cardY, cardW, cardH, gap);
-            if (communityPlacementContains(placement, x, y)) return viewedCard(card);
+            if (communityPlacementContains(placement, x, y)) return viewedCard(card, "", slot);
         }
         return null;
     }
@@ -8207,10 +8268,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return false;
     }
 
-    private ViewedCard viewedCard(TableSnapshot.CardSnapshot card) {
+    private ViewedCard viewedCard(TableSnapshot.CardSnapshot card, String owner, int slot) {
         boolean faceUp = card.faceUp() && !card.code().isBlank();
         return new ViewedCard(faceUp ? liveCardFace(card.code())
-                : activeCardBack(), faceUp);
+                : activeCardBack(), faceUp, owner, slot);
     }
 
     private void openCardViewer(ViewedCard card) {
@@ -8415,7 +8476,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             return;
         }
         if (finalSummary != null) {
-            finalSummaryPointerCaptured = false;
+            finalSummaryPointer.clear();
             finalSummaryPointerTarget = -1;
         }
         if (request.isVerificationWait()) {
@@ -8461,6 +8522,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
         }
         // Dealer/network decisions always outrank the optional identity view.
+        cancelTableClick();
         tableIdentityDialog = null;
         closeChipCatalog();
         if (activeDialog == null || request.isZeroTrust() && !activeDialog.isZeroTrust()) {
@@ -8983,8 +9045,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         chipCatalogOpenSequence++;
         chipCatalogRackSeed = nextChipCatalogRackSeed(chipCatalogRackSeed,
                 MathUtils.random.nextInt(), chipCatalogOpenSequence);
-        chipCatalogCloseArmed = false;
-        chipCatalogRebuyArmed = false;
+        chipCatalogPointer.clear();
+        pressedChipCatalogClick = null;
     }
 
     private void clearChipCatalogReturn() {
@@ -9019,8 +9081,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void closeChipCatalog() {
         chipCatalogVisible = false;
         chipCatalogTarget = null;
-        chipCatalogCloseArmed = false;
-        chipCatalogRebuyArmed = false;
+        chipCatalogPointer.clear();
+        pressedChipCatalogClick = null;
     }
 
     static int nextChipCatalogRackSeed(int previous, int random,
@@ -9042,36 +9104,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             toggleFullscreen();
             return;
         }
-        if (leftButtonReleasedThisFrame) {
-            pointer.set(Gdx.input.getX(), Gdx.input.getY());
-            viewport.unproject(pointer);
-            ChipCatalogLayout releasedLayout = chipCatalogLayout(
-                    viewport.getWorldWidth(), viewport.getWorldHeight());
-            boolean close = chipCatalogCloseArmed
-                    && releasedLayout.close().contains(pointer);
-            boolean rebuy = chipCatalogRebuyArmed
-                    && chipCatalogShowsRebuyButton()
-                    && releasedLayout.rebuyButton().contains(pointer);
-            chipCatalogCloseArmed = false;
-            chipCatalogRebuyArmed = false;
-            if (close) {
-                closeChipCatalog();
-            } else if (rebuy) {
-                requestRebuyFromChipCatalog();
-            }
-            return;
-        }
-        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) return;
-        pointer.set(Gdx.input.getX(), Gdx.input.getY());
+    }
+
+    private ChipCatalogClick chipCatalogClickAt(int screenX, int screenY) {
+        pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         ChipCatalogLayout layout = chipCatalogLayout(
                 viewport.getWorldWidth(), viewport.getWorldHeight());
-        if (layout.close().contains(pointer)) {
-            chipCatalogCloseArmed = true;
-        } else if (chipCatalogShowsRebuyButton()
-                && layout.rebuyButton().contains(pointer)) {
-            chipCatalogRebuyArmed = true;
-        }
+        if (layout.close().contains(pointer)) return ChipCatalogClick.CLOSE;
+        return chipCatalogShowsRebuyButton() && layout.rebuyButton().contains(pointer)
+                ? ChipCatalogClick.REBUY : null;
     }
 
     private ChipCatalogTarget chipCatalogTargetAt(float x, float y,
@@ -9860,7 +9902,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || !layout.bounds().contains(pointer.x, pointer.y)) {
             return false;
         }
-        primaryPointer.capturePressedGesture();
+        capturePrimaryPointerGesture();
         if (layout.cancel().contains(pointer.x, pointer.y)) {
             cancelHudAutoAction();
         }
@@ -9944,7 +9986,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // release. This keeps the HUD underneath from seeing either half.
         if (voicePointer.active()) {
             if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
-                primaryPointer.capturePressedGesture();
+                capturePrimaryPointerGesture();
             }
             return;
         }
@@ -9990,101 +10032,125 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 }
             }
         }
-        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
+                && Gdx.input.isButtonPressed(Input.Buttons.LEFT)
+                && pressedTableClick != null
+                && pressedTableClick.kind() == TableClickKind.MANUAL_HUD) {
             pointer.set(Gdx.input.getX(), Gdx.input.getY());
             viewport.unproject(pointer);
-            // The expanded bar can overlap the local HUD at common desktop
-            // widths. Do not arm a hidden HUD repeat under its topmost surface.
-            if (fastAccessSurfaceContains(pointer.x, pointer.y)) return;
-            if (beginPointerRepeat(RepeatOwner.HUD)) {
-                primaryPointer.capturePressedGesture();
+            TableClick hit = tableClickAt(pointer.x, pointer.y);
+            if (hit != null && hit.target().equals(pressedTableClick)
+                    && beginPointerRepeat(RepeatOwner.HUD)) {
+                capturePrimaryPointerGesture();
                 return;
             }
         }
-        if (!leftButtonReleasedThisFrame) {
-            return;
+        if (releasedTableClick != null) {
+            pointer.set(releasedTableClick.x(), releasedTableClick.y());
+            viewport.unproject(pointer);
+            TableClick hit = tableClickAt(pointer.x, pointer.y);
+            if (hit != null && hit.target().equals(releasedTableClick.target())) {
+                hit.action().run();
+            }
         }
-        pointer.set(Gdx.input.getX(), Gdx.input.getY());
-        viewport.unproject(pointer);
+    }
+
+    private TableClick tableClickAt(float x, float y) {
+        if (liveState == null || seats[0] == null
+                || blockingTablePointerSurface() || !uiLayerAllowsTablePointer()
+                || tableAppearanceMenuOpen() || imagePreview.isOpen()
+                || tableVoiceConfirmationVisible()
+                || quickChatOwnsPointer(x, y) || gameLogPanelContains(x, y)
+                || floatingWindowOwnsPointer(x, y) || tableMediaOwnsHover()) {
+            return null;
+        }
         // Resolve the topmost fast-access surface before any seat, stack, HUD
-        // or card target.  This is pointer ownership, not merely button hit
-        // testing: even transparent-looking padding between its icons consumes
-        // the release instead of falling through to the local HUD.
-        if (handleFastAccessClick(pointer.x, pointer.y)) {
-            return;
+        // or card target, including its padding and disabled buttons.
+        if (fastAccessSurfaceContains(x, y)) {
+            if (!fastBarExpanded) {
+                return contains(x, y, FAST_BAR_X + FAST_BAR_PADDING,
+                        FAST_BAR_Y + FAST_BAR_PADDING,
+                        FAST_BUTTON_SIZE, FAST_BUTTON_SIZE)
+                        ? tableClick(TableClickKind.OPEN_FAST_ACCESS, null,
+                                this::openFastAccessBar) : null;
+            }
+            FastAccessAction action = fastAccessActionAt(x, y);
+            return action == FastAccessAction.VOICE || action == FastAccessAction.NONE
+                    ? null : tableClick(TableClickKind.FAST_ACCESS, action,
+                            () -> activateFastAccess(action));
         }
         // The pause shade owns the rest of the table, just like Swing's glass
         // pane. The fast-access bar above is deliberately exempt so utilities
         // such as settings, log and exit remain available while paused. Only
         // the white banner and explicit REANUDAR control resume the game.
         boolean paused = liveState.snapshot().paused();
-        if (pauseOverlayConsumesRelease(paused,
-                leftButtonReleasedThisFrame)) {
-            if (pauseOverlayRequestsResume(paused,
-                    leftButtonReleasedThisFrame, pointer.x, pointer.y,
+        if (pauseOverlayConsumesRelease(paused, true)) {
+            if (pauseOverlayRequestsResume(paused, true, x, y,
                     viewport.getWorldWidth(), pauseBannerY(),
                     pauseBannerHeight(), communityPauseX, communityPauseY,
                     perspectiveActive ? 0f : communityPauseWidth,
                     perspectiveActive ? 0f : communityPauseHeight)
-                    || tablePlaneContains(pointer.x, pointer.y, communityPauseX,
+                    || tablePlaneContains(x, y, communityPauseX,
                             communityPauseY, communityPauseWidth, communityPauseHeight)) {
-                togglePauseAction();
+                return tableClick(TableClickKind.RESUME, null, this::togglePauseAction);
             }
-            return;
+            return null;
         }
-        if (handleSeatChatNoticeClick(pointer.x, pointer.y, false)) {
-            return;
+        Map.Entry<String, SeatChatNotice> notice = seatChatNoticeAt(x, y);
+        if (notice != null) {
+            return tableClick(TableClickKind.DISMISS_NOTICE, notice,
+                    () -> dismissSeatChatNotice(notice, false));
         }
-        String timedOutPlayer = timedOutKickPlayerAt(pointer.x, pointer.y);
+        String timedOutPlayer = timedOutKickPlayerAt(x, y);
         if (timedOutPlayer != null) {
-            requestKickTimedOutPlayer(timedOutPlayer);
-            return;
+            return tableClick(TableClickKind.KICK_TIMED_OUT, timedOutPlayer,
+                    () -> requestKickTimedOutPlayer(timedOutPlayer));
         }
-        ChipCatalogTarget chipTarget = blocksTableUtilities(activeDialog)
-                ? null : chipCatalogTargetAt(pointer.x, pointer.y,
-                        viewport.getWorldWidth());
+        ChipCatalogTarget chipTarget = chipCatalogTargetAt(x, y, viewport.getWorldWidth());
         if (chipTarget != null) {
-            openChipCatalog(chipTarget);
-            return;
+            return tableClick(TableClickKind.CHIP_CATALOG, chipTarget,
+                    () -> openChipCatalog(chipTarget));
         }
-        Seat stackSeat = stackSeatAt(pointer.x, pointer.y,
-                viewport.getWorldWidth());
+        Seat stackSeat = stackSeatAt(x, y, viewport.getWorldWidth());
         if (stackSeat != null) {
-            stackSeat.buyInVisibleUntil = totalTime + 1.5f;
-            return;
+            return tableClick(TableClickKind.STACK, stackSeat.name,
+                    () -> stackSeat.buyInVisibleUntil = totalTime + 1.5f);
         }
-        String iwtsthCandidate = iwtsthCandidateAt(pointer.x, pointer.y);
+        String iwtsthCandidate = iwtsthCandidateAt(x, y);
         if (iwtsthCandidate != null) {
-            activateIwtsthCandidate(iwtsthCandidate);
-            return;
+            return tableClick(TableClickKind.IWTSTH,
+                    new HandClick(iwtsthCandidate, liveState.handNumber()),
+                    () -> activateIwtsthCandidate(iwtsthCandidate));
         }
         // Resolve controls in reverse paint order.  The card viewer is the
         // final fallback, never the first hit-test for a rectangle that may
         // extend behind HUD or seat chrome.
-        if (tablePlaneContains(pointer.x, pointer.y, communityPauseX,
+        if (tablePlaneContains(x, y, communityPauseX,
                 communityPauseY, communityPauseWidth,
                 communityPauseHeight)) {
-            togglePauseAction();
-            return;
+            return tableClick(TableClickKind.PAUSE, null, this::togglePauseAction);
         }
-        if (!liveState.snapshot().paused()
-                && tablePlaneContains(pointer.x, pointer.y, communityLightsX,
+        if (tablePlaneContains(x, y, communityLightsX,
                         communityLightsY, communityLightsWidth,
                         communityLightsHeight)) {
-            toggleUserLights();
-            return;
+            return tableClick(TableClickKind.LIGHTS, null, this::toggleUserLights);
         }
-        if (tableHost && tablePlaneContains(pointer.x, pointer.y, communityHandX,
+        if (tableHost && tablePlaneContains(x, y, communityHandX,
                 communityHandY, communityHandWidth,
                 communityHandHeight)) {
-            requestLastHandChange();
-            return;
+            return tableClick(TableClickKind.LAST_HAND, liveState.lastHand(),
+                    this::requestLastHandChange);
         }
-        if (rabbitCardContains(pointer.x, pointer.y)) {
-            liveState.dismissRabbitRequest();
-            submit(new TableCommand.RequestRabbit());
-            return;
+        if (rabbitCardContains(x, y)) {
+            return tableClick(TableClickKind.RABBIT, liveState.handNumber(), () -> {
+                liveState.dismissRabbitRequest();
+                submit(new TableCommand.RequestRabbit());
+            });
         }
+        ActionControlState controls = liveState.actionControls();
+        boolean autoActionVeto = autoActionDialog != null;
+        boolean localActionSubmissionPending = hasPendingLocalActionSubmission();
+        boolean localTurn = hasActiveLocalTurn() && !localActionSubmissionPending;
         boolean voluntaryShow = !autoActionVeto && controls.showCards();
         TableVisualEvent.PlayerAction.ActionKind clickActionKind
                 = effectiveLocalActionKind(localActionSubmissionPending,
@@ -10131,59 +10197,47 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && !localMonteCarlo && !localActionMemory && localTurn;
         int localHudTarget = preActions
                 ? cachedPreActionHudLayout(viewport.getWorldWidth())
-                        .targetAt(pointer.x, pointer.y)
-                : voluntaryShow ? voluntaryShowTarget(pointer.x, pointer.y,
+                        .targetAt(x, y)
+                : voluntaryShow ? voluntaryShowTarget(x, y,
                         viewport.getWorldWidth())
                 : regularHudActionsVisible
-                        ? hudTarget(pointer.x, pointer.y,
+                        ? hudTarget(x, y,
                                 viewport.getWorldWidth()) : 0;
-        if (localHudTarget != 0 && !autoActionVeto) {
-            switch (localHudTarget) {
-            case 1 -> {
-                if (localTurn) {
-                    activateFoldAction();
-                } else if (preActions) {
-                    toggleQueuedPreAction(1);
-                }
-            }
-            case 2 -> {
-                if (localTurn) {
-                    activateCheckOrCallAction();
-                } else if (preActions) {
-                    toggleQueuedPreAction(2);
-                }
-            }
-            case 3 -> {
-                if (localTurn) adjustLiveBet(-1);
-            }
-            case 4 -> {
-                if (localTurn) adjustLiveBet(1);
-            }
-            case 5 -> {
-                if (localTurn) activateBetAction();
-            }
-            case 6 -> {
-                if (voluntaryShow) {
-                    activateVoluntaryShowAction();
-                } else {
-                    activateAllInAction();
-                }
-            }
-            default -> { }
-            }
-        }
         if (localHudTarget != 0) {
-            // Disabled buttons still occupy the foreground.  They do nothing,
-            // but the click must not fall through to a local hole card.
-            return;
+            if (autoActionVeto) return null;
+            HudClick hud = new HudClick(localHudTarget, liveState.handNumber(),
+                    liveState.snapshot().street(), localActionControlsSequence,
+                    localHudTarget == 5 ? selectedRaiseIncrement(controls) : 0d);
+            if (voluntaryShow) {
+                return tableClick(TableClickKind.SHOW_CARDS, hud,
+                        this::activateVoluntaryShowAction);
+            }
+            if (preActions) {
+                return tableClick(TableClickKind.AUTO_HUD, hud,
+                        () -> toggleQueuedPreAction(localHudTarget));
+            }
+            return tableClick(TableClickKind.MANUAL_HUD, hud,
+                    () -> activateManualHud(localHudTarget));
         }
-        if (tableChromeOccludesCards(pointer.x, pointer.y,
-                viewport.getWorldWidth())) {
-            return;
-        }
-        ViewedCard viewedCard = liveCardAt(pointer.x, pointer.y, true);
-        if (viewedCard != null) {
-            openCardViewer(viewedCard);
+        if (tableChromeOccludesCards(x, y, viewport.getWorldWidth())) return null;
+        ViewedCard card = liveCardAt(x, y, true);
+        return card == null ? null : tableClick(TableClickKind.CARD,
+                new HandClick(card, liveState.handNumber()), () -> openCardViewer(card));
+    }
+
+    private TableClick tableClick(TableClickKind kind, Object detail, Runnable action) {
+        return new TableClick(new TableClickTarget(kind, detail, uiLayer), action);
+    }
+
+    private void activateManualHud(int target) {
+        switch (target) {
+            case 1 -> activateFoldAction();
+            case 2 -> activateCheckOrCallAction();
+            case 3 -> adjustLiveBet(-1);
+            case 4 -> adjustLiveBet(1);
+            case 5 -> activateBetAction();
+            case 6 -> activateAllInAction();
+            default -> { }
         }
     }
 
@@ -10699,27 +10753,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return -1;
     }
 
-    private boolean handleFastAccessClick(float x, float y) {
-        if (!fastBarExpanded) {
-            if (contains(x, y, FAST_BAR_X + FAST_BAR_PADDING,
-                    FAST_BAR_Y + FAST_BAR_PADDING,
-                    FAST_BUTTON_SIZE, FAST_BUTTON_SIZE)) {
-                openFastAccessBar();
-                return true;
-            }
-            return fastAccessSurfaceContains(x, y);
-        }
-        int button = fastButtonAt(x, y);
-        if (button < 0) {
-            // The visible panel padding and inter-button gaps are still an
-            // opaque input surface.  Consuming them prevents clicks from
-            // reaching the HUD or cards painted underneath.
-            return fastAccessSurfaceContains(x, y);
-        }
-        if (!fastButtonEnabled(button)) {
-            return true;
-        }
-        FastAccessAction action = visibleFastAccessActionAt(button);
+    private void activateFastAccess(FastAccessAction action) {
         if (action != FastAccessAction.TABLE_VIEW) fastBarExpanded = false;
         switch (action) {
             case SETTINGS -> openSettings();
@@ -10743,7 +10777,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // Voice is press-and-hold and is handled before button release.
             }
         }
-        return true;
+    }
+
+    private FastAccessAction fastAccessActionAt(float x, float y) {
+        int button = fastButtonAt(x, y);
+        return button >= 0 && fastButtonEnabled(button)
+                ? visibleFastAccessActionAt(button) : FastAccessAction.NONE;
     }
 
     private boolean quickChatOpen() {
@@ -11258,8 +11297,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         leftButtonReleasedThisFrame = primaryPointer.update(down);
         if (mediaPressedThisFrame || mediaPointer.active()
                 || pocketPeekPointer.owns(0, Input.Buttons.LEFT)) {
-            primaryPointer.capturePressedGesture();
+            capturePrimaryPointerGesture();
         }
+    }
+
+    private void capturePrimaryPointerGesture() {
+        primaryPointer.capturePressedGesture();
+        cancelTableClick();
+    }
+
+    private void cancelTableClick() {
+        tableClickPointer.clear();
+        pressedTableClick = null;
+        releasedTableClick = null;
     }
 
     private boolean beginPointerRepeat(RepeatOwner owner) {
@@ -14784,7 +14834,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (consumed && Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             // The zoom overlay is resolved on press while cards are resolved
             // on release. Keep the complete gesture on the topmost surface.
-            primaryPointer.capturePressedGesture();
+            capturePrimaryPointerGesture();
         }
         return consumed;
     }
@@ -15191,6 +15241,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private boolean handleSeatChatNoticeClick(float x, float y,
             boolean blockRemoteMedia) {
+        Map.Entry<String, SeatChatNotice> notice = seatChatNoticeAt(x, y);
+        if (notice == null) return false;
+        dismissSeatChatNotice(notice, blockRemoteMedia);
+        return true;
+    }
+
+    private Map.Entry<String, SeatChatNotice> seatChatNoticeAt(float x, float y) {
         List<Map.Entry<String, SeatChatNotice>> notices =
                 List.copyOf(seatChatNotices.entrySet());
         for (int index = notices.size() - 1; index >= 0; index--) {
@@ -15208,18 +15265,19 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? seatChatNoticeBounds(seat, seatChatNoticeIcon(notice))
                         : seatChatNoticeTarget(seat);
             }
-            if (!noticeHit.contains(x, y)) {
-                continue;
-            }
-            if (blockRemoteMedia && seat.index != 0) {
-                blockedSeatMediaNotices.add(entry.getKey());
-            }
-            if (seatChatNotices.remove(entry.getKey(), notice)) {
-                notice.dispose();
-            }
-            return true;
+            if (noticeHit.contains(x, y)) return Map.entry(entry.getKey(), notice);
         }
-        return false;
+        return null;
+    }
+
+    private void dismissSeatChatNotice(Map.Entry<String, SeatChatNotice> hit,
+            boolean blockRemoteMedia) {
+        if (blockRemoteMedia && !hit.getKey().equals(liveState.snapshot().localNickname())) {
+            blockedSeatMediaNotices.add(hit.getKey());
+        }
+        if (seatChatNotices.remove(hit.getKey(), hit.getValue())) {
+            hit.getValue().dispose();
+        }
     }
 
     private void drawLatencyDots() {
@@ -15434,7 +15492,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!pocketPeekPointer.release(pointerIndex, button)) return false;
         stopPocketPeekInput();
         pocketPeekInputThisFrame = true;
-        if (button == Input.Buttons.LEFT) primaryPointer.capturePressedGesture();
+        if (button == Input.Buttons.LEFT) capturePrimaryPointerGesture();
         return true;
     }
 
@@ -23762,7 +23820,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void openUiLayer(int layer) {
-        if (uiLayer != layer) clearTableScrollDrag();
+        if (uiLayer != layer) {
+            cancelTableClick();
+            clearTableScrollDrag();
+        }
         if (uiLayer == UI_SCREENSHOTS && layer != UI_SCREENSHOTS) {
             closeScreenshotViewer();
         }
@@ -25331,7 +25392,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 openTableChatEditMenu(x, y);
             }
         } else if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-            if (owned) primaryPointer.capturePressedGesture();
+            if (owned) capturePrimaryPointerGesture();
             if (chatEditMenuContains(x, y)) {
                 handleTableChatEditMenuClick(x, y);
             } else {
@@ -26832,7 +26893,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // The dialog acts on press while table cards act on release. Capture
         // this complete gesture before CERRAR removes the modal, otherwise the
         // matching release can reach a card that was behind the button.
-        primaryPointer.capturePressedGesture();
+        capturePrimaryPointerGesture();
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         float panelX = viewport.getWorldWidth() / 2f - 410f;
@@ -33316,6 +33377,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     @Override
     public void resize(int width, int height) {
+        cancelTableClick();
+        chipCatalogPointer.clear();
+        pressedChipCatalogClick = null;
+        finalSummaryPointer.clear();
+        finalSummaryPointerTarget = -1;
+        presentedTableClickRevision = -1L;
         viewport.update(width, height, true);
         if (startupIntroOnly) updateIntroDockBounds(width, height);
         tableGallery.resize(viewport);
@@ -33946,6 +34013,25 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
     }
 
+    private enum ChipCatalogClick { CLOSE, REBUY }
+
+    private enum TableClickKind {
+        OPEN_FAST_ACCESS, FAST_ACCESS, PAUSE, RESUME, DISMISS_NOTICE,
+        KICK_TIMED_OUT, CHIP_CATALOG, STACK, IWTSTH, LIGHTS, LAST_HAND,
+        RABBIT, MANUAL_HUD, AUTO_HUD, SHOW_CARDS, CARD
+    }
+
+    private record HudClick(int button, int hand, TableSnapshot.Street street,
+            long controlsSequence, double raiseAmount) {}
+
+    private record HandClick(Object target, int hand) {}
+
+    private record TableClickTarget(TableClickKind kind, Object detail, int layer) {}
+
+    private record TableClick(TableClickTarget target, Runnable action) {}
+
+    private record TableClickRelease(TableClickTarget target, int x, int y) {}
+
     static record PreActionHudLayout(Rectangle bounds, Rectangle fold,
             Rectangle status, Rectangle call) {
 
@@ -33988,7 +34074,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             float height, float rotation) {
     }
 
-    private record ViewedCard(Texture texture, boolean faceUp) {
+    private record ViewedCard(Texture texture, boolean faceUp, String owner, int slot) {
     }
 
     private record TableInputWindow(String text, int sourceStart,

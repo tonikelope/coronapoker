@@ -210,9 +210,12 @@ final class GdxSettingsNavigationContractTest {
             var expanded = CoronaPokerGdxTable.class.getDeclaredField("fastBarExpanded");
             expanded.setAccessible(true);
             expanded.setBoolean(table, true);
-            var click = CoronaPokerGdxTable.class.getDeclaredMethod(
-                    "handleFastAccessClick", float.class, float.class);
-            click.setAccessible(true);
+            var target = CoronaPokerGdxTable.class.getDeclaredMethod(
+                    "fastAccessActionAt", float.class, float.class);
+            target.setAccessible(true);
+            var activate = CoronaPokerGdxTable.class.getDeclaredMethod(
+                    "activateFastAccess", CoronaPokerGdxTable.FastAccessAction.class);
+            activate.setAccessible(true);
             var label = CoronaPokerGdxTable.class.getDeclaredMethod("targetTableViewLabel");
             label.setAccessible(true);
             float x = CoronaPokerGdxTable.fastAccessButtonX(
@@ -220,7 +223,9 @@ final class GdxSettingsNavigationContractTest {
             float y = CoronaPokerGdxTable.FAST_BAR_Y + 30f;
 
             assertEquals("2D", label.invoke(table));
-            assertTrue((boolean) click.invoke(table, x, y));
+            Object action = target.invoke(table, x, y);
+            assertEquals(CoronaPokerGdxTable.FastAccessAction.TABLE_VIEW, action);
+            activate.invoke(table, action);
             assertEquals("2d", preferences.properties().getProperty(GdxSettingsContract.TABLE_VIEW_KEY));
             assertEquals("3D", label.invoke(table));
             assertTrue(expanded.getBoolean(table));

@@ -52,6 +52,7 @@ final class GdxPerspectivePocketGpuTest {
                 try {
                     long window = ((Lwjgl3Graphics) Gdx.graphics).getWindow().getWindowHandle();
                     assertEquals(GLFW.GLFW_FALSE, GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_VISIBLE));
+                    verifyLiveClickOwnership(dir);
                     verifyAutoCallPreview(dir);
                     verifyPocket(dir);
                     verifyCrossDeckBack(dir);
@@ -96,9 +97,10 @@ final class GdxPerspectivePocketGpuTest {
             try {
                 table.create();
                 table.resize(WIDTH, HEIGHT);
-                var viewed = CoronaPokerGdxTable.class.getDeclaredMethod("viewedCard", TableSnapshot.CardSnapshot.class);
+                var viewed = CoronaPokerGdxTable.class.getDeclaredMethod("viewedCard",
+                        TableSnapshot.CardSnapshot.class, String.class, int.class);
                 viewed.setAccessible(true);
-                Object card = viewed.invoke(table, hidden);
+                Object card = viewed.invoke(table, hidden, "local", 0);
                 var open = CoronaPokerGdxTable.class.getDeclaredMethod("openCardViewer", card.getClass());
                 open.setAccessible(true);
                 open.invoke(table, card);
@@ -183,6 +185,139 @@ final class GdxPerspectivePocketGpuTest {
                 assertEquals(glyph.height, projectedSourceHeight, .01f,
                         "The source glyph has the same height before the 3D projection");
             } finally {
+                table.dispose();
+            }
+        }
+    }
+
+    private static void verifyLiveClickOwnership(Path dir) throws Exception {
+        try (var prefs = new PreferencesService(dir.resolve("click-ownership.properties"))) {
+            prefs.properties().setProperty("auto_action_buttons", "true");
+            prefs.properties().setProperty("auto_call_enabled", "true");
+            prefs.properties().setProperty("confirmar_todo", "false");
+            prefs.properties().setProperty("musica", "false");
+            prefs.properties().setProperty("sonido_efectos", "false");
+            var player = new TableSnapshot.PlayerSnapshot("local", 20d, 0d, 20d,
+                    true, false, false, false, -2, -2, 0, 0L, false,
+                    TableSnapshot.Position.DEALER, "", "", List.of());
+            var snapshot = new TableSnapshot(1L, "local", TableSnapshot.Street.PREFLOP,
+                    0d, "local", false, List.of(player), List.of());
+            var submitted = new ArrayList<TableCommand>();
+            var table = new CoronaPokerGdxTable(60, new GdxTableViewState(snapshot),
+                    submitted::add, () -> {}, new GdxGameLogSink(), prefs);
+            Input original = Gdx.input;
+            var mouse = new Mouse();
+            try {
+                Gdx.input = mouse.input(original);
+                table.create();
+                table.resize(WIDTH, HEIGHT);
+                table.acceptEvent(new TableVisualEvent.PreparationStatus(2L,
+                        TableVisualEvent.PreparationStatus.Phase.READY), new CompletableFuture<>());
+                var controls = ActionControlState.forTurn(
+                        2d, 2d, 2d, 1d, 0d, 20d, 2, true, 0);
+                table.acceptEvent(new TableVisualEvent.ActionControls(3L, controls),
+                        new CompletableFuture<>());
+                table.render();
+                var viewport = (Viewport) field(table, "viewport");
+                var layout = CoronaPokerGdxTable.localActionLayout(viewport.getWorldWidth());
+                Point call = screenCenter(viewport, layout.call());
+                Point fold = screenCenter(viewport, layout.fold());
+                var input = table.inputProcessor();
+                mouse.move(call);
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(call.x, call.y, 0, Input.Buttons.LEFT);
+                // The timeout can reach the renderer after touchDown but before
+                // the next frame even samples the pressed button.
+                table.acceptEvent(new TableVisualEvent.TurnTimer(4L, "local",
+                        1000L, 0L, TableVisualEvent.TurnTimer.Phase.STOP),
+                        new CompletableFuture<>());
+                table.acceptEvent(new TableVisualEvent.PreActionControls(5L, true, true),
+                        new CompletableFuture<>());
+                table.render();
+                mouse.down = mouse.justPressed = false;
+                input.touchUp(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertEquals(0, field(table, "queuedPreAction"),
+                        "A held manual call must not become AUTO IR after the timeout");
+                assertTrue(submitted.isEmpty());
+
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(call.x, call.y, 0, Input.Buttons.LEFT);
+                input.touchUp(call.x, call.y, 0, Input.Buttons.RIGHT);
+                table.render();
+                assertEquals(0, field(table, "queuedPreAction"));
+                mouse.down = mouse.justPressed = false;
+                input.touchUp(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertEquals(2, field(table, "queuedPreAction"),
+                        "A fresh click on AUTO IR must still work");
+                input.touchUp(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertEquals(2, field(table, "queuedPreAction"),
+                        "A repeated release must not toggle the selection");
+
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                mouse.move(fold);
+                mouse.down = mouse.justPressed = false;
+                input.touchUp(fold.x, fold.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertEquals(2, field(table, "queuedPreAction"),
+                        "Dragging from AUTO IR to AUTO TIRAR cannot select either");
+                assertTrue(submitted.isEmpty());
+
+                mouse.move(call);
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.acceptEvent(new TableVisualEvent.PreActionControls(6L, false, true),
+                        new CompletableFuture<>());
+                table.acceptEvent(new TableVisualEvent.TurnTimer(7L, "local",
+                        1000L, 1000L, TableVisualEvent.TurnTimer.Phase.START),
+                        new CompletableFuture<>());
+                table.acceptEvent(new TableVisualEvent.ActionControls(8L, controls),
+                        new CompletableFuture<>());
+                table.render();
+                mouse.down = mouse.justPressed = false;
+                input.touchUp(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertTrue(submitted.isEmpty(),
+                        "A held AUTO IR must not submit a manual call on a new turn");
+
+                table.acceptEvent(new TableVisualEvent.TurnTimer(9L, "local",
+                        1000L, 0L, TableVisualEvent.TurnTimer.Phase.STOP),
+                        new CompletableFuture<>());
+                table.acceptEvent(new TableVisualEvent.PreActionControls(10L, true, true),
+                        new CompletableFuture<>());
+                // The timeout is already applied, but the last frame still
+                // shows IR. AUTO IR must wait until it has been presented.
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                mouse.down = mouse.justPressed = false;
+                input.touchUp(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertEquals(0, field(table, "queuedPreAction"),
+                        "An AUTO target cannot be armed before it has been drawn");
+
+                table.acceptEvent(new TableVisualEvent.PreActionControls(11L, false, true),
+                        new CompletableFuture<>());
+                table.acceptEvent(new TableVisualEvent.TurnTimer(12L, "local",
+                        1000L, 1000L, TableVisualEvent.TurnTimer.Phase.START),
+                        new CompletableFuture<>());
+                table.acceptEvent(new TableVisualEvent.ActionControls(13L, controls),
+                        new CompletableFuture<>());
+                table.render();
+                mouse.down = mouse.justPressed = true;
+                input.touchDown(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                mouse.down = mouse.justPressed = false;
+                input.touchUp(call.x, call.y, 0, Input.Buttons.LEFT);
+                table.render();
+                assertEquals(List.of(new TableCommand.CheckOrCall()), submitted,
+                        "A fresh manual call still submits exactly once");
+            } finally {
+                Gdx.input = original;
                 table.dispose();
             }
         }

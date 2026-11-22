@@ -11,6 +11,17 @@ final class GdxCardContourTest {
             var contour = new GdxCardContour(grid[0], grid[1], 1.4f);
             assertMappings(contour.faces, contour.faceSamples, contour.sampleUvs);
             assertMappings(contour.rim, contour.rimSamples, contour.sampleUvs);
+            int faceCount = contour.faceSamples.length;
+            assertEquals(2 * faceCount, contour.faceIndices.length);
+            for (int i = 0; i < faceCount; i += 3) {
+                for (int corner = 0; corner < 3; corner++) {
+                    int sample = contour.faceSamples[i + corner];
+                    assertEquals(2 * sample, Short.toUnsignedInt(contour.faceIndices[i + corner]));
+                    int reverse = (3 - corner) % 3;
+                    assertEquals(2 * sample + 1,
+                            Short.toUnsignedInt(contour.faceIndices[faceCount + i + reverse]));
+                }
+            }
             assertTrue(contour.sampleUvs.size < contour.faces.size + contour.rim.size);
         }
     }

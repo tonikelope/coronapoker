@@ -264,7 +264,10 @@ final class GdxPerspectiveTable implements Disposable {
     private final ArrayList<GdxCardDealMotion.Pile> dealPiles = new ArrayList<>();
     private final Vector3 projectedPoint = new Vector3();
     private final FloatArray cardVertices = new FloatArray(MAX_CARD_VERTICES * 6);
-    private final FloatArray cardGrid = new FloatArray((REVEAL_COLUMNS + 1) * (REVEAL_ROWS + 1) * 6);
+    private static final int GRID_FLOATS = Math.max((REVEAL_COLUMNS + 1) * (REVEAL_ROWS + 1),
+            (POCKET_COLUMNS + 1) * (CARD_STRIPS + 1)) * 6;
+    private final FloatArray cardGrid = new FloatArray(GRID_FLOATS);
+    private final FloatArray shadowGrid = new FloatArray(GRID_FLOATS);
     private final IntBuffer framebufferBinding = BufferUtils.newIntBuffer(1);
     private final IntBuffer viewportBinding = BufferUtils.newIntBuffer(4);
     private ShaderProgram shader;
@@ -668,7 +671,7 @@ final class GdxPerspectiveTable implements Disposable {
                 PocketDraw draw = pocketDraws[i];
                 drawShell(pocketShell, draw.vertices, draw.columns, draw.rows, draw.material,
                         draw.top, draw.bottom, draw.cardWidth, draw.aspect,
-                        draw.opacity, draw.highlight, draw.pickTarget);
+                        draw.opacity, draw.highlight, draw.pickTarget, i == pocketDrawCount - 1);
             }
         } finally {
             pocketShell.endPair();
@@ -725,7 +728,7 @@ final class GdxPerspectiveTable implements Disposable {
     }
 
     private static final class PocketDraw {
-        final FloatArray vertices = new FloatArray(MAX_CARD_VERTICES * 6);
+        final FloatArray vertices = new FloatArray(GRID_FLOATS);
         int columns, rows, material;
         float cardWidth, aspect, opacity, highlight;
         Texture top, bottom;
@@ -809,7 +812,6 @@ final class GdxPerspectiveTable implements Disposable {
         packetBend = true;
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, true);
         renderPocket(3, back, back, 0.20f * opacity, cardHeight / cardWidth);
-        fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, false);
         float tint = showdownTintAmount(highlight);
         renderPocket(2, publicFace ? face : back, face, opacity,
                 cardHeight / cardWidth, publicFace ? tint : -tint);
@@ -843,8 +845,6 @@ final class GdxPerspectiveTable implements Disposable {
             fillPocket(cx, cz, w * EDGE_MARGIN_SCALE, h * EDGE_MARGIN_SCALE,
                     bendingFan, lift, true);
             renderPocket(3, back, back, .20f * opacity, h / w);
-            fillPocket(cx, cz, w * EDGE_MARGIN_SCALE, h * EDGE_MARGIN_SCALE,
-                    bendingFan, lift, false);
             renderPocket(2, back, face, opacity, h / w);
         } finally {
             uncoveringPacket = packetBend = false;
@@ -1464,7 +1464,6 @@ final class GdxPerspectiveTable implements Disposable {
             putFlight(cx, cz, w, h, fan, lift, progress, bend, 0f, v);
             putFlight(cx, cz, w, h, fan, lift, progress, bend, 1f, v);
         }
-        triangulateCardGrid();
         renderPocket(4, back, back, 1f, h / w);
     }
 
@@ -1504,8 +1503,8 @@ final class GdxPerspectiveTable implements Disposable {
         fillPocket(x - width * 0.5f, boardCenterY - y, w * EDGE_MARGIN_SCALE,
                 h * EDGE_MARGIN_SCALE, fan, 0f, false);
         if (elevation > 0f) {
-            for (int vertexY = 1; vertexY < cardVertices.size; vertexY += 6) {
-                cardVertices.items[vertexY] += elevation;
+            for (int vertexY = 1; vertexY < cardGrid.size; vertexY += 6) {
+                cardGrid.items[vertexY] += elevation;
             }
         }
         renderPocket(2, face, back, opacity, h / w, showdownTintAmount(highlight));
@@ -1563,25 +1562,23 @@ final class GdxPerspectiveTable implements Disposable {
                 putReveal(cx, cz, u, v, cosine, sine);
             }
         }
-        triangulateCardGrid();
         renderPocket(4, back, face, opacity, h / w);
     }
 
-    private void triangulateCardGrid() {
-        // Evaluate each animated point once and keep the original winding
-        // and diagonal used by the shell's surface and rim interpolation.
+    private void triangulateShadow() {
+        // Keep the winding and shared diagonal of the projected contact shadow.
         cardVertices.clear();
         int stride = (meshColumns + 1) * 6;
         for (int row = 0; row < meshRows; row++) {
             for (int column = 0; column < meshColumns; column++) {
                 int a = row * stride + column * 6;
                 int b = a + stride;
-                cardVertices.addAll(cardGrid.items, a, 6);
-                cardVertices.addAll(cardGrid.items, b, 6);
-                cardVertices.addAll(cardGrid.items, a + 6, 6);
-                cardVertices.addAll(cardGrid.items, a + 6, 6);
-                cardVertices.addAll(cardGrid.items, b, 6);
-                cardVertices.addAll(cardGrid.items, b + 6, 6);
+                cardVertices.addAll(shadowGrid.items, a, 6);
+                cardVertices.addAll(shadowGrid.items, b, 6);
+                cardVertices.addAll(shadowGrid.items, a + 6, 6);
+                cardVertices.addAll(shadowGrid.items, a + 6, 6);
+                cardVertices.addAll(shadowGrid.items, b, 6);
+                cardVertices.addAll(shadowGrid.items, b + 6, 6);
             }
         }
     }
@@ -1598,33 +1595,25 @@ final class GdxPerspectiveTable implements Disposable {
 
     private void fillPocket(float x, float z, float w, float h, float fan,
             float liftAngle, boolean shadow) {
-        cardVertices.clear();
+        cardGrid.clear();
+        if (shadow) shadowGrid.clear();
         float cosine = MathUtils.cosDeg(fan);
         float sine = MathUtils.sinDeg(fan);
         pocketShape.set(liftAngle);
-        int rows = liftAngle > 0.001f ? CARD_STRIPS : 1;
-        int columns = liftAngle > 0.001f ? POCKET_COLUMNS : 1;
-        meshColumns = columns;
-        meshRows = rows;
+        meshRows = liftAngle > 0.001f ? CARD_STRIPS : 1;
+        meshColumns = liftAngle > 0.001f ? POCKET_COLUMNS : 1;
         cardWorldWidth = w / EDGE_MARGIN_SCALE;
-        for (int row = 0; row < rows; row++) {
-            float v0 = row / (float) rows;
-            float v1 = (row + 1f) / rows;
-            for (int column = 0; column < columns; column++) {
-                float u0 = column / (float) columns;
-                float u1 = (column + 1f) / columns;
-                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u0, v0);
-                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u0, v1);
-                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u1, v0);
-                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u1, v0);
-                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u0, v1);
-                putPocket(x, z, w, h, sine, cosine, shadow, liftAngle, u1, v1);
+        for (int row = 0; row <= meshRows; row++) {
+            float v = row / (float) meshRows;
+            for (int column = 0; column <= meshColumns; column++) {
+                float u = column / (float) meshColumns;
+                putPocket(x, z, w, h, sine, cosine, shadow, u, v);
             }
         }
     }
 
     private void putPocket(float x, float z, float w, float h, float sine, float cosine,
-            boolean shadow, float lift, float u, float v) {
+            boolean shadow, float u, float v) {
         float wx, wz, light;
         if (packetBend) {
             float dx = (u - 0.5f) * w;
@@ -1649,13 +1638,13 @@ final class GdxPerspectiveTable implements Disposable {
             wx = x + cosine * cardSample.x - sine * cardSample.z;
             wz = z + sine * cardSample.x + cosine * cardSample.z;
         }
+        put(cardGrid, wx, CARD_REST_HEIGHT + cardSample.y, wz, u, v, light);
         if (shadow) {
             wx += cardSample.y * 0.31f;
             wz -= cardSample.y * 0.36f;
-            light = (float) Math.exp(-cardSample.y / (w * 0.24f));
+            float shadowLight = (float) Math.exp(-cardSample.y / (w * 0.24f));
+            put(shadowGrid, wx, 0.32f, wz, u, v, shadowLight);
         }
-        put(cardVertices, wx, shadow ? 0.32f : CARD_REST_HEIGHT + cardSample.y,
-                wz, u, v, light);
     }
 
     private void renderPocket(int material, Texture top, Texture bottom, float opacity, float aspect) {
@@ -1669,7 +1658,7 @@ final class GdxPerspectiveTable implements Disposable {
             if (pocketPair) {
                 PocketDraw draw = pocketDraws[pocketDrawCount++];
                 draw.vertices.clear();
-                draw.vertices.addAll(cardVertices);
+                draw.vertices.addAll(cardGrid);
                 draw.columns = meshColumns;
                 draw.rows = meshRows;
                 draw.material = material;
@@ -1686,12 +1675,12 @@ final class GdxPerspectiveTable implements Disposable {
                 // Resolve each card in paint order so a translucent or
                 // airborne card still composites over the cards below it.
                 resetCardBounds();
-                includeCardBounds(cardVertices);
+                includeCardBounds(cardGrid);
                 beginCroppedCardLayer(target);
                 try {
-                    drawShell(target, cardVertices, meshColumns, meshRows,
+                    drawShell(target, cardGrid, meshColumns, meshRows,
                             material, top, bottom, cardWorldWidth, aspect, opacity,
-                            highlight, boardCardPass ? null : pick);
+                            highlight, boardCardPass ? null : pick, true);
                 } finally {
                     target.endPair();
                 }
@@ -1704,6 +1693,7 @@ final class GdxPerspectiveTable implements Disposable {
                     new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
                     new VertexAttribute(Usage.Generic, 1, "a_light"));
         }
+        triangulateShadow();
         card.setVertices(cardVertices.items, 0, cardVertices.size);
         if (trackBoardCardPixels) {
             // Contact shadows paint directly into the SMAA capture.
@@ -1718,14 +1708,14 @@ final class GdxPerspectiveTable implements Disposable {
 
     private void drawShell(GdxCardShell target, FloatArray vertices, int columns, int rows,
             int material, Texture top, Texture bottom, float cardWidth, float aspect,
-            float opacity, float highlight, GdxCardPickMesh pickTarget) {
+            float opacity, float highlight, GdxCardPickMesh pickTarget, boolean resolveColour) {
         begin(material, top, bottom, opacity);
         shader.setUniformf("u_aspect", aspect);
         shader.setUniformf("u_showdownTint", highlight);
         target.pickTarget = pickTarget;
         try {
             target.render(shader, vertices, columns, rows, material, top, bottom,
-                    cardWidth, aspect, width, height);
+                    cardWidth, aspect, width, height, resolveColour);
         } finally {
             target.pickTarget = null;
         }

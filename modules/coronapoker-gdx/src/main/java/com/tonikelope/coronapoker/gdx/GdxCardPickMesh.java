@@ -14,6 +14,15 @@ final class GdxCardPickMesh {
         }
     }
 
+    void setFaces(float[] samples, short[] indices) {
+        triangles.clear();
+        triangles.ensureCapacity(indices.length * 3);
+        for (short index : indices) {
+            int at = Short.toUnsignedInt(index) * 9;
+            triangles.add(samples[at], samples[at + 1], samples[at + 2]);
+        }
+    }
+
     float distance(Vector3 origin, Vector3 direction) {
         float best = Float.POSITIVE_INFINITY;
         float[] p = triangles.items;

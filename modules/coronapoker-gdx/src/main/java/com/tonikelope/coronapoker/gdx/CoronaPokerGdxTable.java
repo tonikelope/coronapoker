@@ -15458,7 +15458,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean canPeek = !pocketPeekNeedsRelease && !publicHand && reveal == null
                 && !dealing && !pocketOrder.busy()
                 && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
-        pocketPeekEnabled = canPeek && liveState.presentedHoleCards(nickname).stream()
+        pocketPeekEnabled = canPeek && cards.stream()
                 .anyMatch(card -> card.visible() && !card.code().isBlank());
         if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
             releasePocketPeekPointer(0, Input.Buttons.LEFT);
@@ -15481,7 +15481,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         // Both sheets must use one frame time. A separate clock sample per
         // sheet moves their surfaces farther than the plastic thickness.
         float uncoverProgress = reveal == null ? 0f : reveal.progress(0);
-        int hoveredSlot = perspectiveTable.pocketSlotAt(pointer.x, pointer.y);
+        int hoveredSlot = publicHand && !pocketOrder.busy() && fold == null
+                ? perspectiveTable.pocketSlotAt(pointer.x, pointer.y) : -1;
         GdxTableViewState.ShowdownHighlightState highlight = liveShowdownHoverNickname == null
                 ? null : liveState.showdownHighlight(liveShowdownHoverNickname);
         boolean faceUpPair = limit == 2 && publicHand && reveal == null && !pocketOrder.busy();

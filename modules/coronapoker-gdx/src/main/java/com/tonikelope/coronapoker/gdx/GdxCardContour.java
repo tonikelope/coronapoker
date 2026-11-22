@@ -14,6 +14,7 @@ final class GdxCardContour {
     final FloatArray rim = new FloatArray();
     final FloatArray sampleUvs = new FloatArray();
     final int[] faceSamples, rimSamples;
+    final short[] faceIndices;
     private final FloatArray hull = new FloatArray();
     private final double[] first = new double[256];
     private final double[] second = new double[256];
@@ -67,6 +68,20 @@ final class GdxCardContour {
         var indices = new LongMap<Integer>();
         faceSamples = indexSamples(faces, indices);
         rimSamples = indexSamples(rim, indices);
+        // The shell stores the two sides consecutively for each UV. Keep the
+        // same triangle order as the unindexed draw, including reverse winding.
+        if (sampleUvs.size <= 65_536) {
+            faceIndices = new short[2 * faceSamples.length];
+            for (int i = 0; i < faceSamples.length; i += 3) {
+                for (int corner = 0; corner < 3; corner++) {
+                    faceIndices[i + corner] = (short) (2 * faceSamples[i + corner]);
+                    int reverseCorner = corner == 0 ? 0 : 3 - corner;
+                    faceIndices[faceSamples.length + i + corner] = (short) (2 * faceSamples[i + reverseCorner] + 1);
+                }
+            }
+        } else {
+            faceIndices = null;
+        }
     }
 
     /** Share only bit-identical UVs, including points introduced by clipping. */

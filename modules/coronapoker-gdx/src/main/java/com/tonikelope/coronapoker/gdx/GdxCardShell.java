@@ -77,6 +77,8 @@ final class GdxCardShell implements Disposable {
     private int rows;
     private float halfThickness;
     private Mesh mesh;
+    private Mesh faceMesh;
+    private GdxCardContour indexedContour;
     private int capacity;
     private FrameBuffer layer;
     private SpriteBatch composite;
@@ -118,8 +120,11 @@ final class GdxCardShell implements Disposable {
         if (grid.length < length) {
             grid = new float[length]; normals = new float[length];
         }
-        int count = Math.max(prepared.faces.size / 2, prepared.rim.size * 3);
+        int count = prepared.rim.size * 3;
+        if (prepared.faceIndices != null) ensureFaceMesh(prepared);
+        else count = Math.max(count, prepared.faceSamples.length);
         vertices.ensureCapacity(count * 9);
+        surfaceSamples.ensureCapacity(Math.max(0, prepared.sampleUvs.size * 9 - surfaceSamples.size));
         ensureMesh(count);
     }
 
@@ -152,7 +157,8 @@ final class GdxCardShell implements Disposable {
     }
 
     void render(ShaderProgram shader, FloatArray source, int cols, int strips,
-            int material, Texture top, Texture bottom, float cardWidth, float aspect, float worldWidth, float worldHeight) {
+            int material, Texture top, Texture bottom, float cardWidth, float aspect,
+            float worldWidth, float worldHeight, boolean resolveColour) {
         columns = cols;
         rows = strips;
         halfThickness = GdxPlasticCard.thickness(cardWidth) * 0.5f;
@@ -169,17 +175,28 @@ final class GdxCardShell implements Disposable {
             gl.glCullFace(GL20.GL_BACK);
             // Resolve the geometry of each opacity group before blending it
             // with the table and any cards already drawn beneath it.
-            if (pickTarget != null) pickTarget.triangles.clear();
+            if (contour.faceIndices != null) {
+                ensureFaceMesh(contour);
+                faceMesh.setVertices(surfaceSamples.items, 0, surfaceSamples.size);
+                if (pickTarget != null) pickTarget.setFaces(surfaceSamples.items, contour.faceIndices);
+            } else if (pickTarget != null) {
+                pickTarget.triangles.clear();
+            }
             for (int side = 0; side < 2; side++) {
-                vertices.clear();
-                for (int vertex = 0; vertex < contour.faces.size / 2; vertex++) {
-                    int at = vertex;
-                    if (side == 1) at += vertex % 3 == 1 ? 1 : vertex % 3 == 2 ? -1 : 0;
-                    appendSurfaceVertex(contour.faceSamples[at], side);
-                }
                 shader.setUniformi("u_cardSide", side);
-                if (pickTarget != null) pickTarget.append(vertices);
-                draw(shader);
+                if (contour.faceIndices != null) {
+                    int count = contour.faceSamples.length;
+                    faceMesh.render(shader, GL20.GL_TRIANGLES, side * count, count);
+                } else {
+                    vertices.clear();
+                    for (int vertex = 0; vertex < contour.faceSamples.length; vertex++) {
+                        int at = vertex;
+                        if (side == 1) at += vertex % 3 == 1 ? 1 : vertex % 3 == 2 ? -1 : 0;
+                        appendSurfaceVertex(contour.faceSamples[at], side);
+                    }
+                    if (pickTarget != null) pickTarget.append(vertices);
+                    draw(shader);
+                }
             }
             gl.glDisable(GL20.GL_CULL_FACE);
             vertices.clear();
@@ -195,7 +212,7 @@ final class GdxCardShell implements Disposable {
             draw(shader);
             shader.setUniformi("u_material", material);
             shader.setUniformi("u_cardSide", 0);
-        }, worldWidth, worldHeight);
+        }, worldWidth, worldHeight, null, resolveColour);
     }
 
     void renderSolid(ShaderProgram shader, FloatArray geometry, float worldWidth, float worldHeight,
@@ -231,6 +248,10 @@ final class GdxCardShell implements Disposable {
     }
 
     void renderLayer(Runnable drawing, float worldWidth, float worldHeight, Rectangle clip) {
+        renderLayer(drawing, worldWidth, worldHeight, clip, true);
+    }
+
+    private void renderLayer(Runnable drawing, float worldWidth, float worldHeight, Rectangle clip, boolean resolveColour) {
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, parent);
         gl.glGetIntegerv(GL20.GL_VIEWPORT, viewport);
@@ -290,7 +311,9 @@ final class GdxCardShell implements Disposable {
             gl.glDepthFunc(GL20.GL_LEQUAL);
             gl.glBlendFuncSeparate(GL20.GL_SRC_ALPHA, GL20.GL_ZERO, GL20.GL_ONE, GL20.GL_ZERO);
             drawing.run();
-            if (multisampleTarget != 0) {
+            // Both cards in an opacity group share colour, depth and crop. Only
+            // the last draw needs to copy the group's multisample colour for composition.
+            if (multisampleTarget != 0 && resolveColour) {
                 GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, multisampleTarget);
                 GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, layer.getFramebufferHandle());
                 int x1 = x0 + resolveWidth, y1 = y0 + resolveHeight;
@@ -476,9 +499,8 @@ final class GdxCardShell implements Disposable {
             grid = new float[length];
             normals = new float[length];
         }
-        for (int offset = 0; offset < source.size; offset += 6) {
-            int cell = (Math.round(source.items[offset + 4] * rows) * (columns + 1)
-                    + Math.round(source.items[offset + 3] * columns)) * 3;
+        // The caller supplies one position per grid vertex, in row-major order.
+        for (int cell = 0, offset = 0; cell < length; cell += 3, offset += 6) {
             System.arraycopy(source.items, offset, grid, cell, 3);
         }
         for (int row = 0; row <= rows; row++) {
@@ -558,6 +580,21 @@ final class GdxCardShell implements Disposable {
         return out.set(values[at], values[at + 1], values[at + 2]);
     }
 
+    private void ensureFaceMesh(GdxCardContour shape) {
+        if (indexedContour == shape) return;
+        if (faceMesh == null || faceMesh.getMaxVertices() < shape.sampleUvs.size
+                || faceMesh.getMaxIndices() < shape.faceIndices.length) {
+            if (faceMesh != null) faceMesh.dispose();
+            faceMesh = new Mesh(false, shape.sampleUvs.size, shape.faceIndices.length,
+                    new VertexAttribute(Usage.Position, 3, "a_position"),
+                    new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
+                    new VertexAttribute(Usage.Generic, 1, "a_light"),
+                    new VertexAttribute(Usage.Normal, 3, "a_normal"));
+        }
+        faceMesh.setIndices(shape.faceIndices);
+        indexedContour = shape;
+    }
+
     private void ensureMesh(int count) {
         if (mesh == null || capacity < count) {
             if (mesh != null) mesh.dispose();
@@ -602,6 +639,7 @@ final class GdxCardShell implements Disposable {
         disposeMultisample();
         if (layer != null) layer.dispose();
         if (mesh != null) mesh.dispose();
+        if (faceMesh != null) faceMesh.dispose();
         if (composite != null) composite.dispose();
         if (cardCompositeShader != null) cardCompositeShader.dispose();
     }

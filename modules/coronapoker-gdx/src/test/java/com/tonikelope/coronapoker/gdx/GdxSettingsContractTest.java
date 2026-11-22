@@ -811,17 +811,19 @@ final class GdxSettingsContractTest {
                 .map(GdxSettingsContract.AppearanceAnimationRow::key).toList();
         assertEquals(keys.indexOf("duracion_barajado") + 1, keys.indexOf(GdxShuffleAngle.KEY));
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(GdxShuffleAngle.KEY));
+        assertEquals(40, GdxShuffleAngle.value(settings));
+        settings.setProperty(GdxShuffleAngle.KEY, "35");
         assertEquals(35, GdxShuffleAngle.value(settings));
         settings.setProperty(GdxShuffleAngle.KEY, "45");
         assertEquals(45, GdxShuffleAngle.value(settings));
         settings.setProperty(GdxShuffleAngle.KEY, "invalid");
-        assertEquals(35, GdxShuffleAngle.value(settings));
+        assertEquals(40, GdxShuffleAngle.value(settings));
         settings.setProperty(GdxShuffleAngle.KEY, "999");
         assertEquals(180, GdxShuffleAngle.value(settings));
         settings.setProperty("animacion_barajado", "false");
         assertFalse(GdxShuffleAngle.enabled(settings));
         GdxSettingsContract.restoreAppearancePageDefaults(settings, 1, true);
-        assertEquals(35, GdxShuffleAngle.value(settings));
+        assertEquals(40, GdxShuffleAngle.value(settings));
         assertTrue(GdxShuffleAngle.enabled(settings));
     }
 

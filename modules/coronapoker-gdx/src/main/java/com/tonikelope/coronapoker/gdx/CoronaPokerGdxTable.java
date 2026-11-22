@@ -3841,6 +3841,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 if (!nestedModalBackdropBlur.prepareNextBuffer(viewport)) {
                     return false;
                 }
+            }
+            case 12 -> {
+                // Compile the deck and shadow programs during table loading,
+                // before the first animated shuffle starts its presentation.
+                if (liveShuffleAnimationEnabled()) {
+                    try {
+                        riffle = new GdxRiffleShuffle();
+                    } catch (RuntimeException failure) {
+                        // Loading remains usable. An enabled shuffle can retry with the live context.
+                        LOGGER.log(Level.WARNING, "Could not prepare shuffle graphics during table loading", failure);
+                    }
+                }
                 return true;
             }
             default -> { return true; }

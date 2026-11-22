@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.VertexAttributes.Usage;
 import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.Disposable;
+import java.util.ArrayList;
 
 /** Draws the shuffle mesh from either table view, with shadows shared by both cameras. */
 final class GdxRiffleShuffle implements Disposable {
@@ -140,44 +141,61 @@ final class GdxRiffleShuffle implements Disposable {
     private GdxShuffleGeometry.Motion meshMotion;
 
     GdxRiffleShuffle() {
-        shader = new ShaderProgram(VERTEX_SHADER, FRAGMENT_SHADER);
-        if (!shader.isCompiled()) throw new IllegalStateException(shader.getLog());
-        shadowShader = new ShaderProgram(SHADOW_VERTEX, SHADOW_FRAGMENT);
-        if (!shadowShader.isCompiled()) throw new IllegalStateException(shadowShader.getLog());
-        shadowMap = new FrameBuffer(Pixmap.Format.RGBA8888, SHADOW_SIZE, SHADOW_SIZE, true);
-        shadowMap.getColorBufferTexture().setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        light.position.set(3.2f, 3.2f, 2.4f);
-        light.lookAt(0f, .22f, 0f);
-        light.near = 1f;
-        light.far = 8f;
-        light.update();
-        short[] indices = GdxShuffleGeometry.indices();
-        mesh = new Mesh(false, GdxShuffleGeometry.CARDS * GdxShuffleGeometry.VERTICES_PER_CARD, indices.length,
-                new VertexAttribute(Usage.Position, 3, "a_position"),
-                new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
-                new VertexAttribute(Usage.Generic, 2, "a_material"));
-        mesh.setIndices(indices);
-        // Flat receiver in the same model coordinates as the deck and light.
-        felt = new Mesh(true, 4, 6, mesh.getVertexAttributes());
-        felt.setVertices(new float[]{
-                -1.7f, 0,  1.2f, 0, 0, -4, 1,  1.7f, 0,  1.2f, 0, 0, -4, 1,
-                 1.7f, 0, -1.2f, 0, 0, -4, 1, -1.7f, 0, -1.2f, 0, 0, -4, 1});
-        felt.setIndices(new short[]{0, 1, 2, 0, 2, 3});
-        perspective.fieldOfView = 20.25f;
-        perspective.position.set(PREVIEW_EYE_X, PREVIEW_EYE_Y, PREVIEW_EYE_Z);
-        perspective.lookAt(.030f, .240f, 0f);
-        perspective.near = .5f;
-        perspective.far = 6f;
-        overhead.position.set(0f, 3f, 0f);
-        overhead.direction.set(0f, -1f, 0f);
-        overhead.up.set(0f, 0f, -1f);
-        overhead.near = .5f;
-        overhead.far = 5f;
-        front.position.set(0f, 3f, 0f);
-        front.direction.set(0f, -1f, 0f);
-        front.up.set(-1f, 0f, 0f);
-        front.near = .5f;
-        front.far = 5f;
+        var resources = new ArrayList<Disposable>(5);
+        try {
+            shader = new ShaderProgram(VERTEX_SHADER, FRAGMENT_SHADER);
+            resources.add(shader);
+            if (!shader.isCompiled()) throw new IllegalStateException(shader.getLog());
+            shadowShader = new ShaderProgram(SHADOW_VERTEX, SHADOW_FRAGMENT);
+            resources.add(shadowShader);
+            if (!shadowShader.isCompiled()) throw new IllegalStateException(shadowShader.getLog());
+            shadowMap = new FrameBuffer(Pixmap.Format.RGBA8888, SHADOW_SIZE, SHADOW_SIZE, true);
+            resources.add(shadowMap);
+            shadowMap.getColorBufferTexture().setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+            light.position.set(3.2f, 3.2f, 2.4f);
+            light.lookAt(0f, .22f, 0f);
+            light.near = 1f;
+            light.far = 8f;
+            light.update();
+            short[] indices = GdxShuffleGeometry.indices();
+            mesh = new Mesh(false, GdxShuffleGeometry.CARDS * GdxShuffleGeometry.VERTICES_PER_CARD, indices.length,
+                    new VertexAttribute(Usage.Position, 3, "a_position"),
+                    new VertexAttribute(Usage.TextureCoordinates, 2, "a_texCoord0"),
+                    new VertexAttribute(Usage.Generic, 2, "a_material"));
+            resources.add(mesh);
+            mesh.setIndices(indices);
+            // Flat receiver in the same model coordinates as the deck and light.
+            felt = new Mesh(true, 4, 6, mesh.getVertexAttributes());
+            resources.add(felt);
+            felt.setVertices(new float[]{
+                    -1.7f, 0,  1.2f, 0, 0, -4, 1,  1.7f, 0,  1.2f, 0, 0, -4, 1,
+                     1.7f, 0, -1.2f, 0, 0, -4, 1, -1.7f, 0, -1.2f, 0, 0, -4, 1});
+            felt.setIndices(new short[]{0, 1, 2, 0, 2, 3});
+            perspective.fieldOfView = 20.25f;
+            perspective.position.set(PREVIEW_EYE_X, PREVIEW_EYE_Y, PREVIEW_EYE_Z);
+            perspective.lookAt(.030f, .240f, 0f);
+            perspective.near = .5f;
+            perspective.far = 6f;
+            overhead.position.set(0f, 3f, 0f);
+            overhead.direction.set(0f, -1f, 0f);
+            overhead.up.set(0f, 0f, -1f);
+            overhead.near = .5f;
+            overhead.far = 5f;
+            front.position.set(0f, 3f, 0f);
+            front.direction.set(0f, -1f, 0f);
+            front.up.set(-1f, 0f, 0f);
+            front.near = .5f;
+            front.far = 5f;
+        } catch (RuntimeException | Error failure) {
+            for (int i = resources.size() - 1; i >= 0; i--) {
+                try {
+                    resources.get(i).dispose();
+                } catch (RuntimeException cleanupFailure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
+            }
+            throw failure;
+        }
     }
 
     void prepare(float elapsed, View view) {

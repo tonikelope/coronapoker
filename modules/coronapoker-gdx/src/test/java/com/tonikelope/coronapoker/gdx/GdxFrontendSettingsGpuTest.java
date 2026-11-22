@@ -621,6 +621,7 @@ final class GdxFrontendSettingsGpuTest {
                 () -> {}, new GdxGameLogSink(), preferences, lobby, presentation);
         try {
             table.create();
+            assertEquals(presentation.shuffleAnimation(), field(table, "riffle") != null);
             table.resize(WIDTH, HEIGHT);
             var ready = new CompletableFuture<Void>();
             table.acceptEvent(new TableVisualEvent.PreparationStatus(2L,

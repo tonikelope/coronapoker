@@ -92,8 +92,28 @@ final class GdxAppearanceOptions {
             "CALIDAD SOMBRAS", "high", new String[]{"high", "normal"},
             new String[]{"ALTA", "NORMAL"});
 
+    static final Choice DIALOG_SLIDE_DIRECTION = exact(
+            GdxSettingsContract.DIALOG_SLIDE_DIRECTION_KEY,
+            "MOVIMIENTO DE LOS DIÁLOGOS", "left",
+            new String[]{"up", "right", "left", "down", "off"},
+            new String[]{"ARRIBA", "DERECHA", "IZQUIERDA", "ABAJO", "DESACTIVADO"});
+
+    static GdxDialogSlide.Direction dialogSlideDirection(Properties properties) {
+        if (!enabled(DIALOG_SLIDE_DIRECTION, properties)) {
+            return GdxDialogSlide.Direction.OFF;
+        }
+        return switch (properties.getProperty(DIALOG_SLIDE_DIRECTION.key(),
+                DIALOG_SLIDE_DIRECTION.fallback())) {
+            case "up" -> GdxDialogSlide.Direction.UP;
+            case "right" -> GdxDialogSlide.Direction.RIGHT;
+            case "down" -> GdxDialogSlide.Direction.DOWN;
+            case "off" -> GdxDialogSlide.Direction.OFF;
+            default -> GdxDialogSlide.Direction.LEFT;
+        };
+    }
+
     static final List<Choice> ANIMATION_CHOICES = List.of(
-            SHUFFLE_VIEW, SHUFFLE_DURATION,
+            DIALOG_SLIDE_DIRECTION, SHUFFLE_VIEW, SHUFFLE_DURATION,
             numeric("reparto_velocidad", "VELOCIDAD DE REPARTO", "100",
                     new String[]{"150", "100", "60"},
                     new String[]{"LENTA", "NORMAL", "RÁPIDA"}),

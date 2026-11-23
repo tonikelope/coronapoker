@@ -41,6 +41,7 @@ final class GdxSettingsContract {
     static final String POKER_VIDEO_AUTO_OPEN_KEY = "abrir_video_poker_al_arrancar";
     static final boolean DEFAULT_POKER_VIDEO_AUTO_OPEN = false;
     static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
+    static final String DIALOG_SLIDE_DIRECTION_KEY = "gdx_dialog_slide_direction";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
     static final String SHUFFLE_TO_DEALER_KEY = "barajado_al_dealer";
@@ -670,6 +671,7 @@ final class GdxSettingsContract {
     private static final List<AppearanceAnimationRow>
             APPEARANCE_ANIMATION_ROWS = List.of(
                     animationToggle("animaciones"),
+                    animationChoice(DIALOG_SLIDE_DIRECTION_KEY),
                     animationToggle(HALO_EFFECT_KEY),
                     animationToggle(MODAL_BLUR_KEY),
                     animationToggle(GLASS_EFFECT_KEY),
@@ -754,7 +756,8 @@ final class GdxSettingsContract {
             FINAL_SUMMARY_CARDS_ANIMATION_KEY, "animacion_contador_final",
             "animacion_fuego_allin", "animacion_efecto_ganador",
             HALO_EFFECT_KEY, MODAL_BLUR_KEY, GLASS_EFFECT_KEY,
-            "animaciones", POKER_VIDEOS_KEY, POKER_VIDEO_AUTO_OPEN_KEY,
+            "animaciones", DIALOG_SLIDE_DIRECTION_KEY,
+            POKER_VIDEOS_KEY, POKER_VIDEO_AUTO_OPEN_KEY,
             POKER_VIDEO_WINDOW_ANIMATION_KEY,
             "cinematicas",
             "cinematicas_accion",

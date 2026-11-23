@@ -12,20 +12,37 @@ final class GdxDialogSlide {
     private static final float ENTER_SECONDS = 0.28f;
     private static final float EXIT_SECONDS = 0.20f;
 
+    enum Direction {
+        UP(0, 1), RIGHT(1, 0), LEFT(-1, 0), DOWN(0, -1), OFF(0, 0);
+
+        final int x;
+        final int y;
+
+        Direction(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
     private Object dialog;
+    private Direction direction = Direction.OFF;
     private float openness;
     private Runnable onClosed;
-    private float drawingOffset;
+    private float drawingOffsetX;
+    private float drawingOffsetY;
     private final Matrix4 projection = new Matrix4();
 
-    void update(Object visibleDialog, float delta, boolean animationsEnabled) {
-        Object next = animationsEnabled ? visibleDialog : null;
+    void update(Object visibleDialog, float delta, Direction selectedDirection) {
+        Object next = selectedDirection == Direction.OFF ? null : visibleDialog;
         if (next != dialog) {
             Runnable finish = visibleDialog == dialog ? onClosed : null;
             onClosed = null;
             dialog = next;
+            direction = selectedDirection;
             openness = 0f;
             if (finish != null) finish.run();
+        } else if (openness == 1f) {
+            direction = selectedDirection;
         }
         advance(delta);
     }
@@ -61,18 +78,32 @@ final class GdxDialogSlide {
         return dialog != null && (openness < 1f || closing());
     }
 
-    float offset(float worldHeight) {
-        return moving() ? worldHeight * (1f - Interpolation.pow3Out.apply(openness)) : 0f;
+    private float remainingDistance() {
+        return moving() ? 1f - Interpolation.pow3Out.apply(openness) : 0f;
     }
 
-    float drawingOffset() {
-        return drawingOffset;
+    float offsetX(float worldWidth) {
+        return worldWidth * remainingDistance() * direction.x;
+    }
+
+    float offsetY(float worldHeight) {
+        return worldHeight * remainingDistance() * direction.y;
+    }
+
+    float drawingOffsetX() {
+        return drawingOffsetX;
+    }
+
+    float drawingOffsetY() {
+        return drawingOffsetY;
     }
 
     boolean begin(Viewport viewport, ShapeRenderer shapes, SpriteBatch batch) {
-        drawingOffset = offset(viewport.getWorldHeight());
-        if (drawingOffset == 0f) return false;
-        projection.set(viewport.getCamera().combined).translate(0f, drawingOffset, 0f);
+        drawingOffsetX = offsetX(viewport.getWorldWidth());
+        drawingOffsetY = offsetY(viewport.getWorldHeight());
+        if (drawingOffsetX == 0f && drawingOffsetY == 0f) return false;
+        projection.set(viewport.getCamera().combined)
+                .translate(drawingOffsetX, drawingOffsetY, 0f);
         shapes.setProjectionMatrix(projection);
         batch.setProjectionMatrix(projection);
         return true;
@@ -81,6 +112,7 @@ final class GdxDialogSlide {
     void end(Viewport viewport, ShapeRenderer shapes, SpriteBatch batch) {
         shapes.setProjectionMatrix(viewport.getCamera().combined);
         batch.setProjectionMatrix(viewport.getCamera().combined);
-        drawingOffset = 0f;
+        drawingOffsetX = 0f;
+        drawingOffsetY = 0f;
     }
 }

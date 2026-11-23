@@ -743,10 +743,11 @@ final class GdxSettingsContractTest {
 
         assertTrue(GdxSettingsContract.hasAppearanceAnimationOptions(page));
         assertEquals(21, page.options().size());
-        assertEquals(9, GdxAppearanceOptions.ANIMATION_CHOICES.size());
-        assertEquals(31, GdxSettingsContract.appearanceRowCount(page));
+        assertEquals(10, GdxAppearanceOptions.ANIMATION_CHOICES.size());
+        assertEquals(32, GdxSettingsContract.appearanceRowCount(page));
         assertEquals(java.util.List.of(
                 "animaciones",
+                GdxSettingsContract.DIALOG_SLIDE_DIRECTION_KEY,
                 "efecto_halos",
                 "efecto_desenfoque",
                 "efecto_relieve",
@@ -776,6 +777,28 @@ final class GdxSettingsContractTest {
                 GdxSettingsContract.appearanceRows(page).stream()
                         .map(GdxSettingsContract.AppearanceAnimationRow::key)
                         .toList());
+    }
+
+    @Test
+    void dialogMotionSettingUsesLeftByDefaultAndRestoresThroughAppearanceSettings() {
+        var properties = new Properties();
+        var choice = GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION;
+        var spanish = new GdxGameText("es");
+        assertEquals(List.of("ARRIBA", "DERECHA", "IZQUIERDA", "ABAJO", "DESACTIVADO"),
+                java.util.stream.IntStream.range(0, choice.values().size())
+                        .mapToObj(index -> GdxAppearanceOptions.labelAt(choice, index, spanish))
+                        .toList());
+        assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(choice.key()));
+        assertEquals(GdxDialogSlide.Direction.LEFT, GdxAppearanceOptions.dialogSlideDirection(properties));
+        properties.setProperty(choice.key(), "invalid");
+        assertEquals(GdxDialogSlide.Direction.LEFT, GdxAppearanceOptions.dialogSlideDirection(properties));
+        properties.setProperty(choice.key(), "right");
+        assertEquals(GdxDialogSlide.Direction.RIGHT, GdxAppearanceOptions.dialogSlideDirection(properties));
+        properties.setProperty("animaciones", "false");
+        assertEquals(GdxDialogSlide.Direction.OFF, GdxAppearanceOptions.dialogSlideDirection(properties));
+        GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
+        assertEquals("left", properties.getProperty(choice.key()));
+        assertEquals(GdxDialogSlide.Direction.LEFT, GdxAppearanceOptions.dialogSlideDirection(properties));
     }
 
     @Test void onlyTheFlatTableOffersASeparateShuffleView() {

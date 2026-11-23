@@ -156,31 +156,51 @@ final class GdxFrontendSettingsGpuTest {
     private static void verifyMenuDialogSlide(GdxFrontendScreen screen)
             throws Exception {
         var slide = (GdxDialogSlide) field(screen, "menuDialogSlide");
-        invoke(screen, "openAboutDialog", new Class<?>[0]);
-        screen.render();
-        assertTrue(slide.offset(HEIGHT) > 0f, "About should enter from above");
-        slide.advance(1f);
-        invoke(screen, "closeAboutDialog", new Class<?>[0]);
-        assertTrue(slide.closing());
-        slide.advance(1f);
-        assertFalse((boolean) field(screen, "aboutOpen"));
+        var choice = GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION;
+        var properties = (Properties) field(screen, "initialProperties");
+        var saved = new Properties();
+        saved.putAll(properties);
+        int[][] directions = {{0, 1}, {1, 0}, {-1, 0}, {0, -1}, {0, 0}};
+        try {
+            for (int index = 0; index < directions.length; index++) {
+                GdxAppearanceOptions.select(choice, properties, index);
+                invoke(screen, "openNewGame", new Class<?>[]{NewGameConnectionDraft.Mode.class},
+                        NewGameConnectionDraft.Mode.CREATE);
+                screen.render();
+                int x = directions[index][0], y = directions[index][1];
+                assertSlideDirection(slide, x, y);
+                slide.advance(1f);
+                screen.render();
+                assertSlideDirection(slide, 0, 0);
+                invoke(screen, "cancelOrReturnToMenu", new Class<?>[0]);
+                if (x != 0 || y != 0) {
+                    assertTrue(slide.closing());
+                    slide.advance(0.08f);
+                    screen.render();
+                    assertSlideDirection(slide, x, y);
+                    assertEquals("NEW_GAME", field(screen, "surface").toString());
+                    slide.advance(1f);
+                } else {
+                    assertFalse(slide.closing());
+                }
+                screen.render();
+                assertEquals("MENU", field(screen, "surface").toString());
+            }
+            GdxAppearanceOptions.select(choice, properties, 2);
+            screen.requestApplicationExit();
+            screen.render();
+            assertSlideDirection(slide, 0, 0);
+            invoke(screen, "cancelApplicationExit", new Class<?>[0]);
+            assertFalse(slide.closing());
+            assertFalse((boolean) field(screen, "applicationExitConfirmation"));
+        } finally {
+            restoreKey(properties, saved, choice.key());
+        }
+    }
 
-        invoke(screen, "openNewGame", new Class<?>[]{NewGameConnectionDraft.Mode.class},
-                NewGameConnectionDraft.Mode.CREATE);
-        screen.render();
-        assertTrue(slide.offset(HEIGHT) > 0f, "New game should enter from above");
-        slide.advance(1f);
-        screen.render();
-        assertEquals(0f, slide.offset(HEIGHT));
-        invoke(screen, "cancelOrReturnToMenu", new Class<?>[0]);
-        assertTrue(slide.closing());
-        slide.advance(0.10f);
-        screen.render();
-        assertTrue(slide.offset(HEIGHT) > 0f, "New game should leave upwards");
-        assertEquals("NEW_GAME", field(screen, "surface").toString());
-        slide.advance(1f);
-        screen.render();
-        assertEquals("MENU", field(screen, "surface").toString());
+    private static void assertSlideDirection(GdxDialogSlide slide, int x, int y) {
+        assertEquals(x, (int) Math.signum(slide.offsetX(WIDTH)));
+        assertEquals(y, (int) Math.signum(slide.offsetY(HEIGHT)));
     }
 
     private static void verifyLobbyNoticeHandoff(GdxFrontendScreen screen)
@@ -844,14 +864,14 @@ final class GdxFrontendSettingsGpuTest {
             invoke(table, "openSettings", new Class<?>[0]);
             var slide = (GdxDialogSlide) field(table, "settingsSlide");
             table.render();
-            assertTrue(slide.offset(HEIGHT) > 0f, "Table settings should enter from above");
+            assertSlideDirection(slide, -1, 0);
             slide.advance(1f);
             table.render();
             invoke(table, "requestCancelTableSettings", new Class<?>[]{Runnable.class}, (Object) null);
             assertTrue(slide.closing());
             slide.advance(0.10f);
             table.render();
-            assertTrue(slide.offset(HEIGHT) > 0f, "Table settings should leave upwards");
+            assertSlideDirection(slide, -1, 0);
             assertEquals(CoronaPokerGdxTable.UI_SETTINGS, field(table, "uiLayer"));
             slide.advance(1f);
             assertEquals(CoronaPokerGdxTable.UI_NONE, field(table, "uiLayer"));

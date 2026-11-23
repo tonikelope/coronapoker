@@ -7263,7 +7263,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         totalTime += delta;
         sceneTime += delta;
         settingsSlide.update(uiLayer == UI_SETTINGS ? Boolean.TRUE : null,
-                delta, tablePreference("animaciones", true));
+                delta, GdxAppearanceOptions.dialogSlideDirection(tableSettingsProperties()));
         if (!intro
                 && preparationPhase
                 == TableVisualEvent.PreparationStatus.Phase.READY
@@ -27297,7 +27297,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawSettingsDialog() {
-        float alpha = settingsSlide.drawingOffset() > 0f ? 1f : uiFade();
+        float alpha = 1f;
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         List<GdxSettingsContract.Section> sections =
@@ -27902,10 +27902,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void enableTableScissor(Rectangle bounds) {
         int screenX = Math.round(viewport.getScreenX()
-                + bounds.x * viewport.getScreenWidth()
-                / viewport.getWorldWidth());
+                + (bounds.x + settingsSlide.drawingOffsetX())
+                        * viewport.getScreenWidth() / viewport.getWorldWidth());
         int screenY = Math.round(viewport.getScreenY()
-                + (bounds.y + settingsSlide.drawingOffset())
+                + (bounds.y + settingsSlide.drawingOffsetY())
                         * viewport.getScreenHeight() / viewport.getWorldHeight());
         int screenWidth = Math.max(1, Math.round(bounds.width
                 * viewport.getScreenWidth() / viewport.getWorldWidth()));

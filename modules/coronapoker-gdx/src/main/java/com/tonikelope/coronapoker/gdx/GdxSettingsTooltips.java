@@ -275,6 +275,8 @@ final class GdxSettingsTooltips {
                 "gdx.settings.tooltip.chat_images";
             case "animaciones" ->
                 "gdx.settings.tooltip.animations_master";
+            case GdxSettingsContract.DIALOG_SLIDE_DIRECTION_KEY ->
+                "gdx.settings.tooltip.dialog_slide_direction";
             case GdxSettingsContract.POKER_VIDEOS_KEY ->
                 "gdx.settings.tooltip.poker_videos";
             case GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY ->

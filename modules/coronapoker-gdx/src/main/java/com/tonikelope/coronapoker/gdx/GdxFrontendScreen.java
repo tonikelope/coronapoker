@@ -1327,7 +1327,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         prepareFrontendGraphicsState();
         elapsed += frameDelta;
         menuDialogSlide.update(menuSlideTarget(), frameDelta,
-                preferenceBoolean("animaciones", true));
+                GdxAppearanceOptions.dialogSlideDirection(initialProperties));
         if (networkBlockCache != null) {
             networkBlockCache.update(frameDelta,
                     lobby != null && lobby.host());
@@ -2262,9 +2262,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private Object menuSlideTarget() {
+        if (applicationExitConfirmation) return null;
         return switch (surface) {
             case MENU -> {
-                if (applicationExitConfirmation) yield MenuDialog.EXIT;
                 if (modAdultWarning) yield MenuDialog.ADULT_WARNING;
                 if (!frontendNoticeMessage.isBlank()) yield MenuDialog.NOTICE;
                 if (settingsRestartNotice) yield MenuDialog.RESTART;
@@ -5801,12 +5801,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void cancelApplicationExit() {
-        if (deferMenuDialogClose(MenuDialog.EXIT, this::cancelApplicationExit)) return;
         applicationExitConfirmation = false;
     }
 
     private void confirmApplicationExit() {
-        if (deferMenuDialogClose(MenuDialog.EXIT, this::confirmApplicationExit)) return;
         applicationExitConfirmation = false;
         Gdx.app.exit();
     }
@@ -7094,9 +7092,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void enableWorldScissor(Rectangle bounds) {
         int screenX = Math.round(viewport.getScreenX()
-                + bounds.x * viewport.getScreenWidth() / WIDTH);
+                + (bounds.x + menuDialogSlide.drawingOffsetX())
+                        * viewport.getScreenWidth() / WIDTH);
         int screenY = Math.round(viewport.getScreenY()
-                + (bounds.y + menuDialogSlide.drawingOffset())
+                + (bounds.y + menuDialogSlide.drawingOffsetY())
                         * viewport.getScreenHeight() / HEIGHT);
         int screenWidth = Math.max(1, Math.round(bounds.width
                 * viewport.getScreenWidth() / WIDTH));
@@ -18740,7 +18739,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
     }
 
-    private enum MenuDialog { EXIT, ADULT_WARNING, NOTICE, RESTART, CHECK_UPDATE, ABOUT, UPDATE }
+    private enum MenuDialog { ADULT_WARNING, NOTICE, RESTART, CHECK_UPDATE, ABOUT, UPDATE }
 
     private enum Surface {
         MENU, NEW_GAME, LOBBY, SETTINGS, STATS, SCREENSHOTS

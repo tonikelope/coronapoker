@@ -549,6 +549,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private float volumeOverlayUntil;
     private float elapsed;
     private float frameDelta;
+    private final GdxDialogSlide menuDialogSlide = new GdxDialogSlide();
     private float menuRevealStartedAt = Float.NaN;
     private boolean startupAudioHeld;
     private boolean tableAudioSuspended;
@@ -1325,6 +1326,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         refreshPointerFromDevice();
         prepareFrontendGraphicsState();
         elapsed += frameDelta;
+        menuDialogSlide.update(menuSlideTarget(), frameDelta,
+                preferenceBoolean("animaciones", true));
         if (networkBlockCache != null) {
             networkBlockCache.update(frameDelta,
                     lobby != null && lobby.host());
@@ -1585,7 +1588,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             // modal must therefore be rendered with an off-screen pointer as
             // well as an empty interaction map; otherwise its hover/pressed
             // material remains visible around the opaque popup.
-            boolean shieldDropdownPointer = dropdown != Dropdown.NONE;
+            boolean moveDialog = (surface == Surface.MENU || rootSurfaceModal)
+                    && pendingLanguage == null
+                    && menuDialogSlide.begin(viewport, shapes, batch);
+            boolean shieldDropdownPointer = dropdown != Dropdown.NONE || moveDialog;
             float dropdownPointerX = pointer.x;
             float dropdownPointerY = pointer.y;
             if (shieldDropdownPointer) {
@@ -1728,6 +1734,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             if (rootSurfaceModal && surface == Surface.STATS) {
                 drawStatsChartTextLayer();
+            }
+            if (moveDialog) {
+                menuDialogSlide.end(viewport, shapes, batch);
+                tooltipHits.clear();
             }
         }
         // Dropdowns are sharp popup layers, not modals. Compose them after
@@ -2249,6 +2259,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean settingsSlidersInteractive() {
         return surface == Surface.SETTINGS && isFrontendRootModal()
                 && dropdown == Dropdown.NONE && !rulesWindow.isOpen();
+    }
+
+    private Object menuSlideTarget() {
+        return switch (surface) {
+            case MENU -> {
+                if (applicationExitConfirmation) yield MenuDialog.EXIT;
+                if (modAdultWarning) yield MenuDialog.ADULT_WARNING;
+                if (!frontendNoticeMessage.isBlank()) yield MenuDialog.NOTICE;
+                if (settingsRestartNotice) yield MenuDialog.RESTART;
+                if (updateCheckingModalVisible()) yield MenuDialog.CHECK_UPDATE;
+                if (aboutOpen) yield MenuDialog.ABOUT;
+                yield updatePromptOpen ? MenuDialog.UPDATE : null;
+            }
+            case NEW_GAME -> Surface.NEW_GAME;
+            case SETTINGS -> settingsReturnSurface == Surface.MENU ? surface : null;
+            case STATS -> statsReturnAction == null ? surface : null;
+            case SCREENSHOTS -> screenshotReturnSurface == Surface.MENU ? surface : null;
+            default -> null;
+        };
+    }
+
+    private boolean deferMenuDialogClose(Object dialog, Runnable finish) {
+        return menuSlideTarget() == dialog
+                && menuDialogSlide.deferClose(dialog, finish);
     }
 
     private void drawSettingsBackdropSurface() {
@@ -2791,6 +2825,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeStats() {
+        if (deferMenuDialogClose(Surface.STATS, this::closeStats)) return;
         closeStatsDashboard();
         closeStatsEvidence();
         statsLoadGeneration++;
@@ -2821,6 +2856,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeScreenshotViewer() {
+        if (deferMenuDialogClose(Surface.SCREENSHOTS, this::closeScreenshotViewer)) return;
         screenshotGeneration++;
         screenshotScan = null;
         screenshotPreview.close();
@@ -5289,6 +5325,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeAboutDialog() {
+        if (deferMenuDialogClose(MenuDialog.ABOUT, this::closeAboutDialog)) return;
         aboutCopyrightOpen = false;
         rulesWindow.close();
         disposeAboutEasterEgg();
@@ -5441,6 +5478,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void cancelUpdateCheck() {
+        if (deferMenuDialogClose(MenuDialog.CHECK_UPDATE, this::cancelUpdateCheck)) return;
         CompletableFuture<UpdateService.CheckResult> check = updateCheck;
         if (check == null) return;
         updateCheck = null;
@@ -5452,7 +5490,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void dismissUpdatePrompt() {
-        if (updateInstalling) return;
+        if (updateInstalling
+                || deferMenuDialogClose(MenuDialog.UPDATE, this::dismissUpdatePrompt)) return;
         updatePromptOpen = false;
         if (updatePromptForMod) {
             updatePromptForMod = false;
@@ -5699,7 +5738,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(button.x, button.y, button.width, button.height,
                 uppercase(gameText.translate("ui.aceptar")),
                 frontendNoticeError ? ButtonTone.DANGER : ButtonTone.POSITIVE,
-                this::dismissFrontendNotice, true);
+                this::closeFrontendNotice, true);
     }
 
     private void drawModAdultWarning() {
@@ -5755,18 +5794,25 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(cancel.x, cancel.y, cancel.width, cancel.height,
                 uppercase(gameText.translate("ui.cancelar")),
                 ButtonTone.NEUTRAL,
-                () -> applicationExitConfirmation = false, true);
+                this::cancelApplicationExit, true);
         exitButton(exit.x, exit.y, exit.width, exit.height,
                 uppercase(gameText.translate("ui.salir")),
                 this::confirmApplicationExit, true);
     }
 
+    private void cancelApplicationExit() {
+        if (deferMenuDialogClose(MenuDialog.EXIT, this::cancelApplicationExit)) return;
+        applicationExitConfirmation = false;
+    }
+
     private void confirmApplicationExit() {
+        if (deferMenuDialogClose(MenuDialog.EXIT, this::confirmApplicationExit)) return;
         applicationExitConfirmation = false;
         Gdx.app.exit();
     }
 
     private void acceptModAdultContent() {
+        if (deferMenuDialogClose(MenuDialog.ADULT_WARNING, this::acceptModAdultContent)) return;
         try {
             presentationSettings.acknowledgeModAdultContent();
             modAdultWarning = false;
@@ -5780,6 +5826,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void declineModAdultContent() {
+        if (deferMenuDialogClose(MenuDialog.ADULT_WARNING, this::declineModAdultContent)) return;
         modAdultWarning = false;
         Gdx.app.exit();
     }
@@ -7049,7 +7096,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         int screenX = Math.round(viewport.getScreenX()
                 + bounds.x * viewport.getScreenWidth() / WIDTH);
         int screenY = Math.round(viewport.getScreenY()
-                + bounds.y * viewport.getScreenHeight() / HEIGHT);
+                + (bounds.y + menuDialogSlide.drawingOffset())
+                        * viewport.getScreenHeight() / HEIGHT);
         int screenWidth = Math.max(1, Math.round(bounds.width
                 * viewport.getScreenWidth() / WIDTH));
         int screenHeight = Math.max(1, Math.round(bounds.height
@@ -9032,6 +9080,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void finishClosingSettings(boolean save) {
+        if (deferMenuDialogClose(Surface.SETTINGS, () -> finishClosingSettings(save))) {
+            settingsDiscardConfirmation = false;
+            return;
+        }
         if (save) {
             fpsControl.finishEditing(settingsSession.frameRateDraft());
             settingsSession.commitFrameRate(initialProperties);
@@ -9109,7 +9161,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         themedButton(accept.x, accept.y, accept.width, accept.height,
                 uppercase(gameText.translate("ui.aceptar")),
                 ButtonTone.FEATURED,
-                () -> settingsRestartNotice = false, true);
+                this::dismissSettingsRestartNotice, true);
+    }
+
+    private void dismissSettingsRestartNotice() {
+        if (!deferMenuDialogClose(MenuDialog.RESTART, () -> settingsRestartNotice = false)) {
+            settingsRestartNotice = false;
+        }
     }
 
     private boolean settingsHavePendingChanges() {
@@ -11807,6 +11865,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         captureFrontendModalInput();
     }
 
+    private void closeFrontendNotice() {
+        if (!deferMenuDialogClose(MenuDialog.NOTICE, this::dismissFrontendNotice)) {
+            dismissFrontendNotice();
+        }
+    }
+
     private void dismissFrontendNotice() {
         frontendLobbyNotice = null;
         frontendNoticeTitle = "";
@@ -13949,6 +14013,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return;
         }
+        if (deferMenuDialogClose(Surface.NEW_GAME, this::cancelOrReturnToMenu)) return;
         clearActiveField();
         cancelAndReleaseUpnp();
         dismissFrontendNotice();
@@ -16570,7 +16635,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointerIndex, int button) {
-        if (pendingLanguage != null || fileChooserPending()) return true;
+        if (pendingLanguage != null || fileChooserPending()
+                || menuDialogSlide.moving()) return true;
         if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
         if (hitPointer.active()) return true;
         pointer.set(screenX, screenY);
@@ -17254,7 +17320,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     @Override
     public boolean keyDown(int keycode) {
-        if (pendingLanguage != null || fileChooserPending()) return true;
+        if (pendingLanguage != null || fileChooserPending()
+                || menuDialogSlide.closing()) return true;
         if (imagePreview.isOpen()) {
             if (GdxDialogKeyboard.isCancel(keycode)) imagePreview.dispose();
             return true;
@@ -17326,7 +17393,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         // lobby field/action may be triggered through the loading overlay.
         if (applicationExitConfirmation) {
             if (GdxDialogKeyboard.isCancel(keycode)) {
-                applicationExitConfirmation = false;
+                cancelApplicationExit();
             } else if (GdxDialogKeyboard.isConfirm(keycode)) {
                 confirmApplicationExit();
             }
@@ -17370,7 +17437,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
             if (!frontendNoticeMessage.isBlank()) {
-                dismissFrontendNotice();
+                closeFrontendNotice();
                 return true;
             }
             if (upnpOpenInFlight) {
@@ -17381,7 +17448,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 return true;
             }
             if (settingsRestartNotice) {
-                settingsRestartNotice = false;
+                dismissSettingsRestartNotice();
                 return true;
             }
             if (initialBuyinInput != null) {
@@ -17637,7 +17704,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (!frontendNoticeMessage.isBlank()) {
-            dismissFrontendNotice();
+            closeFrontendNotice();
             return true;
         }
         if (surface == Surface.LOBBY && networkBlocksOpen
@@ -17652,7 +17719,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             return true;
         }
         if (settingsRestartNotice) {
-            settingsRestartNotice = false;
+            dismissSettingsRestartNotice();
             return true;
         }
         if (surface == Surface.SCREENSHOTS && screenshotDeleteConfirmation) {
@@ -18292,7 +18359,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
-        if (pendingLanguage != null || fileChooserPending()) return true;
+        if (pendingLanguage != null || fileChooserPending()
+                || menuDialogSlide.moving()) return true;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(pointer);
         if (rulesWindow.isOpen()) {
@@ -18671,6 +18739,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             gif = null;
         }
     }
+
+    private enum MenuDialog { EXIT, ADULT_WARNING, NOTICE, RESTART, CHECK_UPDATE, ABOUT, UPDATE }
 
     private enum Surface {
         MENU, NEW_GAME, LOBBY, SETTINGS, STATS, SCREENSHOTS

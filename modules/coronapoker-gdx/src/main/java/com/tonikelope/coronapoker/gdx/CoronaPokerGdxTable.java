@@ -1237,6 +1237,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float remoteSeatEntryStartedAt = Float.NaN;
 
     private int uiLayer = UI_NONE;
+    private final GdxDialogSlide settingsSlide = new GdxDialogSlide();
     private float uiOpenedAt;
     private float musicVolume = 0.40f;
     private float effectsVolume = 1.0f;
@@ -1900,7 +1901,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final InputProcessor tableInput = new InputAdapter() {
         @Override
         public boolean keyDown(int keycode) {
-            if (imagePreview.isOpen()) return true;
+            if (imagePreview.isOpen()
+                    || uiLayer == UI_SETTINGS && settingsSlide.closing()) return true;
             boolean capturingShortcut = uiLayer == UI_SETTINGS
                     && settingsSection() == GdxSettingsContract.Section.SHORTCUTS
                     && shortcutCaptureId != null;
@@ -2109,6 +2111,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
         @Override
         public boolean scrolled(float amountX, float amountY) {
+            if (settingsDialogMoving()) return true;
             if (tableAppearanceMenuOpen()) {
                 scrollSettingsSelection(amountY);
                 return true;
@@ -2192,6 +2195,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         @Override
         public boolean touchDown(int screenX, int screenY, int pointerIndex,
                 int button) {
+            if (settingsDialogMoving()) return true;
             if (tableAppearanceMenuOpen()) {
                 beginSettingsSelectionScroll(screenX, screenY, pointerIndex, button);
                 return true;
@@ -3446,6 +3450,18 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void closeTableSettings(boolean save) {
+        closeTableSettings(save, null);
+    }
+
+    private void closeTableSettings(boolean save, Runnable afterClose) {
+        Runnable finish = () -> {
+            finishClosingTableSettings(save);
+            if (afterClose != null) afterClose.run();
+        };
+        if (!settingsSlide.deferClose(Boolean.TRUE, finish)) finish.run();
+    }
+
+    private void finishClosingTableSettings(boolean save) {
         if (save && preferences != null) {
             fpsControl.finishEditing(settingsSession.frameRateDraft());
             settingsSession.commitFrameRate(tableProperties);
@@ -3627,8 +3643,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private void requestCancelTableSettings(Runnable afterClose) {
         if (!settingsHavePendingChanges()) {
-            closeTableSettings(false);
-            if (afterClose != null) afterClose.run();
+            closeTableSettings(false, afterClose);
             return;
         }
         if (settingsDiscardConfirmation != null
@@ -3662,8 +3677,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Runnable continuation = settingsDiscardAfterClose;
             settingsDiscardAfterClose = null;
             if (!discard || uiLayer != UI_SETTINGS) return;
-            closeTableSettings(false);
-            if (continuation != null) continuation.run();
+            closeTableSettings(false, continuation);
         });
         showDialog(confirmation);
     }
@@ -7248,6 +7262,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         totalTime += delta;
         sceneTime += delta;
+        settingsSlide.update(uiLayer == UI_SETTINGS ? Boolean.TRUE : null,
+                delta, tablePreference("animaciones", true));
         if (!intro
                 && preparationPhase
                 == TableVisualEvent.PreparationStatus.Phase.READY
@@ -25796,7 +25812,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             viewport.unproject(pointer);
         }
         switch (uiLayer) {
-            case UI_SETTINGS -> drawSettingsDialog();
+            case UI_SETTINGS -> drawAnimatedSettingsDialog();
             case UI_GAME_LOG -> drawGameLogDialog();
             case UI_CHAT -> drawQuickChatDialog();
             case UI_CARD_VIEWER -> drawCardViewer();
@@ -27258,8 +27274,30 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 (totalTime - uiOpenedAt) / UI_FADE_SECONDS, 0f, 1f));
     }
 
+    private boolean settingsDialogMoving() {
+        return uiLayer == UI_SETTINGS && activeDialog == null
+                && settingsSlide.moving();
+    }
+
+    private void drawAnimatedSettingsDialog() {
+        if (!settingsDialogMoving() || !settingsSlide.begin(viewport, shapes, batch)) {
+            drawSettingsDialog();
+            return;
+        }
+        float pointerX = pointer.x;
+        float pointerY = pointer.y;
+        pointer.set(-10_000f, -10_000f);
+        try {
+            drawSettingsDialog();
+            deferredTooltip = null;
+        } finally {
+            pointer.set(pointerX, pointerY);
+            settingsSlide.end(viewport, shapes, batch);
+        }
+    }
+
     private void drawSettingsDialog() {
-        float alpha = uiFade();
+        float alpha = settingsSlide.drawingOffset() > 0f ? 1f : uiFade();
         float width = viewport.getWorldWidth();
         float height = viewport.getWorldHeight();
         List<GdxSettingsContract.Section> sections =
@@ -27867,8 +27905,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 + bounds.x * viewport.getScreenWidth()
                 / viewport.getWorldWidth());
         int screenY = Math.round(viewport.getScreenY()
-                + bounds.y * viewport.getScreenHeight()
-                / viewport.getWorldHeight());
+                + (bounds.y + settingsSlide.drawingOffset())
+                        * viewport.getScreenHeight() / viewport.getWorldHeight());
         int screenWidth = Math.max(1, Math.round(bounds.width
                 * viewport.getScreenWidth() / viewport.getWorldWidth()));
         int screenHeight = Math.max(1, Math.round(bounds.height

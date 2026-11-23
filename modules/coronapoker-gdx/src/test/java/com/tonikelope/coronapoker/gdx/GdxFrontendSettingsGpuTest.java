@@ -16,6 +16,7 @@ import com.tonikelope.coronapoker.core.IdentityTrustStore;
 import com.tonikelope.coronapoker.core.LobbyParticipant;
 import com.tonikelope.coronapoker.core.LobbySession;
 import com.tonikelope.coronapoker.core.LobbySnapshot;
+import com.tonikelope.coronapoker.core.NewGameConnectionDraft;
 import com.tonikelope.coronapoker.core.NewGameTableDraft;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.RecoverableGameRepository;
@@ -131,6 +132,7 @@ final class GdxFrontendSettingsGpuTest {
                 screen.resize(WIDTH, HEIGHT);
                 invoke(screen, "cancelUpdateCheck", new Class<?>[0]);
                 screen.completeStartupReveal();
+                verifyMenuDialogSlide(screen);
                 verifySettings(screen, presentation, GdxSettingsSession.Context.MENU);
                 verifyImageViewer(screen);
                 try (var lobby = lobby()) {
@@ -149,6 +151,36 @@ final class GdxFrontendSettingsGpuTest {
                 verifyLiveTable(prefs, presentation, host);
             }
         }
+    }
+
+    private static void verifyMenuDialogSlide(GdxFrontendScreen screen)
+            throws Exception {
+        var slide = (GdxDialogSlide) field(screen, "menuDialogSlide");
+        invoke(screen, "openAboutDialog", new Class<?>[0]);
+        screen.render();
+        assertTrue(slide.offset(HEIGHT) > 0f, "About should enter from above");
+        slide.advance(1f);
+        invoke(screen, "closeAboutDialog", new Class<?>[0]);
+        assertTrue(slide.closing());
+        slide.advance(1f);
+        assertFalse((boolean) field(screen, "aboutOpen"));
+
+        invoke(screen, "openNewGame", new Class<?>[]{NewGameConnectionDraft.Mode.class},
+                NewGameConnectionDraft.Mode.CREATE);
+        screen.render();
+        assertTrue(slide.offset(HEIGHT) > 0f, "New game should enter from above");
+        slide.advance(1f);
+        screen.render();
+        assertEquals(0f, slide.offset(HEIGHT));
+        invoke(screen, "cancelOrReturnToMenu", new Class<?>[0]);
+        assertTrue(slide.closing());
+        slide.advance(0.10f);
+        screen.render();
+        assertTrue(slide.offset(HEIGHT) > 0f, "New game should leave upwards");
+        assertEquals("NEW_GAME", field(screen, "surface").toString());
+        slide.advance(1f);
+        screen.render();
+        assertEquals("MENU", field(screen, "surface").toString());
     }
 
     private static void verifyLobbyNoticeHandoff(GdxFrontendScreen screen)
@@ -177,8 +209,9 @@ final class GdxFrontendSettingsGpuTest {
             throws Exception {
         invoke(screen, "openSettings", new Class<?>[]{GdxSettingsContract.Section.class},
                 GdxSettingsContract.Section.APPEARANCE);
+        Runnable renderSettings = settledSettingsRender(screen, screen::render);
         verifyDiscardFromEveryPage(screen, context, (Properties) field(screen, "initialProperties"),
-                screen::render, point -> click(screen, point));
+                renderSettings, point -> click(screen, point));
         var session = (GdxSettingsSession) field(screen, "settingsSession");
         assertEquals(context, session.context());
         for (var section : session.sections()) {
@@ -215,6 +248,19 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(false, field(screen, "secretFeltTexture"));
         verifyDeckPreview(screen, presentation);
         invoke(screen, "closeSettings", new Class<?>[]{boolean.class}, false);
+        renderSettings.run();
+    }
+
+    private static Runnable settledSettingsRender(Object owner, Runnable render) throws Exception {
+        String fieldName = owner instanceof GdxFrontendScreen ? "menuDialogSlide" : "settingsSlide";
+        var slide = (GdxDialogSlide) field(owner, fieldName);
+        return () -> {
+            render.run();
+            if (slide.moving()) {
+                slide.advance(1f);
+                render.run();
+            }
+        };
     }
 
     @FunctionalInterface
@@ -316,6 +362,7 @@ final class GdxFrontendSettingsGpuTest {
                 click.at(frame.cancelButton().getCenter(new Vector2()));
                 render.run();
                 click.at(discard);
+                render.run();
                 assertFalse(session.open(), "Discard did not close " + label);
                 assertEquals(baseline, GdxSettingsContract.snapshot(props), label);
                 if (owner instanceof GdxFrontendScreen screen) {
@@ -346,6 +393,7 @@ final class GdxFrontendSettingsGpuTest {
                         assertDiscardPrompt(owner, true, label);
                         click.at(prompt.positiveButton().getCenter(new Vector2()));
                     }
+                    render.run();
                     assertFalse(session.open(), label);
                     assertEquals(baseline, GdxSettingsContract.snapshot(props), label);
                     invoke(owner, "openSettings", new Class<?>[0]);
@@ -402,6 +450,7 @@ final class GdxFrontendSettingsGpuTest {
         settingsKey(owner, Input.Keys.ESCAPE);
         render.run();
         settingsKey(owner, Input.Keys.ENTER);
+        render.run();
         assertFalse(session.open());
         assertEquals(beforeKeys, GdxSettingsContract.snapshot(props));
         invoke(owner, "openSettings", new Class<?>[0]);
@@ -412,6 +461,7 @@ final class GdxFrontendSettingsGpuTest {
         String selected = props.getProperty(duration.key());
         render.run();
         click.at(frame.saveButton().getCenter(new Vector2()));
+        render.run();
         assertFalse(session.open());
         assertDiscardPrompt(owner, false, context.toString());
         invoke(owner, "openSettings", new Class<?>[0]);
@@ -419,6 +469,7 @@ final class GdxFrontendSettingsGpuTest {
         assertFalse(session.propertiesChanged(props));
         render.run();
         click.at(frame.cancelButton().getCenter(new Vector2()));
+        render.run();
         assertFalse(session.open());
         assertDiscardPrompt(owner, false, context.toString());
         if (owner instanceof GdxFrontendScreen screen) {
@@ -791,8 +842,24 @@ final class GdxFrontendSettingsGpuTest {
             ready.join();
             verifyMixedDeckProportions(table, presentation);
             invoke(table, "openSettings", new Class<?>[0]);
+            var slide = (GdxDialogSlide) field(table, "settingsSlide");
+            table.render();
+            assertTrue(slide.offset(HEIGHT) > 0f, "Table settings should enter from above");
+            slide.advance(1f);
+            table.render();
+            invoke(table, "requestCancelTableSettings", new Class<?>[]{Runnable.class}, (Object) null);
+            assertTrue(slide.closing());
+            slide.advance(0.10f);
+            table.render();
+            assertTrue(slide.offset(HEIGHT) > 0f, "Table settings should leave upwards");
+            assertEquals(CoronaPokerGdxTable.UI_SETTINGS, field(table, "uiLayer"));
+            slide.advance(1f);
+            assertEquals(CoronaPokerGdxTable.UI_NONE, field(table, "uiLayer"));
+            invoke(table, "openSettings", new Class<?>[0]);
+            Runnable renderSettings = settledSettingsRender(table, table::render);
             verifyDiscardFromEveryPage(table, GdxSettingsSession.Context.LIVE_TABLE, preferences.properties(),
-                    table::render, point -> tableGesture(table, point, Input.Keys.UNKNOWN));
+                    renderSettings, point -> tableGesture(table, point, Input.Keys.UNKNOWN));
+            renderSettings.run();
             // Exercise the remaining appearance previews once, on their original perspective table.
             if (lobby != null) return;
             var session = (GdxSettingsSession) field(table, "settingsSession");
@@ -992,6 +1059,7 @@ final class GdxFrontendSettingsGpuTest {
             assertEquals(true, field(screen, "aboutOpen"));
         }
         invoke(screen, "closeAboutDialog", new Class<?>[0]);
+        settledSettingsRender(screen, screen::render).run();
     }
 
     private static Vector2 screenPoint(GdxFrontendScreen screen, float x, float y)

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 final class GdxRebuyAmountGpuTest {
 
     @Test
-    void rebuyRemainsUnfocusedUntilAnAmountIsEntered() {
+    void rebuyAmountRequiresFocusBeforeEditing() {
         var config = new Lwjgl3ApplicationConfiguration();
         config.setInitialVisible(false);
         config.setWindowedMode(960, 540);
@@ -58,8 +58,12 @@ final class GdxRebuyAmountGpuTest {
             input.keyDown(Input.Keys.LEFT);
             input.keyUp(Input.Keys.LEFT);
             assertTrue(input.keyTyped('|'));
+            assertTrue(input.keyTyped('5'));
             assertEquals("10", dialog.amountText());
             assertEquals(0, edit.caret(dialog.amountText()));
+            input.keyDown(Input.Keys.TAB);
+            input.keyUp(Input.Keys.TAB);
+            assertTrue(edit.hasSelection(dialog.amountText()));
 
             for (char character : "5,70".toCharArray()) {
                 assertTrue(input.keyTyped(character));
@@ -78,6 +82,8 @@ final class GdxRebuyAmountGpuTest {
                     "CANCEL", 0.01d, 10d, 10d);
             table.showDialog(reopened);
             assertEquals(0, edit.caret(reopened.amountText()));
+            input.keyDown(Input.Keys.TAB);
+            input.keyUp(Input.Keys.TAB);
             for (char character : "5.70".toCharArray()) {
                 assertTrue(input.keyTyped(character));
             }

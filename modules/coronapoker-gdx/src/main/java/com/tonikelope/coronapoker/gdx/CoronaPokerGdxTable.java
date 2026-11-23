@@ -2779,18 +2779,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean handleDialogAmountEditingKey(int keycode) {
         GdxTableDialog dialog = activeDialog;
         if (dialog == null || !dialog.amountEditable()) return false;
+        if (dialog.isRebuy() && keycode == Input.Keys.TAB) {
+            if (dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)) {
+                dialogAmountEdit.blur();
+            } else {
+                focusDialogAmount(dialog, true);
+            }
+            return true;
+        }
+        if (dialog.isRebuy() && !dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)) {
+            return false;
+        }
         String value = dialog.amountText();
+        dialogAmountEdit.focus(DIALOG_AMOUNT_FIELD, value);
         boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
         boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
-        if (!dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)) {
-            if (dialog.isRebuy() && !(control
-                    && (keycode == Input.Keys.A || keycode == Input.Keys.V))) {
-                return false;
-            }
-            focusDialogAmount(dialog, dialog.isRebuy());
-        }
         if (control) {
             switch (keycode) {
                 case Input.Keys.A -> dialogAmountEdit.selectAll(value);
@@ -2843,14 +2848,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean handleDialogAmountTyped(char character) {
         GdxTableDialog dialog = activeDialog;
         if (dialog == null || !dialog.amountEditable()) return false;
+        if (dialog.isRebuy() && !dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)) {
+            return true;
+        }
         if ((character >= '0' && character <= '9') || character == '.'
                 || character == ',' || character == '+' || character == '-') {
-            String input = Character.toString(character);
-            if (!dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)) {
-                if (!dialog.acceptsAmountText(input)) return true;
-                focusDialogAmount(dialog, dialog.isRebuy());
-            }
-            replaceDialogAmountSelection(dialog, input);
+            dialogAmountEdit.focus(DIALOG_AMOUNT_FIELD, dialog.amountText());
+            replaceDialogAmountSelection(dialog, Character.toString(character));
         }
         // The modal also owns characters rejected by the amount formatter.
         return true;
@@ -2877,6 +2881,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (dialog == null || !dialog.amountEditable()) return;
         dialogAmountEdit.focus(DIALOG_AMOUNT_FIELD, dialog.amountText());
         if (selectAll) dialogAmountEdit.selectAll(dialog.amountText());
+    }
+
+    private void stepDialogAmount(GdxTableDialog dialog, int direction) {
+        dialog.changeAmount(direction);
+        focusDialogAmount(dialog.isAutoCall() ? dialog : null, false);
     }
 
     private static String singleLine(String value) {
@@ -9015,12 +9024,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             focusDialogAmount(dialog, true);
         } else if (dialog.hasAmount()
                 && amountMinus.contains(pointer.x, pointer.y)) {
-            dialog.changeAmount(-1);
-            focusDialogAmount(dialog.isAutoCall() ? dialog : null, false);
+            stepDialogAmount(dialog, -1);
         } else if (dialog.hasAmount()
                 && amountPlus.contains(pointer.x, pointer.y)) {
-            dialog.changeAmount(1);
-            focusDialogAmount(dialog.isAutoCall() ? dialog : null, false);
+            stepDialogAmount(dialog, 1);
         } else if (dialog.showsPositive() && contains(pointer.x, pointer.y,
                 dialogPositiveX(dialog, panelX, panelW), panelY + 34f,
                 230f, 64f)) {
@@ -9988,6 +9995,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     private float dialogY(GdxTableDialog dialog, float panelH) {
         return (viewport.getWorldHeight() - panelH) / 2f;
+    }
+
+    private boolean rebuyAmountFieldContains(GdxTableDialog dialog, float x, float y) {
+        if (dialog == null || !dialog.isRebuy() || !dialog.amountEditable()) return false;
+        float width = dialogWidth(dialog);
+        float height = dialogHeight(dialog);
+        return rebuyAmountLayout(dialogX(dialog, width), dialogY(dialog, height), width)
+                .value().contains(x, y);
     }
 
     private record RebuyAmountLayout(Rectangle minus, Rectangle value,
@@ -23998,6 +24013,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             PokerVideoOverlay video = mediaFrontend.pokerVideoOverlay();
             desired = video.ownsHover(position.x, position.y)
                     ? video.systemCursor(position.x, position.y) : Cursor.SystemCursor.Hand;
+        } else if (rebuyAmountFieldContains(activeDialog, x, y)) {
+            desired = Cursor.SystemCursor.Ibeam;
         } else if (activeDialog == null && quickChatOwnsPointer(x, y) && !chatEditMenuOpen) {
             desired = quickChatCursor(x, y);
         } else if (tableActionHovered || tableSceneActionAt(x, y)) {
@@ -26361,6 +26378,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         Rectangle standaloneOption = dialog.hasStandaloneOption()
                 ? GdxTableDialogLayout.standaloneOption(
                         panelX, panelY, panelW) : null;
+        RebuyAmountLayout rebuyLayout = dialog.isRebuy()
+                ? rebuyAmountLayout(panelX, panelY, panelW) : null;
         float acceptX = dialogPositiveX(dialog, panelX, panelW);
         float negativeX = panelX + 42f;
         float negativeW = 230f;
@@ -26428,13 +26447,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             Rectangle minus = dialog.isAutoCall()
                     ? autoCallLayout.amount().minusButton()
                     : dialog.isRebuy()
-                            ? rebuyAmountLayout(panelX, panelY, panelW).minus()
+                            ? rebuyLayout.minus()
                     : new Rectangle(panelX + panelW / 2f - 190f,
                             panelY + 155f, 72f, 64f);
             Rectangle plus = dialog.isAutoCall()
                     ? autoCallLayout.amount().plusButton()
                     : dialog.isRebuy()
-                            ? rebuyAmountLayout(panelX, panelY, panelW).plus()
+                            ? rebuyLayout.plus()
                     : new Rectangle(panelX + panelW / 2f + 118f,
                             panelY + 155f, 72f, 64f);
             if (dialog.isAutoCall()) {
@@ -26446,20 +26465,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         CYAN, plus.contains(pointer.x, pointer.y), amountAlpha);
                 GdxUiButtonStyle.drawStepperSign(shapes, minus, false, Color.WHITE, amountAlpha);
                 GdxUiButtonStyle.drawStepperSign(shapes, plus, true, Color.WHITE, amountAlpha);
+                if (rebuyLayout != null && dialog.amountEditable()) {
+                    Rectangle field = rebuyLayout.value();
+                    boolean emphasized = dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)
+                            || field.contains(pointer.x, pointer.y);
+                    GdxUiDialogStyle.drawInset(shapes, field.x, field.y,
+                            field.width, field.height, PANEL,
+                            emphasized ? CYAN : BUTTON_LINE, amountAlpha);
+                }
             }
             if (amountAlpha > 0.5f) {
                 registerPointerRepeatHit(minus.x, minus.y,
                         minus.width, minus.height,
-                        RepeatOwner.DIALOG, dialog, () -> {
-                            dialog.changeAmount(-1);
-                            focusDialogAmount(dialog, false);
-                        });
+                        RepeatOwner.DIALOG, dialog, () -> stepDialogAmount(dialog, -1));
                 registerPointerRepeatHit(plus.x, plus.y,
                         plus.width, plus.height,
-                        RepeatOwner.DIALOG, dialog, () -> {
-                            dialog.changeAmount(1);
-                            focusDialogAmount(dialog, false);
-                        });
+                        RepeatOwner.DIALOG, dialog, () -> stepDialogAmount(dialog, 1));
             }
         }
         if (dialog.isAutoCall()) {
@@ -26592,8 +26613,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             POT_GOLD, amountAlpha);
                 }
             } else {
-                RebuyAmountLayout rebuyLayout = dialog.isRebuy()
-                        ? rebuyAmountLayout(panelX, panelY, panelW) : null;
                 Rectangle value = rebuyLayout == null
                         ? new Rectangle(panelX + panelW / 2f - 110f,
                                 panelY + 155f, 220f, 64f)

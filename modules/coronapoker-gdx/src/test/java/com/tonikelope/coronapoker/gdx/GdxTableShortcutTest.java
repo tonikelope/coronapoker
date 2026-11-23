@@ -342,7 +342,7 @@ final class GdxTableShortcutTest {
     @Test
     void editorExposesEveryImplementedActionWithReadableKeyCaps() {
         GdxShortcutBindings bindings = bindings();
-        assertEquals(20, bindings.editableEntries().size());
+        assertEquals(21, bindings.editableEntries().size());
         assertEquals(List.of(
                 GdxShortcutBindings.FOLD,
                 GdxShortcutBindings.CHECK,
@@ -369,6 +369,40 @@ final class GdxTableShortcutTest {
                 new GdxGameText("en")).get(0).description());
         assertEquals(GdxShortcutBindings.SCREENSHOT,
                 bindings.actionFor(Input.Keys.P, false, true, false));
+    }
+
+    @Test
+    void pocketPeekCanBeReboundAndRestoredLikeOtherControls() {
+        var properties = new Properties();
+        var bindings = new GdxShortcutBindings(properties);
+        String peek = GdxShortcutBindings.POCKET_PEEK;
+        assertEquals(peek, bindings.actionFor(Input.Keys.TAB, false, false, false));
+        assertEquals("TAB", bindings.displayFor(peek));
+        assertTrue(bindings.editableEntries().stream().anyMatch(entry -> peek.equals(entry.id())));
+
+        bindings.beginEdit();
+        assertEquals(GdxShortcutBindings.Assignment.ASSIGNED,
+                bindings.assign(peek, Input.Keys.K, false, true, false));
+        bindings.commitEdit();
+        var reloaded = new GdxShortcutBindings(properties);
+        assertEquals(peek, reloaded.actionFor(Input.Keys.K, false, true, false));
+        assertNull(reloaded.actionFor(Input.Keys.K, false, false, false));
+        assertNull(reloaded.actionFor(Input.Keys.TAB, false, false, false));
+        assertEquals("CTRL + K", reloaded.assignedDisplayFor(peek));
+        reloaded.beginEdit();
+        reloaded.resetAllEdits();
+        reloaded.commitEdit();
+        assertEquals("TAB", new GdxShortcutBindings(properties).displayFor(peek));
+    }
+
+    @Test
+    void existingTabAssignmentDoesNotGetOverriddenByTheNewControl() {
+        var properties = new Properties();
+        properties.setProperty("shortcut.REGISTRO", KeyEvent.VK_TAB + ",0");
+        var bindings = new GdxShortcutBindings(properties);
+        assertEquals(GdxShortcutBindings.LOG,
+                bindings.actionFor(Input.Keys.TAB, false, false, false));
+        assertEquals("", bindings.assignedDisplayFor(GdxShortcutBindings.POCKET_PEEK));
     }
 
     @Test

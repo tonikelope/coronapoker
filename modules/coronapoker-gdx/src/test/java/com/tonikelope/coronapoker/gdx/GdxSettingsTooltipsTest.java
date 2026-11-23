@@ -165,8 +165,28 @@ final class GdxSettingsTooltipsTest {
         String viewHelp = GdxSettingsTooltips.content(
                 GdxSettingsContract.appearanceTableSettingKey(0), spanish).text();
         assertTrue(viewHelp.contains("2D") && viewHelp.contains("3D")
-                && viewHelp.contains("pulsada V") && viewHelp.contains("arrastra"));
+                && viewHelp.contains("TAB") && viewHelp.contains("arrastrar"));
         assertTrue(GdxSettingsTooltips.content("unmapped_setting", spanish).text().isEmpty());
+    }
+
+    @Test
+    void peekHelpShowsTheAssignedKeyOrHowToAssignOne() {
+        var text = new GdxGameText("es");
+        var properties = new java.util.Properties();
+        var shortcuts = new GdxShortcutBindings(properties);
+        shortcuts.assign(GdxShortcutBindings.POCKET_PEEK, com.badlogic.gdx.Input.Keys.K,
+                false, true, false);
+        var mode = GdxGameAudioResources.JokeBankMode.OFFICIAL;
+        for (String key : List.of(GdxSettingsContract.TABLE_VIEW_KEY,
+                GdxSettingsContract.TABLE_PEEK_BUTTON_KEY)) {
+            String help = GdxSettingsTooltips.content(key, text, false, mode, shortcuts).text();
+            assertTrue(help.contains("CTRL + K"), help);
+            assertFalse(help.contains("{peek_key}"), help);
+        }
+        properties.setProperty("shortcut." + GdxShortcutBindings.POCKET_PEEK, "NONE");
+        shortcuts.reload();
+        assertTrue(GdxSettingsTooltips.content(GdxSettingsContract.TABLE_VIEW_KEY,
+                text, false, mode, shortcuts).text().contains("Asigna un atajo"));
     }
 
     @Test

@@ -48,6 +48,7 @@ final class GdxShortcutBindings {
     static final String VOICE_RECORD = "VOICE-RECORD";
     static final String FASTCHAT_IMAGE = "FASTCHAT-IMAGE";
     static final String SCREENSHOT = "SCREENSHOT";
+    static final String POCKET_PEEK = "POCKET-PEEK";
 
     /**
      * User-facing order for the shortcut editor. Keep this independent from
@@ -56,7 +57,7 @@ final class GdxShortcutBindings {
      */
     private static final List<String> EDITOR_ORDER = List.of(
             FOLD, CHECK, BET_DOWN, BET_UP, BET, ALL_IN,
-            PAUSE, LOG, BUYIN, SCREENSHOT,
+            POCKET_PEEK, PAUSE, LOG, BUYIN, SCREENSHOT,
             MUTE, VOLUME_DOWN, VOLUME_UP, VOICE_RECORD, FASTCHAT_IMAGE,
             FULLSCREEN, LIGHTS, HALT, QUIT, FORCE_EXIT);
 
@@ -95,6 +96,7 @@ final class GdxShortcutBindings {
         defineKeycodeOnly(VOICE_RECORD, KeyEvent.VK_F9);
         define(FASTCHAT_IMAGE, KeyEvent.VK_1, 0);
         define(SCREENSHOT, KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK);
+        define(POCKET_PEEK, KeyEvent.VK_TAB, 0);
         reload();
     }
 
@@ -109,6 +111,15 @@ final class GdxShortcutBindings {
             Binding override = deserialize(serialized);
             loaded.put(definition.id,
                     override == null ? definition.fallback : override);
+        }
+        Binding peek = loaded.get(POCKET_PEEK);
+        if (definitions.get(POCKET_PEEK).fallback.equals(peek)
+                && definitions.values().stream().anyMatch(definition ->
+                        !POCKET_PEEK.equals(definition.id)
+                        && conflicts(peek, false, loaded.get(definition.id),
+                                definition.keycodeOnly))) {
+            // A profile that already assigned Tab keeps its existing action.
+            loaded.remove(POCKET_PEEK);
         }
         current = Map.copyOf(loaded);
     }
@@ -151,6 +162,18 @@ final class GdxShortcutBindings {
         return null;
     }
 
+    boolean isHeld(String id, Input input) {
+        Binding binding = current.get(id);
+        if (binding == null || !input.isKeyPressed(binding.gdxKeyCode)) return false;
+        boolean alt = input.isKeyPressed(Input.Keys.ALT_LEFT)
+                || input.isKeyPressed(Input.Keys.ALT_RIGHT);
+        boolean control = input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                || input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+        boolean shift = input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                || input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+        return id.equals(actionFor(binding.gdxKeyCode, alt, control, shift));
+    }
+
     boolean keyCodeMatches(String id, int gdxKeyCode) {
         Binding binding = current.get(id);
         return binding != null && binding.gdxKeyCode == gdxKeyCode;
@@ -163,6 +186,11 @@ final class GdxShortcutBindings {
 
     String displayFor(String id) {
         return display(current.get(id));
+    }
+
+    String assignedDisplayFor(String id) {
+        Binding binding = current.get(id);
+        return binding == null ? "" : display(binding);
     }
 
     synchronized void beginEdit() {
@@ -302,6 +330,7 @@ final class GdxShortcutBindings {
             case VOICE_RECORD -> "voice_record";
             case FASTCHAT_IMAGE -> "fastchat_image";
             case SCREENSHOT -> "screenshot";
+            case POCKET_PEEK -> "pocket_peek";
             default -> null;
         };
         return suffix == null ? id
@@ -347,6 +376,7 @@ final class GdxShortcutBindings {
             case VOICE_RECORD -> "GRABAR NOTA DE VOZ";
             case FASTCHAT_IMAGE -> "ABRIR IMÁGENES / GIFS";
             case SCREENSHOT -> "CAPTURAR LA PANTALLA";
+            case POCKET_PEEK -> "VISTAZO DE CARTAS (3D)";
             default -> id;
         };
     }
@@ -378,6 +408,7 @@ final class GdxShortcutBindings {
             case KeyEvent.VK_RIGHT -> "RIGHT";
             case KeyEvent.VK_ESCAPE -> "ESC";
             case KeyEvent.VK_SPACE -> "SPACE";
+            case KeyEvent.VK_TAB -> "TAB";
             case KeyEvent.VK_BACK_SPACE -> "BACK";
             default -> KeyEvent.getKeyText(awtKeyCode).toUpperCase();
         };

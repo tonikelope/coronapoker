@@ -1306,6 +1306,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
      * because the pointer remained stationary while the scene changed.
      */
     void reclaimAfterExternalScene() {
+        shortcutBindings.reload();
         captureFrontendModalInput();
         resetMediaInput();
         hoverAnimations.clear();
@@ -14409,8 +14410,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 bounds.width, bounds.height);
         if (visible == null) return;
         GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
-                settingKey, gameText, modOverride,
-                jokeBankMode);
+                settingKey, gameText, modOverride, jokeBankMode, shortcutBindings);
         if (content.text().isBlank()) return;
         tooltipHits.add(new TooltipHit(visible,
                 "gdx.settings.tooltip.text",

@@ -115,6 +115,11 @@ final class GdxSettingsTooltips {
 
     static Content content(String settingKey, GdxGameText text, boolean modOverride,
             GdxGameAudioResources.JokeBankMode jokeBankMode) {
+        return content(settingKey, text, modOverride, jokeBankMode, null);
+    }
+
+    static Content content(String settingKey, GdxGameText text, boolean modOverride,
+            GdxGameAudioResources.JokeBankMode jokeBankMode, GdxShortcutBindings shortcuts) {
         String jokeResource = GamePresentationSettings.jokeSoundResource(
                 settingKey);
         String description;
@@ -125,6 +130,13 @@ final class GdxSettingsTooltips {
                 return new Content("", GdxSettingsContract.PerformanceImpact.NONE);
             }
             description = text.translate(key);
+            if (description.contains("{peek_key}")) {
+                String peekShortcut = shortcuts == null ? "TAB"
+                        : shortcuts.assignedDisplayFor(GdxShortcutBindings.POCKET_PEEK);
+                description = peekShortcut.isEmpty()
+                        ? text.translate(key + ".unassigned")
+                        : description.replace("{peek_key}", peekShortcut);
+            }
             String jokeBank = GdxGameAudioResources.jokeBankFolder(
                     settingKey, text.language());
             if (jokeBank != null) {

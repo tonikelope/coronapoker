@@ -501,6 +501,27 @@ final class GdxPerspectivePocketGpuTest {
             assertTrue(renderer.peekAmount() > 0f, "Tab still peeks with the button hidden");
             mouse.peekKeyDown = false;
             renderer.coverCards();
+            var shortcuts = (GdxShortcutBindings) field(table, "shortcutBindings");
+            shortcuts.beginEdit();
+            assertEquals(GdxShortcutBindings.Assignment.ASSIGNED,
+                    shortcuts.assign(GdxShortcutBindings.POCKET_PEEK, Input.Keys.K,
+                            false, true, false));
+            shortcuts.commitEdit();
+            mouse.peekKeyDown = true;
+            table.render();
+            assertEquals(0f, renderer.peekAmount(), "The previous key no longer peeks");
+            mouse.peekKey = Input.Keys.K;
+            table.render();
+            assertEquals(0f, renderer.peekAmount(), "The new shortcut requires its modifier");
+            mouse.peekControlDown = true;
+            for (int frame = 0; frame < 20 && renderer.peekAmount() == 0f; frame++) table.render();
+            assertTrue(renderer.peekAmount() > 0f, "The saved Control + K shortcut peeks");
+            mouse.peekKeyDown = false;
+            mouse.peekControlDown = false;
+            mouse.peekKey = Input.Keys.TAB;
+            prefs.properties().remove("shortcut." + GdxShortcutBindings.POCKET_PEEK);
+            shortcuts.reload();
+            renderer.coverCards();
             table.render();
             var grip = CoronaPokerGdxTable.class.getDeclaredMethod("pocketPeekDragContains", float.class, float.class);
             grip.setAccessible(true);
@@ -729,7 +750,8 @@ final class GdxPerspectivePocketGpuTest {
 
     private static final class Mouse {
         private int x, y;
-        boolean down, justPressed, peekKeyDown, spaceJustPressed;
+        boolean down, justPressed, peekKeyDown, peekControlDown, spaceJustPressed;
+        int peekKey = Input.Keys.TAB;
 
         void move(Point point) {
             x = point.x;
@@ -741,8 +763,9 @@ final class GdxPerspectivePocketGpuTest {
                     (proxy, method, args) -> switch (method.getName()) {
                         case "getX" -> x;
                         case "getY" -> y;
-                        case "isKeyPressed" -> (int) args[0] == Input.Keys.TAB
-                                ? peekKeyDown : fallback.isKeyPressed((int) args[0]);
+                        case "isKeyPressed" -> (int) args[0] == peekKey
+                                ? peekKeyDown : (int) args[0] == Input.Keys.CONTROL_LEFT
+                                        ? peekControlDown : fallback.isKeyPressed((int) args[0]);
                         case "isKeyJustPressed" -> (int) args[0] == Input.Keys.SPACE
                                 ? spaceJustPressed : fallback.isKeyJustPressed((int) args[0]);
                         case "isButtonPressed" -> (int) args[0] == Input.Buttons.LEFT && down;

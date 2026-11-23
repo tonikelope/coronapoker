@@ -1604,7 +1604,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxPocketOrder pocketOrder = new GdxPocketOrder();
     private boolean perspectiveActive;
     private static final float POCKET_PEEK_DRAG_DISTANCE = 96f;
-    private static final int POCKET_PEEK_KEY = Input.Keys.TAB;
     private final Rectangle pocketPeekButton = new Rectangle();
     private final GdxPointerHold pocketPeekPointer = new GdxPointerHold();
     private boolean pocketPeekInputThisFrame;
@@ -1918,9 +1917,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         || keycode == Input.Keys.NUMPAD_ENTER) return true;
                 if (fpsControl.keyDown(keycode, control, shift, settingsSession.frameRateDraft())) return true;
             }
-            if (keycode == POCKET_PEEK_KEY && !alt && !control && !shift
-                    && canPeekPerspectivePocket()) return true;
             String action = shortcutBindings.actionFor(keycode, alt, control, shift);
+            if (GdxShortcutBindings.POCKET_PEEK.equals(action)
+                    && canPeekPerspectivePocket()) return true;
             float volumeDelta = volumeShortcutDelta(action);
             if (!capturingShortcut && volumeDelta != 0f) {
                 if (volumeKeyRepeat.press(keycode, GdxVolumeOverlayStyle.shortcutDirection(action))) {
@@ -7884,10 +7883,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
         boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
-        boolean peekPressed = !alt && !control && !shift
-                && Gdx.input.isKeyJustPressed(POCKET_PEEK_KEY) && canPeekPerspectivePocket();
-        String shortcutAction = peekPressed ? null
-                : shortcutBindings.justPressedAction(Gdx.input, alt, control, shift);
+        String shortcutAction = shortcutBindings.justPressedAction(Gdx.input, alt, control, shift);
+        boolean peekPressed = GdxShortcutBindings.POCKET_PEEK.equals(shortcutAction)
+                && canPeekPerspectivePocket();
         if (terminationRequested) {
             if (GdxShortcutBindings.FORCE_EXIT.equals(shortcutAction)) {
                 Gdx.app.exit();
@@ -7945,9 +7943,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && consumeForegroundConfirmation()) {
             return;
         }
-        if (GdxShortcutBindings.FULLSCREEN.equals(shortcutAction)
+        if (!peekPressed && (GdxShortcutBindings.FULLSCREEN.equals(shortcutAction)
                 || Gdx.input.isKeyJustPressed(Input.Keys.F11)
-                || (alt && Gdx.input.isKeyJustPressed(Input.Keys.ENTER))) {
+                || (alt && Gdx.input.isKeyJustPressed(Input.Keys.ENTER)))) {
             toggleFullscreen();
         }
         if (quickChatOpen()) {
@@ -15534,10 +15532,6 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
-    private static void layoutPeekButton(Rectangle bounds, float width, float height) {
-        bounds.set(width * 0.590f, height * 0.220f, 86f, 42f);
-    }
-
     private void drawPocketPeekButton(float width, float height) {
         if (!perspectiveActive || !pocketPeekEnabled) stopPocketPeekInput();
         if (!pocketPeekButtonVisible()) {
@@ -15545,7 +15539,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             mousePeekHeld = false;
             return;
         }
-        layoutPeekButton(pocketPeekButton, width, height);
+        String keyLabel = shortcutBindings.assignedDisplayFor(GdxShortcutBindings.POCKET_PEEK);
+        glyph.setText(settingsBodyFont, keyLabel);
+        float labelWidth = MathUtils.clamp(glyph.width, 34f, 200f);
+        float buttonWidth = keyLabel.isEmpty() ? 47f : 52f + labelWidth;
+        pocketPeekButton.set(width * 0.590f, height * 0.220f, buttonWidth, 42f);
         Rectangle r = pocketPeekButton;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -15559,17 +15557,16 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.setColor(0.08f, 0.10f, 0.13f, 1f);
         shapes.circle(r.x + 23.5f, r.y + 21f, 5.3f, 24);
         shapes.end();
-        batch.begin();
-        drawFittedMoneyInBox(settingsBodyFont, "TAB", r.x + 43f, r.y + 9f,
-                34f, 24f, Color.WHITE, 1f);
-        batch.end();
+        if (!keyLabel.isEmpty()) {
+            batch.begin();
+            drawFittedMoneyInBox(settingsBodyFont, keyLabel, r.x + 43f, r.y + 9f,
+                    labelWidth, 24f, Color.WHITE, 1f);
+            batch.end();
+        }
     }
 
     private boolean pocketPeekRequested() {
-        return mousePeekHeld || Gdx.input.isKeyPressed(POCKET_PEEK_KEY)
-                && !modifierPressed(Input.Keys.CONTROL_LEFT, Input.Keys.CONTROL_RIGHT)
-                && !modifierPressed(Input.Keys.ALT_LEFT, Input.Keys.ALT_RIGHT)
-                && !modifierPressed(Input.Keys.SHIFT_LEFT, Input.Keys.SHIFT_RIGHT);
+        return mousePeekHeld || shortcutBindings.isHeld(GdxShortcutBindings.POCKET_PEEK, Gdx.input);
     }
 
     private void drawPerspectivePocket(float cardWidth, float cardHeight) {
@@ -15592,7 +15589,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || perspectivePocketStillDealing(nickname, 1);
         pocketOrder.update(!dealing, liveSwapAnimationEnabled(), Gdx.graphics.getDeltaTime());
         if (liveHoleFold != null && liveHoleFold.event.nickname().equals(nickname)) pocketPeekNeedsRelease = true;
-        if (!Gdx.input.isKeyPressed(POCKET_PEEK_KEY) && !Gdx.input.isButtonPressed(Input.Buttons.LEFT)) pocketPeekNeedsRelease = false;
+        int peekKey = shortcutBindings.keyCode(GdxShortcutBindings.POCKET_PEEK);
+        if ((peekKey == Input.Keys.UNKNOWN || !Gdx.input.isKeyPressed(peekKey))
+                && !Gdx.input.isButtonPressed(Input.Buttons.LEFT)) pocketPeekNeedsRelease = false;
         boolean canPeek = !pocketPeekNeedsRelease && !publicHand && reveal == null
                 && !dealing && !pocketOrder.busy()
                 && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
@@ -27882,7 +27881,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (!viewportBounds.contains(pointer) || !bounds.contains(pointer)) {
             return null;
         }
-        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(key, gameText, modOverride, jokeBankMode);
+        GdxSettingsTooltips.Content content = GdxSettingsTooltips.content(
+                key, gameText, modOverride, jokeBankMode, shortcutBindings);
         return content.text().isBlank() ? null : new SettingsTooltipHover(key, content);
     }
 

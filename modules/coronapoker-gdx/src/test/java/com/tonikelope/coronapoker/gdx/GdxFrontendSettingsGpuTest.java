@@ -8,6 +8,8 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.glutils.FrameBuffer;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -134,6 +136,7 @@ final class GdxFrontendSettingsGpuTest {
                 screen.completeStartupReveal();
                 verifyAudioDeviceAlignment(screen);
                 verifyMenuDialogSlide(screen);
+                verifyMenuModalBackdrop(screen);
                 verifySettings(screen, presentation, GdxSettingsSession.Context.MENU);
                 verifyImageViewer(screen);
                 try (var lobby = lobby()) {
@@ -241,6 +244,65 @@ final class GdxFrontendSettingsGpuTest {
     private static void assertSlideDirection(GdxDialogSlide slide, int x, int y) {
         assertEquals(x, (int) Math.signum(slide.offsetX(WIDTH)));
         assertEquals(y, (int) Math.signum(slide.offsetY(HEIGHT)));
+    }
+
+    private static void verifyMenuModalBackdrop(GdxFrontendScreen screen)
+            throws Exception {
+        var properties = (Properties) field(screen, "initialProperties");
+        var saved = new Properties();
+        saved.putAll(properties);
+        properties.setProperty("animaciones", "false");
+        try {
+            verifyMenuModalBackdropWithoutMotion(screen);
+        } finally {
+            restoreKey(properties, saved, "animaciones");
+        }
+    }
+
+    private static void verifyMenuModalBackdropWithoutMotion(GdxFrontendScreen screen)
+            throws Exception {
+        screen.render();
+        Object quotes = field(screen, "menuQuotes");
+        assertFalse(((String) field(quotes, "current")).isBlank());
+        float quoteSeconds = (float) field(quotes, "remaining");
+        byte[] menuButton = ScreenUtils.getFrameBufferPixels(
+                310, 375, 20, 20, false);
+
+        invoke(screen, "openAboutDialog", new Class<?>[0]);
+        screen.render();
+        byte[] aboutBackdrop = capturedFrontendBackdrop(screen);
+        invoke(screen, "closeAboutDialog", new Class<?>[0]);
+
+        invoke(screen, "openNewGame", new Class<?>[]{NewGameConnectionDraft.Mode.class},
+                NewGameConnectionDraft.Mode.CREATE);
+        screen.render();
+        assertEquals("NEW_GAME", field(screen, "surface").toString());
+        assertEquals(quoteSeconds, (float) field(quotes, "remaining"));
+        byte[] newGameBackdrop = capturedFrontendBackdrop(screen);
+        assertArrayEquals(aboutBackdrop, newGameBackdrop,
+                "Both dialogs must capture the same background without menu buttons or the quote");
+        assertFalse(java.util.Arrays.equals(menuButton,
+                ScreenUtils.getFrameBufferPixels(310, 375, 20, 20, false)));
+
+        invoke(screen, "cancelOrReturnToMenu", new Class<?>[0]);
+        screen.render();
+        assertEquals("MENU", field(screen, "surface").toString());
+        assertTrue((float) field(quotes, "remaining") < quoteSeconds);
+        assertArrayEquals(menuButton,
+                ScreenUtils.getFrameBufferPixels(310, 375, 20, 20, false));
+    }
+
+    private static byte[] capturedFrontendBackdrop(GdxFrontendScreen screen)
+            throws Exception {
+        var buffer = (FrameBuffer) field(field(screen, "modalBackdropBlur"), "backdrop");
+        assertNotNull(buffer, "The modal should capture its background for blur");
+        buffer.begin();
+        try {
+            return ScreenUtils.getFrameBufferPixels(
+                    0, 0, buffer.getWidth(), buffer.getHeight(), false);
+        } finally {
+            buffer.end();
+        }
     }
 
     private static void verifyLobbyNoticeHandoff(GdxFrontendScreen screen)

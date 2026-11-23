@@ -71,7 +71,7 @@ class TestModeSemanticParityTest {
 
         String testPath = source.substring(method, normalPath);
         assertTrue(testPath.contains("if (presentation_settings.testMode())"));
-        assertTrue(testPath.contains("rebuy_now.put(jugador.getNickname(), amount)"));
+        assertTrue(testPath.contains("storeEndOfHandRebuy(jugador.getNickname(), amount)"));
         assertTrue(testPath.contains("jugador.setSpectator(null)"));
         assertFalse(testPath.contains("setStack("));
         assertFalse(testPath.contains("pagar("));

@@ -111,7 +111,7 @@ public final class NetworkLobbyGateway implements NewGameSessionGateway, AutoClo
      */
     static final int MAX_HANDSHAKE_FRAME_BYTES
             = 2 * AvatarImageValidator.MAX_FILE_BYTES;
-    static final String WIRE_VERSION = ApplicationMetadata.VERSION + "/cards-2";
+    static final String WIRE_VERSION = ApplicationMetadata.VERSION + "/cards-2/rebuy-cents-1";
     static final int MAX_CLIENT_TEXT_FRAME_BYTES = 256 * 1024;
     static final int MAX_VOICE_BYTES = 320 * 1024;
     static final int MAX_CHAT_TEXT_CHARS = 4_096;

@@ -293,7 +293,7 @@ public final class RecoverySnapshotV1 {
             Integer rebuyCount = parseNonNegativeInt(fields[3]);
             if (!validShortText(player) || !players.add(player)
                     || parseDecimalCents(fields[1]) == null
-                    || parseNonNegativeInt(fields[2]) == null
+                    || parseDecimalCents(fields[2]) == null
                     || rebuyCount == null || rebuyCount > BuyinCount.MAX_VALUE) {
                 return false;
             }

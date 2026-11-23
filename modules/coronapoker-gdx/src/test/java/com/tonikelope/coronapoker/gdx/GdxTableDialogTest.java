@@ -11,6 +11,23 @@ import org.junit.jupiter.api.Test;
 final class GdxTableDialogTest {
 
     @Test
+    void rebuyEditsAndClampsToTheExactCentLimit() {
+        var dialog = new GdxTableDialog("REBUY", "", 820, 0, false,
+                "CANCEL", 0.01d, 5.70d, 5.70d);
+        assertTrue(dialog.amountEditable());
+        assertEquals("5.70", dialog.amountText());
+        assertEquals(5.70d, dialog.amount());
+        dialog.changeAmount(-1);
+        assertEquals(5.69d, dialog.amount());
+        assertTrue(dialog.acceptsAmountText("5,70"));
+        dialog.editAmountText("5,70");
+        assertEquals(5.70d, dialog.amount());
+        dialog.editAmountText("5.71");
+        assertEquals(5.70d, dialog.amount());
+        assertFalse(dialog.acceptsAmountText("5.705"));
+    }
+
+    @Test
     void automaticInfoDwellIsHiddenAndHonorsPauseAccounting() {
         GdxTableDialog dialog = GdxTableDialog.autoDismissInfo(
                 "GAME OVER", "", GameDialogSink.Icon.STOP, 860, 2.5f);

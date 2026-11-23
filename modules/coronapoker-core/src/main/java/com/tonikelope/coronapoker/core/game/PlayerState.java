@@ -16,7 +16,7 @@ public class PlayerState {
     public enum Position { NONE, DEALER, SMALL_BLIND, BIG_BLIND, DEAD_DEALER,
         STRADDLE, DEALER_STRADDLE }
 
-    public record Snapshot(String nickname, int buyIn, double stack, double bet,
+    public record Snapshot(String nickname, double buyIn, double stack, double bet,
             double potContribution, double pendingPayment, Decision decision,
             ActionKind actionKind, Position position, boolean active,
             boolean spectator, boolean warming, boolean exited,
@@ -31,11 +31,11 @@ public class PlayerState {
             boolean showdownHighlightEnabled,
             List<Integer> winningHoleCardSlots,
             List<Integer> winningCommunityCardSlots,
-            RebuyPhase rebuyPhase, int immediateRebuyAmount,
+            RebuyPhase rebuyPhase, double immediateRebuyAmount,
             String publicActionLabel) { }
 
     private volatile String nickname;
-    private volatile int buyIn;
+    private volatile double buyIn;
     private volatile double stack;
     private volatile double bet;
     private volatile double potContribution;
@@ -67,7 +67,7 @@ public class PlayerState {
     private volatile List<Integer> winningHoleCardSlots = List.of();
     private volatile List<Integer> winningCommunityCardSlots = List.of();
     private volatile RebuyPhase rebuyPhase = RebuyPhase.NONE;
-    private volatile int immediateRebuyAmount;
+    private volatile double immediateRebuyAmount;
     private volatile String publicActionLabel = "";
     private volatile CardState firstCard = new CardState();
     private volatile CardState secondCard = new CardState();
@@ -81,7 +81,7 @@ public class PlayerState {
     }
 
     public String nickname() { return nickname; }
-    public int buyIn() { return buyIn; }
+    public double buyIn() { return buyIn; }
     public double stack() { return stack; }
     public double bet() { return bet; }
     public double potContribution() { return potContribution; }
@@ -119,7 +119,7 @@ public class PlayerState {
         return winningCommunityCardSlots;
     }
     public RebuyPhase rebuyPhase() { return rebuyPhase; }
-    public int immediateRebuyAmount() { return immediateRebuyAmount; }
+    public double immediateRebuyAmount() { return immediateRebuyAmount; }
     public String publicActionLabel() { return publicActionLabel; }
     public CardState firstCard() { return firstCard; }
     public CardState secondCard() { return secondCard; }
@@ -138,7 +138,7 @@ public class PlayerState {
         String normalized = Objects.requireNonNull(value, "nickname").trim();
         nickname = normalized;
     }
-    public void setBuyIn(int value) { buyIn = value; }
+    public void setBuyIn(double value) { buyIn = finite(value, "buyIn"); }
     public void setStack(double value) { stack = finite(value, "stack"); }
     public void setBet(double value) { bet = finite(value, "bet"); }
     public void setPotContribution(double value) { potContribution = finite(value, "potContribution"); }
@@ -212,7 +212,7 @@ public class PlayerState {
         Objects.requireNonNull(value, "rebuyPhase");
         rebuyPhase = spectator || exited ? RebuyPhase.NONE : value;
     }
-    public void setImmediateRebuyAmount(int value) {
+    public void setImmediateRebuyAmount(double value) {
         if (value < 0) {
             throw new IllegalArgumentException(
                     "Immediate rebuy amount cannot be negative");

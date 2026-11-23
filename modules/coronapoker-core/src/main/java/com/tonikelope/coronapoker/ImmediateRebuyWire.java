@@ -13,15 +13,19 @@ final class ImmediateRebuyWire {
 
     private static final int MAX_NICK_BYTES = 256;
 
-    record Relay(String nick, int amount, boolean denied) {
+    record Relay(String nick, double amount, boolean denied) {
     }
 
     private ImmediateRebuyWire() {
     }
 
-    static int parseClientRequest(String[] fields) {
-        requireEnvelope(fields, "REBUYNOW", 4);
-        return canonicalNonnegativeInt(fields[3], "rebuy amount");
+    record Request(int hand, double amount) {
+    }
+
+    static Request parseClientRequest(String[] fields) {
+        requireEnvelope(fields, "REBUYNOW", 5);
+        return new Request(canonicalNonnegativeInt(fields[3], "rebuy hand"),
+                parseAmount(fields[4]));
     }
 
     static Relay parseHostRelay(String[] fields) {
@@ -38,11 +42,29 @@ final class ImmediateRebuyWire {
             throw new IllegalArgumentException("invalid immediate rebuy command");
         }
         String nick = canonicalNick(fields[3]);
-        int amount = canonicalNonnegativeInt(fields[4], denied ? "rebuy limit" : "rebuy amount");
+        double amount = denied ? canonicalNonnegativeInt(fields[4], "rebuy limit")
+                : parseAmount(fields[4]);
         if (denied && amount == 0) {
             throw new IllegalArgumentException("rebuy denial requires a positive limit");
         }
         return new Relay(nick, amount, denied);
+    }
+
+    static double parseAmount(String raw) {
+        if (raw == null || !raw.matches("(?:0|[1-9][0-9]{0,10})(?:\\.[0-9]{1,2})?")) {
+            throw new IllegalArgumentException("invalid rebuy amount");
+        }
+        MoneyCents amount = MoneyCents.parse(raw);
+        if (amount.cents() > Integer.MAX_VALUE * 100L) {
+            throw new IllegalArgumentException("rebuy amount exceeds table limit");
+        }
+        return amount.toDecimal().doubleValue();
+    }
+
+    static String formatAmount(double amount) {
+        MoneyCents money = MoneyCents.fromDouble(amount);
+        return money.cents() % 100L == 0L
+                ? Long.toString(money.cents() / 100L) : money.toString();
     }
 
     private static void requireEnvelope(String[] fields, String command, int arity) {

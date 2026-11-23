@@ -272,6 +272,10 @@ final class GdxSettingsLayoutTest {
                         GdxSettingsLayout.ROW_HEIGHT);
 
         assertTrue(device.value().width > standard.value().width * 2f);
+        assertTrue(device.value().x - device.bounds().x <= 310f);
+        assertEquals(standard.arrow(), device.arrow());
+        assertEquals(device.bounds().y + device.bounds().height / 2f,
+                device.value().y + device.value().height / 2f);
         assertTrue(device.label().x + device.label().width
                 <= device.value().x);
         assertTrue(device.value().x + device.value().width

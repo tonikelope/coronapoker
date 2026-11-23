@@ -31,22 +31,22 @@ public final class RecoveryBalanceReconciler {
 
     public static final class Balance {
         private final MoneyCents stack;
-        private final int buyin;
+        private final MoneyCents buyin;
         private final BuyinCount rebuyCount;
 
-        private Balance(MoneyCents stack, int buyin, BuyinCount rebuyCount) {
+        private Balance(MoneyCents stack, MoneyCents buyin, BuyinCount rebuyCount) {
             this.stack = stack;
             this.buyin = buyin;
             this.rebuyCount = rebuyCount;
         }
 
         public MoneyCents stack() { return stack; }
-        public int buyin() { return buyin; }
+        public double buyin() { return buyin.toDecimal().doubleValue(); }
         public BuyinCount rebuyCount() { return rebuyCount; }
 
         private boolean sameValue(Balance other) {
             return other != null && stack.equals(other.stack)
-                    && buyin == other.buyin
+                    && buyin.equals(other.buyin)
                     && rebuyCount.value() == other.rebuyCount.value();
         }
     }
@@ -138,7 +138,7 @@ public final class RecoveryBalanceReconciler {
             long stackCents = 0L;
             for (Balance balance : result.balances.values()) {
                 buyinCents = Math.addExact(buyinCents,
-                        Math.multiplyExact((long) balance.buyin, 100L));
+                        balance.buyin.cents());
                 stackCents = Math.addExact(stackCents,
                         balance.stack.cents());
             }
@@ -164,7 +164,7 @@ public final class RecoveryBalanceReconciler {
             wire.append(Base64.getEncoder().encodeToString(
                     entry.getKey().getBytes(StandardCharsets.UTF_8)))
                     .append('|').append(balance.stack.toDecimal().toPlainString())
-                    .append('|').append(balance.buyin)
+                    .append('|').append(ImmediateRebuyWire.formatAmount(balance.buyin()))
                     .append('|').append(balance.rebuyCount.value());
         }
         return wire.toString();
@@ -267,7 +267,10 @@ public final class RecoveryBalanceReconciler {
                     return failed(Error.BAD_VALUE);
                 }
                 MoneyCents stack = MoneyCents.parse(fields[1]);
-                int buyin = parseNonNegativeInt(fields[2], Integer.MAX_VALUE);
+                if (!fields[2].matches("[0-9]{1,11}(?:\\.[0-9]{1,2})?")) {
+                    return failed(Error.BAD_VALUE);
+                }
+                MoneyCents buyin = MoneyCents.parse(fields[2]);
                 BuyinCount rebuy = BuyinCount.of(
                         parseNonNegativeInt(fields[3], BuyinCount.MAX_VALUE));
                 parsed.put(nick, new Balance(stack, buyin, rebuy));
@@ -288,12 +291,11 @@ public final class RecoveryBalanceReconciler {
                 String nick = canonicalNick(row.getKey());
                 double[] values = row.getValue();
                 if (values == null || values.length != 3
-                        || !isExactNonNegativeInt(values[1], Integer.MAX_VALUE)
                         || !isExactNonNegativeInt(values[2], BuyinCount.MAX_VALUE)) {
                     return failed(Error.BAD_VALUE);
                 }
                 parsed.put(nick, new Balance(MoneyCents.fromDouble(values[0]),
-                        (int) values[1], BuyinCount.of((int) values[2])));
+                        MoneyCents.fromDouble(values[1]), BuyinCount.of((int) values[2])));
             }
             return ok(parsed);
         } catch (IllegalArgumentException ex) {

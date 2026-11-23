@@ -140,10 +140,10 @@ public class RecoveryBalanceReconcilerTest {
     @Test
     public void nextHandBoundaryProjectsTheSealedRebuyOnTheSettledStack() {
         double[] row = Crupier.projectNextHandBalanceRow(
-                0.70, 10, 0, 9);
+                0.70, 10, 0, 9.30d);
 
-        assertEquals(9.70, row[0], 0.000001);
-        assertEquals(19.0, row[1], 0.000001);
+        assertEquals(10d, row[0], 0.000001);
+        assertEquals(19.30d, row[1], 0.000001);
         assertEquals(1.0, row[2], 0.000001);
 
         double[] unchanged = Crupier.projectNextHandBalanceRow(
@@ -153,7 +153,7 @@ public class RecoveryBalanceReconcilerTest {
         assertEquals(2.0, unchanged[2], 0.000001);
 
         double[] capped = Crupier.projectNextHandBalanceRow(
-                7.25, 10, 2, 2);
+                7.25, 10, 2, 2d);
         assertEquals(9.25, capped[0], 0.000001);
         assertEquals(12.0, capped[1], 0.000001);
         assertEquals(3.0, capped[2], 0.000001);
@@ -161,15 +161,15 @@ public class RecoveryBalanceReconcilerTest {
 
     @Test
     public void passiveObserverConsumesRebuysAlreadyIncludedInAppliedBoundary() {
-        Map<String, Integer> pending = new LinkedHashMap<>();
-        pending.put("alice", 10);
-        pending.put("bob", 5);
-        pending.put("future-player", 7);
+        Map<String, Double> pending = new LinkedHashMap<>();
+        pending.put("alice", 10d);
+        pending.put("bob", 5d);
+        pending.put("future-player", 7d);
 
         Crupier.consumeRebuysIncludedInObserverBoundary(
                 pending, Set.of("alice", "bob"));
 
-        assertEquals(Map.of("future-player", 7), pending,
+        assertEquals(Map.of("future-player", 7d), pending,
                 "the atomic boundary owns represented rebuys exactly once");
     }
 

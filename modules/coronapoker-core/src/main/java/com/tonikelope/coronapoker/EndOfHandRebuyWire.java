@@ -12,16 +12,18 @@ import java.util.Collection;
 final class EndOfHandRebuyWire {
 
     private final String nick;
-    private final int requestedAmount;
+    private final double requestedAmount;
+    private final int hand;
 
-    private EndOfHandRebuyWire(String nick, int requestedAmount) {
+    private EndOfHandRebuyWire(String nick, double requestedAmount, int hand) {
         this.nick = nick;
         this.requestedAmount = requestedAmount;
+        this.hand = hand;
     }
 
     static EndOfHandRebuyWire parse(String[] parts, Collection<String> allowedNicks) {
-        if (parts == null || parts.length != 5 || !"REBUY".equals(parts[2])) {
-            throw new IllegalArgumentException("REBUY requires exactly five fields");
+        if (parts == null || parts.length != 6 || !"GAME".equals(parts[0]) || !"REBUY".equals(parts[2])) {
+            throw new IllegalArgumentException("REBUY requires a player, an amount, and a hand");
         }
         if (allowedNicks == null) {
             throw new IllegalArgumentException("allowed REBUY players are required");
@@ -39,20 +41,20 @@ final class EndOfHandRebuyWire {
         if (nick.isEmpty() || !allowedNicks.contains(nick)) {
             throw new IllegalArgumentException("unexpected REBUY player");
         }
-        final int requestedAmount;
-        try {
-            requestedAmount = Integer.parseInt(parts[4]);
-        } catch (RuntimeException ex) {
-            throw new IllegalArgumentException("invalid REBUY amount", ex);
+        if (!parts[5].matches("[1-9][0-9]{0,9}")) {
+            throw new IllegalArgumentException("invalid REBUY hand");
         }
-        return new EndOfHandRebuyWire(nick, requestedAmount);
+        return new EndOfHandRebuyWire(nick, ImmediateRebuyWire.parseAmount(parts[4]),
+                Integer.parseInt(parts[5]));
     }
+
+    int hand() { return hand; }
 
     String nick() {
         return nick;
     }
 
-    int requestedAmount() {
+    double requestedAmount() {
         return requestedAmount;
     }
 

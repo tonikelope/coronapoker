@@ -59,6 +59,18 @@ final class RecoveryBalanceReconcilerTest {
                 () -> RecoveryBalanceReconciler.unallocatedCents(snapshot));
     }
 
+    @Test
+    void fractionalBuyinSurvivesCanonicalRecoveryBalances() {
+        var rows = Map.of("alice", new double[]{10d, 15.70d, 1d},
+                "bob", new double[]{5.70d, 0d, 0d});
+        String wire = RecoveryBalanceReconciler.encodeLocal(rows);
+        var result = RecoveryBalanceReconciler.reconcileExact(wire, rows);
+        assertEquals(true, result.isOk());
+        assertEquals(15.70d, result.balances().get("alice").buyin());
+        assertEquals(0L, RecoveryBalanceReconciler.unallocatedCents(result));
+        assertEquals(wire, RecoveryBalanceReconciler.encode(result));
+    }
+
     private static double[] row(double stack, int buyin, int rebuyCount) {
         return new double[]{stack, buyin, rebuyCount};
     }

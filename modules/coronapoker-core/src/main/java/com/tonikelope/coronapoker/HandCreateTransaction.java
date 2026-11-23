@@ -72,10 +72,10 @@ public final class HandCreateTransaction {
 
         final String nick;
         final double stack;
-        final int buyin;
+        final double buyin;
         final int rebuyCount;
 
-        public BalanceRow(String nick, double stack, int buyin, int rebuyCount) {
+        public BalanceRow(String nick, double stack, double buyin, int rebuyCount) {
             if (nick == null || nick.isEmpty() || !Double.isFinite(stack) || stack < 0d) {
                 throw new IllegalArgumentException("invalid balance row");
             }
@@ -124,7 +124,7 @@ public final class HandCreateTransaction {
                     statement.setInt(1, createdId[0]);
                     statement.setString(2, row.nick);
                     statement.setDouble(3, MoneyMath.clean(row.stack));
-                    statement.setInt(4, row.buyin);
+                    statement.setDouble(4, row.buyin);
                     statement.setInt(5, row.rebuyCount);
                     requireOne(statement.executeUpdate(), "balance insert", row.nick);
                 }

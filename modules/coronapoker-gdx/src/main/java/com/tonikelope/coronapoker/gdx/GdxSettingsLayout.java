@@ -300,17 +300,17 @@ final class GdxSettingsLayout {
     }
 
     /**
-     * Wider choice geometry for operating-system audio device names.  Reuse
-     * the dedicated audio lane, but reclaim the obsolete minus-button space
-     * now that categorical settings open a list instead of cycling values.
+     * Reserve a wide lane for operating-system device names to the left
+     * of the dropdown arrow, including on wide settings panels.
      */
     static ChoiceRow audioDeviceChoiceRow(float x, float y, float width,
             float height) {
         Rectangle bounds = new Rectangle(x, y, width, height);
         StepperRow reference = audioDeviceStepperRow(x, y, width, height);
         Rectangle arrow = new Rectangle(reference.plusButton());
-        float valueX = reference.minusButton().x;
-        float valueRight = Math.max(valueX, arrow.x - 10f);
+        float labelWidth = Math.min(270f, width * 0.34f);
+        float valueRight = Math.max(x + 22f, arrow.x - 10f);
+        float valueX = Math.min(valueRight, x + 38f + labelWidth);
         Rectangle value = new Rectangle(valueX, y + 5f,
                 valueRight - valueX, Math.max(0f, height - 10f));
         Rectangle label = new Rectangle(x + 22f, y + 5f,

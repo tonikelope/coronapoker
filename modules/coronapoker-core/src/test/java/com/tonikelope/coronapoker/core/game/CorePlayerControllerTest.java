@@ -186,7 +186,7 @@ class CorePlayerControllerTest {
         AtomicInteger consumptions = new AtomicInteger();
         player.bindCommittedRebuy(() -> {
             consumptions.incrementAndGet();
-            return 10;
+            return 10d;
         });
 
         player.nuevaMano();
@@ -506,7 +506,7 @@ class CorePlayerControllerTest {
             player.getHoleCard2().iniciarCarta(true);
             player.setStack(0d);
             player.setSpectator("ESPECTADOR");
-            player.bindCommittedRebuy(() -> 10);
+            player.bindCommittedRebuy(() -> 10d);
 
             assertTrue(TableSnapshotMapper.player(player.getState().snapshot()).holeCards()
                     .stream().allMatch(TableSnapshot.CardSnapshot::visible), player.getNickname());
@@ -529,7 +529,7 @@ class CorePlayerControllerTest {
         player.setStack(0d);
         player.setBuyin(10);
         player.setSpectator("ESPECTADOR");
-        player.bindCommittedRebuy(() -> 10);
+        player.bindCommittedRebuy(() -> 10d);
 
         player.unsetSpectator();
         player.nuevaMano();

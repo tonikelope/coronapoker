@@ -439,6 +439,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
         AtomicLong immediateRebuyRequestSequence = new AtomicLong();
         AtomicLong immediateRebuyRelaySequence = new AtomicLong();
         Map<String, Long> immediateRebuySources = new ConcurrentHashMap<>();
+        Map<String, Integer> endOfHandRebuyDecisions = new ConcurrentHashMap<>();
         AtomicLong immediateRebuySource = new AtomicLong();
         for (Map.Entry<String, GamePeerController> peer : peers.entrySet()) {
             if (peer.getValue() != null && !peer.getValue().isCpu()) {
@@ -1021,12 +1022,14 @@ public final class CoreGameTableFactory implements GameTableFactory {
                         throw new IllegalArgumentException(
                                 "REBUYNOW source is not an active remote human");
                     }
-                    int amount = ImmediateRebuyWire.parseClientRequest(
+                    ImmediateRebuyWire.Request request = ImmediateRebuyWire.parseClientRequest(
                             envelope.split("#", -1));
                     long arrival = immediateRebuyRequestSequence
                             .incrementAndGet();
                     if (gameAsync.execute(() -> dealer.rebuyNowFromClient(
-                            command.peerNickname(), amount, source, arrival))
+                            command.peerNickname(), request.amount(), request.hand(),
+                            source, arrival, () -> peers.get(command.peerNickname()) == requestingPeer
+                                    && !requestingPeer.isExit()))
                             .isCancelled()) {
                         throw new IllegalStateException(
                                 "REBUYNOW worker rejected");
@@ -1050,7 +1053,7 @@ public final class CoreGameTableFactory implements GameTableFactory {
                                 "immediate-rebuy relay target is not seated");
                     }
                     dealer.registerRemoteRebuyRelay(arrival);
-                    int amount = relay.denied() ? 0 : relay.amount();
+                    double amount = relay.denied() ? 0d : relay.amount();
                     if (gameAsync.execute(() -> dealer.applyRemoteRebuyNow(
                             relay.nick(), amount, arrival)).isCancelled()) {
                         dealer.cancelRemoteRebuyRelay(arrival);
@@ -1200,6 +1203,31 @@ public final class CoreGameTableFactory implements GameTableFactory {
                             + command.peerNickname() + ": "
                             + command.command(), invalid);
                     context.channel().close();
+                }
+                return;
+            }
+            if (lobby.host() && command.command().startsWith("REBUY#")) {
+                String nick = command.peerNickname();
+                GamePeerController peer = peers.get(nick);
+                try {
+                    EndOfHandRebuyWire decision = EndOfHandRebuyWire.parse(
+                            envelope.split("#", -1), java.util.Set.of(nick));
+                    if (peer == null || peer.isCpu() || peer.isExit() || hotJoin.isWarming(nick)) {
+                        throw new IllegalArgumentException("REBUY source is not an admitted remote human");
+                    }
+                    if (decision.hand() == dealer.getMano()) {
+                        endOfHandRebuyDecisions.compute(nick, (key, previous) -> {
+                            if (peer == peers.get(nick)
+                                    && (previous == null || previous < decision.hand())
+                                    && dealer.enqueueReceivedCommand(envelope,
+                                            () -> context.channel().retirePeerAfterExit(nick))) {
+                                return decision.hand();
+                            }
+                            return previous;
+                        });
+                    }
+                } catch (IllegalArgumentException invalid) {
+                    context.channel().retirePeerAfterExit(nick);
                 }
                 return;
             }

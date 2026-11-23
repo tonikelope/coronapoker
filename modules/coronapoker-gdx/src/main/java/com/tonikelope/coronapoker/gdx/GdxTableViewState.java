@@ -67,7 +67,7 @@ final class GdxTableViewState {
             actionKinds = new HashMap<>();
     private final Map<String, String> actionLabels = new HashMap<>();
     private final Map<String, Float> partialHandPercentages = new HashMap<>();
-    private final Map<String, Integer> immediateRebuys = new HashMap<>();
+    private final Map<String, Double> immediateRebuys = new HashMap<>();
     private final java.util.Set<String> resolvedHandResults = new HashSet<>();
     private final java.util.Set<String> lateShownHands = new HashSet<>();
     private final java.util.Set<String> iwtsthCandidates = new HashSet<>();
@@ -192,11 +192,11 @@ final class GdxTableViewState {
     }
 
     boolean immediateRebuyEnabled(String nickname) {
-        return immediateRebuys.getOrDefault(nickname, 0) > 0;
+        return immediateRebuys.getOrDefault(nickname, 0d) > 0;
     }
 
-    int immediateRebuyAmount(String nickname) {
-        return Math.max(0, immediateRebuys.getOrDefault(nickname, 0));
+    double immediateRebuyAmount(String nickname) {
+        return Math.max(0, immediateRebuys.getOrDefault(nickname, 0d));
     }
 
     GameConfigCodecV1.Configuration gameConfiguration() {
@@ -1455,7 +1455,7 @@ final class GdxTableViewState {
             List<TableSnapshot.PlayerSnapshot> players) {
         immediateRebuys.clear();
         for (TableSnapshot.PlayerSnapshot player : players) {
-            int amount = player.presentation().immediateRebuyAmount();
+            double amount = player.presentation().immediateRebuyAmount();
             if (amount > 0) {
                 immediateRebuys.put(player.nickname(), amount);
             }
@@ -1797,7 +1797,7 @@ final class GdxTableViewState {
     private static TableSnapshot.PlayerPresentation copyPresentationRebuy(
             TableSnapshot.PlayerPresentation source,
             TableSnapshot.RebuyPhase rebuyPhase,
-            int immediateRebuyAmount) {
+            double immediateRebuyAmount) {
         return new TableSnapshot.PlayerPresentation(source.showingCards(),
                 source.partialHand(), source.partialWinPercentage(),
                 source.resultResolved(), source.publicHandName(),
@@ -1823,7 +1823,7 @@ final class GdxTableViewState {
     private static TableSnapshot.PlayerSnapshot copyPlayerRebuy(
             TableSnapshot.PlayerSnapshot source,
             TableVisualEvent.ChipTransfer transfer) {
-        int amount = (int) Math.max(0L, Math.round(transfer.amount()));
+        double amount = Math.max(0d, transfer.amount());
         return new TableSnapshot.PlayerSnapshot(source.nickname(),
                 transfer.stackAfter(), transfer.streetBetAfter(),
                 transfer.potContributionAfter(), source.active(),
@@ -1833,7 +1833,8 @@ final class GdxTableViewState {
                 source.winner(), source.underTheGun(), source.position(),
                 source.decision(), source.actionKind(), source.lastAction(),
                 source.handName(), source.holeCards(),
-                source.buyIn() + amount, source.rebuyCount() + 1,
+                com.tonikelope.coronapoker.core.game.MoneyMath.clean(source.buyIn() + amount),
+                source.rebuyCount() + 1,
                 source.warming(), source.presentation());
     }
 

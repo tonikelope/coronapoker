@@ -45,9 +45,7 @@ public final class HandCloseTransaction {
             if (nick == null || nick.isEmpty()) {
                 throw new IllegalArgumentException("nick is required");
             }
-            if (stack == null || buyin == null || rebuyCount == null
-                    || buyin.cents() % 100L != 0L
-                    || buyin.cents() / 100L > Integer.MAX_VALUE) {
+            if (stack == null || buyin == null || rebuyCount == null) {
                 throw new IllegalArgumentException("invalid typed balance values");
             }
             this.nick = nick;
@@ -105,7 +103,7 @@ public final class HandCloseTransaction {
                         insert.setInt(1, handId);
                         insert.setString(2, row.nick);
                         insert.setDouble(3, row.stack.toDecimal().doubleValue());
-                        insert.setInt(4, Math.toIntExact(row.buyin.cents() / 100L));
+                        insert.setDouble(4, row.buyin.toDecimal().doubleValue());
                         insert.setInt(5, row.rebuyCount.value());
                         requireOne(insert.executeUpdate(), "balance insert", row.nick);
                     } else {
@@ -120,7 +118,7 @@ public final class HandCloseTransaction {
     private static void bindBalance(PreparedStatement statement, BalanceUpdate row,
             int handId) throws SQLException {
         statement.setDouble(1, row.stack.toDecimal().doubleValue());
-        statement.setInt(2, Math.toIntExact(row.buyin.cents() / 100L));
+        statement.setDouble(2, row.buyin.toDecimal().doubleValue());
         statement.setInt(3, row.rebuyCount.value());
         statement.setInt(4, handId);
         statement.setString(5, row.nick);

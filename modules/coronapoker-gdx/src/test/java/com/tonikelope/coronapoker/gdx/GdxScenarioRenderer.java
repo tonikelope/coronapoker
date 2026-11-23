@@ -132,7 +132,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawHotJoinSettlement = new AtomicBoolean();
     private final Set<String> warmingAwaitingAdmission
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private final java.util.concurrent.ConcurrentHashMap<String, Integer>
+    private final java.util.concurrent.ConcurrentHashMap<String, Double>
             immediateRebuys = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicReference<Runnable> afterAllInCommand
             = new AtomicReference<>(() -> { });
@@ -1313,7 +1313,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     boolean hasImmediateRebuy(String nickname) {
-        return immediateRebuys.getOrDefault(nickname, 0) > 0;
+        return immediateRebuys.getOrDefault(nickname, 0d) > 0;
     }
 
     boolean isPaused() {
@@ -1445,7 +1445,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                 .findFirst().orElseThrow().rebuyCount();
     }
 
-    int immediateRebuyAmountOf(String nickname) {
+    double immediateRebuyAmountOf(String nickname) {
         GdxTableViewState projection = state.get();
         assertNotNull(projection);
         return projection.snapshot().players().stream()

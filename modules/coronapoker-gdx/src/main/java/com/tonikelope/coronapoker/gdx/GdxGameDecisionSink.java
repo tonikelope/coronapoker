@@ -402,6 +402,7 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                     tr("ui.aceptar", "ACEPTAR"),
                     request.minimum(), request.maximum(),
                     request.defaultAmount());
+            if (!request.fractional()) dialog.useWholeChipAmounts();
             if (request.deferClose()) {
                 dialog.deferCloseAfterDecision(tr(
                         "rebuy.esperando_jugadores",

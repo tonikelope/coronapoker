@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.MoneyCents;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -18,7 +19,7 @@ import java.util.TreeMap;
 /** Compact, bounded public table-state bootstrap for a live newcomer. */
 public final class HotJoinSnapshotCodecV1 {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final int MAX_BYTES = 256 * 1024;
     private static final int MAX_TEXT_BYTES = 16 * 1024;
 
@@ -58,7 +59,7 @@ public final class HotJoinSnapshotCodecV1 {
                     writeText(out, player.lastAction());
                     writeText(out, player.handName());
                     writeCards(out, player.holeCards());
-                    out.writeInt(player.buyIn());
+                    out.writeLong(MoneyCents.fromDouble(player.buyIn()).cents());
                     out.writeInt(player.rebuyCount());
                     out.writeBoolean(player.warming());
                     writePlayerPresentation(out, player.presentation());
@@ -131,7 +132,7 @@ public final class HotJoinSnapshotCodecV1 {
                 String lastAction = readText(in);
                 String handName = readText(in);
                 List<TableSnapshot.CardSnapshot> cards = readCards(in, 2);
-                int buyIn = in.readInt();
+                double buyIn = MoneyCents.ofCents(in.readLong()).toDecimal().doubleValue();
                 int rebuyCount = in.readInt();
                 boolean warming = in.readBoolean();
                 TableSnapshot.PlayerPresentation presentation
@@ -197,7 +198,7 @@ public final class HotJoinSnapshotCodecV1 {
         writeIntegers(out, presentation.winningHoleCardSlots());
         writeIntegers(out, presentation.winningCommunityCardSlots());
         out.writeInt(presentation.rebuyPhase().ordinal());
-        out.writeInt(presentation.immediateRebuyAmount());
+        out.writeLong(MoneyCents.fromDouble(presentation.immediateRebuyAmount()).cents());
         writeText(out, presentation.publicActionLabel());
     }
 
@@ -218,8 +219,8 @@ public final class HotJoinSnapshotCodecV1 {
         TableSnapshot.RebuyPhase rebuyPhase = enumValue(
                 TableSnapshot.RebuyPhase.values(), in.readInt(),
                 "rebuy phase");
-        int immediateRebuyAmount = boundedCount(in.readInt(), 0,
-                Integer.MAX_VALUE, "immediate rebuy amount");
+        double immediateRebuyAmount = MoneyCents.ofCents(in.readLong())
+                .toDecimal().doubleValue();
         String publicActionLabel = readText(in);
         return new TableSnapshot.PlayerPresentation(showingCards,
                 partialHand, percentage, resolved, publicHandName, pots,

@@ -131,6 +131,10 @@ public class StatsSyncTest {
             byte[] reblob = StatsSync.exportGames(dst, List.of("UGI1"));
             assertArrayEquals(gunzip(blob), gunzip(reblob));
 
+            assertEquals("100.7", scalarStr(dst,
+                    "SELECT b.buyin FROM balance b JOIN hand h ON b.id_hand=h.id "
+                    + "JOIN game g ON h.id_game=g.id WHERE g.ugi='UGI1' AND h.counter=1 AND b.player='p1'"));
+
             // Spot-check that a concrete value and an explicit NULL both survived.
             assertEquals("As Kd Qh", scalarStr(dst,
                     "SELECT com_cards FROM hand h JOIN game g ON h.id_game=g.id WHERE g.ugi='UGI1' AND h.counter=1"));
@@ -344,7 +348,7 @@ public class StatsSyncTest {
                 "hand_cards", "As Ks Qh Jh Th", "hand_val", 8, "winner", 1, "pay", 10.5, "profit", 5.0);
         ins(c, "showdown", "id_hand", h1, "player", "p2", "hole_cards", null,
                 "hand_cards", null, "hand_val", -1, "winner", 0, "pay", 0.0, "profit", null);
-        ins(c, "balance", "id_hand", h1, "player", "p1", "stack", 105.0, "buyin", 100, "rebuy_count", 0);
+        ins(c, "balance", "id_hand", h1, "player", "p1", "stack", 105.0, "buyin", 100.70, "rebuy_count", 0);
         ins(c, "balance", "id_hand", h1, "player", "p2", "stack", 95.0, "buyin", 100, "rebuy_count", 1);
         ins(c, "showcards", "id_hand", h1, "player", "p1", "parguela", 1);
         ins(c, "showcards", "id_hand", h1, "player", "p2", "parguela", 0);

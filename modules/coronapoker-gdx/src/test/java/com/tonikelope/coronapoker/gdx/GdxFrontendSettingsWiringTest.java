@@ -124,9 +124,10 @@ final class GdxFrontendSettingsWiringTest {
         assertEquals(1, occurrences(render, "drawTooltipTopLayer("));
         assertTrue(frontend.contains("case SETTINGS -> drawSettingsControls(this::drawSettingsScreen);"),
                 "menu and lobby settings must share the same sharp modal");
-        assertTrue(frontend.contains(
-                "settingsReturnSurface == Surface.LOBBY && lobby != null"),
-                "only the blurred backdrop may differ between menu and lobby");
+        assertTrue(render.contains("rootSurfaceModal && lobby != null"));
+        assertTrue(render.contains("settingsReturnSurface == Surface.LOBBY"));
+        assertTrue(render.contains("if (lobbyRootBackdrop) drawLobby();"),
+                "only settings opened from the lobby capture the waiting room");
     }
 
     @Test

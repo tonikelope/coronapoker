@@ -18,19 +18,21 @@ public class ImmediateRebuyWireTest {
 
     @Test
     void decodesOnlyCurrentCanonicalRequest() {
-        assertEquals(75, ImmediateRebuyWire.parseClientRequest(
-                new String[]{"GAME", "7", "REBUYNOW", "75"}));
-        assertEquals(0, ImmediateRebuyWire.parseClientRequest(
-                new String[]{"GAME", "7", "REBUYNOW", "0"}));
+        var request = ImmediateRebuyWire.parseClientRequest(
+                new String[]{"GAME", "7", "REBUYNOW", "3", "5.70"});
+        assertEquals(3, request.hand());
+        assertEquals(5.70d, request.amount());
+        assertEquals(0d, ImmediateRebuyWire.parseClientRequest(
+                new String[]{"GAME", "7", "REBUYNOW", "3", "0"}).amount());
 
         assertThrows(IllegalArgumentException.class, () -> ImmediateRebuyWire.parseClientRequest(
-                new String[]{"GAME", "7", "REBUYNOW", "75", ""}));
+                new String[]{"GAME", "7", "REBUYNOW", "75"}));
         assertThrows(IllegalArgumentException.class, () -> ImmediateRebuyWire.parseClientRequest(
-                new String[]{"GAME", "+7", "REBUYNOW", "75"}));
+                new String[]{"GAME", "+7", "REBUYNOW", "3", "75"}));
         assertThrows(IllegalArgumentException.class, () -> ImmediateRebuyWire.parseClientRequest(
-                new String[]{"GAME", "7", "REBUYNOW", "-1"}));
+                new String[]{"GAME", "7", "REBUYNOW", "3", "-1"}));
         assertThrows(IllegalArgumentException.class, () -> ImmediateRebuyWire.parseClientRequest(
-                new String[]{"GAME", "7", "REBUYNOW", " 75"}));
+                new String[]{"GAME", "7", "REBUYNOW", "3", "5.705"}));
     }
 
     @Test
@@ -104,28 +106,28 @@ public class ImmediateRebuyWireTest {
 
     @Test
     void boundaryCommitKeepsLateRebuyForFollowingHand() {
-        Map<String, Integer> pending = new LinkedHashMap<>();
-        Map<String, Integer> committed = new LinkedHashMap<>();
-        pending.put("alice", 50);
+        Map<String, Double> pending = new LinkedHashMap<>();
+        Map<String, Double> committed = new LinkedHashMap<>();
+        pending.put("alice", 50d);
 
         Crupier.commitPendingRebuys(pending, committed);
-        pending.put("bob", 75);
+        pending.put("bob", 75d);
 
-        assertEquals(Map.of("alice", 50), committed);
-        assertEquals(Map.of("bob", 75), pending);
+        assertEquals(Map.of("alice", 50d), committed);
+        assertEquals(Map.of("bob", 75d), pending);
 
         Crupier.commitPendingRebuys(pending, committed);
-        assertEquals(Map.of("bob", 75), committed);
+        assertEquals(Map.of("bob", 75d), committed);
         assertTrue(pending.isEmpty());
     }
 
     @Test
     void committedRebuyCannotSurviveItsPlayerLeavingTheTable() {
-        Crupier.validateCommittedRebuyTargets(Map.of("alice", 50),
+        Crupier.validateCommittedRebuyTargets(Map.of("alice", 50d),
                 java.util.Set.of("alice", "bob"));
         assertThrows(IllegalArgumentException.class,
                 () -> Crupier.validateCommittedRebuyTargets(
-                        Map.of("alice", 50), java.util.Set.of("bob")));
+                        Map.of("alice", 50d), java.util.Set.of("bob")));
     }
 
     @Test

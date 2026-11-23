@@ -1410,6 +1410,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     || surface == Surface.SCREENSHOTS
                         && screenshotReturnSurface == Surface.LOBBY);
         boolean wantsModalBackdrop = hasVisibleFrontendModal();
+        boolean mainMenuVisible = renderMainMenuContent(
+                surface == Surface.MENU, wantsModalBackdrop);
+        boolean menuBackdrop = surface == Surface.MENU
+                || rootSurfaceModal && !lobbyRootBackdrop;
         boolean blurModalBackdrop = wantsModalBackdrop
                 && backdropBlurActive;
         boolean nestedFrontendModal = hasNestedFrontendModal();
@@ -1474,12 +1478,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         if (rootSurfaceModal) {
-            drawRootModalBackdropSurface();
+            if (lobbyRootBackdrop) drawLobby();
         } else if (surface == Surface.MENU) {
-            if (applicationExitConfirmation
-                    || renderMainMenuContent(aboutOpen, updatePromptOpen)) {
-                drawMainMenu();
-            }
+            if (mainMenuVisible) drawMainMenu();
         } else if (surface == Surface.LOBBY) {
             drawLobby();
         } else if (surface == Surface.SETTINGS) {
@@ -1496,7 +1497,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
 
         batch.begin();
-        if (surface == Surface.MENU && !hasVisibleFrontendModal()) {
+        if (menuBackdrop) {
             float height = MENU_BADGE_HEIGHT;
             float x = GdxProductVersionBrand.X;
             batch.setColor(Color.WHITE);
@@ -1541,7 +1542,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     galleryInteractive ? pointer.x : -10_000f,
                     galleryInteractive ? pointer.y : -10_000f);
         }
-        drawStartupMenuReveal();
+        if (mainMenuVisible) drawStartupMenuReveal();
 
         if (blurModalBackdrop) {
             try {
@@ -2212,8 +2213,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     /**
      * Full frontend workflows opened from the main menu behave as modal
-     * surfaces: the menu remains visible but blurred below them. A nested
-     * confirmation deliberately returns false so the active workflow becomes
+     * surfaces: the main menu controls and quote are hidden while the
+     * background is blurred. A nested confirmation deliberately returns
+     * false so the active workflow becomes
      * the blurred scene and only that child dialog is composed sharp.
      */
     private boolean isFrontendRootModal() {
@@ -2284,25 +2286,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean deferMenuDialogClose(Object dialog, Runnable finish) {
         return menuSlideTarget() == dialog
                 && menuDialogSlide.deferClose(dialog, finish);
-    }
-
-    private void drawSettingsBackdropSurface() {
-        if (settingsReturnSurface == Surface.LOBBY && lobby != null) {
-            drawLobby();
-        } else if (renderMainMenuContent(false, false)) {
-            drawMainMenu();
-        }
-    }
-
-    private void drawRootModalBackdropSurface() {
-        if (surface == Surface.SETTINGS) {
-            drawSettingsBackdropSurface();
-        } else if (surface == Surface.SCREENSHOTS
-                && screenshotReturnSurface == Surface.LOBBY && lobby != null) {
-            drawLobby();
-        } else if (renderMainMenuContent(false, false)) {
-            drawMainMenu();
-        }
     }
 
     private void drawRootModalSurface() {
@@ -6149,9 +6132,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shapes.end();
     }
 
-    static boolean renderMainMenuContent(boolean aboutOpen,
-            boolean updatePromptOpen) {
-        return !aboutOpen && !updatePromptOpen;
+    static boolean renderMainMenuContent(boolean menuSurface,
+            boolean modalVisible) {
+        return menuSurface && !modalVisible;
     }
 
     static boolean menuRevealBlocksInteraction(boolean menuSurface,
@@ -6298,10 +6281,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void drawStartupMenuReveal() {
         float progress = menuRevealProgress();
-        if (surface != Surface.MENU || progress >= 1f
-                || !renderMainMenuContent(aboutOpen, updatePromptOpen)) {
-            return;
-        }
+        if (progress >= 1f) return;
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         batch.begin();
@@ -11887,7 +11867,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void drawNewGameDialogFrame() {
-        // The setup workflow is composed sharp over the shared blurred menu.
+        // The setup workflow is composed sharp over the blurred background.
         boolean joining = connection.mode() == NewGameConnectionDraft.Mode.JOIN;
         float frameX = joining ? 190f : 50f;
         float frameY = joining ? 120f : 35f;

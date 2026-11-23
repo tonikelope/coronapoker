@@ -180,7 +180,7 @@ public record TableSnapshot(
             List<Integer> winningHoleCardSlots,
             List<Integer> winningCommunityCardSlots,
             RebuyPhase rebuyPhase,
-            int immediateRebuyAmount,
+            double immediateRebuyAmount,
             String publicActionLabel) {
 
         public static final PlayerPresentation EMPTY = new PlayerPresentation(
@@ -193,7 +193,7 @@ public record TableSnapshot(
                 boolean returnedSidePot, boolean showdownHighlightEnabled,
                 List<Integer> winningHoleCardSlots,
                 List<Integer> winningCommunityCardSlots,
-                RebuyPhase rebuyPhase, int immediateRebuyAmount) {
+                RebuyPhase rebuyPhase, double immediateRebuyAmount) {
             this(showingCards, partialHand, partialWinPercentage,
                     resultResolved, publicHandName, wonPotIndexes,
                     returnedSidePot, showdownHighlightEnabled,
@@ -219,7 +219,7 @@ public record TableSnapshot(
             publicActionLabel = Objects.requireNonNullElse(
                     publicActionLabel, "");
             Objects.requireNonNull(rebuyPhase, "rebuyPhase");
-            if (immediateRebuyAmount < 0) {
+            if (!Double.isFinite(immediateRebuyAmount) || immediateRebuyAmount < 0d) {
                 throw new IllegalArgumentException(
                         "Immediate rebuy amount cannot be negative");
             }
@@ -300,7 +300,7 @@ public record TableSnapshot(
             String lastAction,
             String handName,
             List<CardSnapshot> holeCards,
-            int buyIn,
+            double buyIn,
             int rebuyCount,
             boolean warming,
             PlayerPresentation presentation) {
@@ -312,7 +312,7 @@ public record TableSnapshot(
                 long telemetryAt, boolean winner, boolean underTheGun,
                 Position position, Decision decision, ActionKind actionKind,
                 String lastAction, String handName,
-                List<CardSnapshot> holeCards, int buyIn, int rebuyCount,
+                List<CardSnapshot> holeCards, double buyIn, int rebuyCount,
                 boolean warming) {
             this(nickname, stack, streetBet, potContribution, active,
                     spectator, exited, timedOut, latency, previousLatency,
@@ -328,7 +328,7 @@ public record TableSnapshot(
                 int latency, int previousLatency, int reconnectionCount,
                 long telemetryAt, boolean winner, boolean underTheGun,
                 Position position, String lastAction, String handName,
-                List<CardSnapshot> holeCards, int buyIn, int rebuyCount,
+                List<CardSnapshot> holeCards, double buyIn, int rebuyCount,
                 boolean warming) {
             this(nickname, stack, streetBet, potContribution, active,
                     spectator, exited, timedOut, latency, previousLatency,
@@ -344,7 +344,7 @@ public record TableSnapshot(
                 int latency, int previousLatency, int reconnectionCount,
                 long telemetryAt, boolean winner, boolean underTheGun,
                 Position position, String lastAction, String handName,
-                List<CardSnapshot> holeCards, int buyIn, int rebuyCount) {
+                List<CardSnapshot> holeCards, double buyIn, int rebuyCount) {
             this(nickname, stack, streetBet, potContribution, active,
                     spectator, exited, timedOut, latency, previousLatency,
                     reconnectionCount, telemetryAt, winner, underTheGun,

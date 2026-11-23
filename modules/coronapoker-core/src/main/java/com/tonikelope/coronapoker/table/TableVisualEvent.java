@@ -995,7 +995,7 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
     }
 
     /** Canonical state of the next-hand rebuy toggle for one player. */
-    record ImmediateRebuyStatus(long sequence, String nickname, int amount)
+    record ImmediateRebuyStatus(long sequence, String nickname, double amount)
             implements TableVisualEvent {
 
         public ImmediateRebuyStatus {
@@ -1004,9 +1004,9 @@ public sealed interface TableVisualEvent permits TableVisualEvent.PreparationSta
                 throw new IllegalArgumentException(
                         "Immediate-rebuy nickname must not be blank");
             }
-            if (amount < 0) {
+            if (!Double.isFinite(amount) || amount < 0d) {
                 throw new IllegalArgumentException(
-                        "Immediate-rebuy amount must not be negative");
+                        "Immediate-rebuy amount must be finite and nonnegative");
             }
         }
 

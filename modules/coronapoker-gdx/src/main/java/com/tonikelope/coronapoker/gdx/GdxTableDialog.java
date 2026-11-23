@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameText;
+import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Locale;
@@ -38,10 +39,12 @@ final class GdxTableDialog {
     private final boolean timeoutAccepts;
     private final String negativeLabel;
     private final String positiveLabel;
-    private final int minimumAmount;
-    private final int maximumAmount;
-    private final int amountStep;
-    private int amount;
+    private final double minimumAmount;
+    private final double maximumAmount;
+    private final double amountStep;
+    private double amount;
+    private String rebuyAmountText;
+    private boolean wholeChipAmounts;
     private BigDecimal autoCallCommittedAmount;
     private String autoCallAmountText;
     private double autoActionWager;
@@ -88,7 +91,7 @@ final class GdxTableDialog {
 
     GdxTableDialog(String title, String message, int preferredWidth,
             int seconds, boolean timeoutAccepts, String negativeLabel,
-            int minimumAmount, int maximumAmount, int defaultAmount) {
+            double minimumAmount, double maximumAmount, double defaultAmount) {
         this(title, message, preferredWidth, seconds, timeoutAccepts,
                 negativeLabel, "ACEPTAR", minimumAmount, maximumAmount,
                 defaultAmount);
@@ -96,8 +99,8 @@ final class GdxTableDialog {
 
     GdxTableDialog(String title, String message, int preferredWidth,
             int seconds, boolean timeoutAccepts, String negativeLabel,
-            String positiveLabel, int minimumAmount, int maximumAmount,
-            int defaultAmount) {
+            String positiveLabel, double minimumAmount, double maximumAmount,
+            double defaultAmount) {
         this(Kind.REBUY, title, message, GameDialogSink.Icon.NONE,
                 preferredWidth, seconds, timeoutAccepts, negativeLabel,
                 positiveLabel, minimumAmount, maximumAmount, defaultAmount);
@@ -235,8 +238,8 @@ final class GdxTableDialog {
     private GdxTableDialog(Kind kind, String title, String message,
             GameDialogSink.Icon icon, int preferredWidth, int seconds,
             boolean timeoutAccepts, String negativeLabel,
-            String positiveLabel, int minimumAmount, int maximumAmount,
-            int defaultAmount) {
+            String positiveLabel, double minimumAmount, double maximumAmount,
+            double defaultAmount) {
         this.kind = Objects.requireNonNull(kind, "kind");
         this.title = Objects.requireNonNull(title, "title");
         this.message = plainText(Objects.requireNonNull(message, "message"));
@@ -252,7 +255,7 @@ final class GdxTableDialog {
         this.maximumAmount = Math.max(minimumAmount, maximumAmount);
         amountStep = kind == Kind.AUTO_CALL ? 5
                 : kind == Kind.HAND_LIMIT ? 1
-                : Math.max(1, this.maximumAmount / 100);
+                : Math.max(0.01d, Math.floor(this.maximumAmount / 100d));
         amount = Math.max(this.minimumAmount,
                 Math.min(this.maximumAmount, defaultAmount));
     }
@@ -330,12 +333,15 @@ final class GdxTableDialog {
     boolean hasStandaloneOption() { return !standaloneOptionLabel.isBlank(); }
     String standaloneOptionLabel() { return standaloneOptionLabel; }
     boolean noLimit() { return noLimit; }
-    int amount() { return amount; }
+    double amount() { return amount; }
     String amountText() {
-        return isAutoCall() ? autoCallAmountText : Integer.toString(amount);
+        if (isAutoCall()) return autoCallAmountText;
+        if (kind == Kind.REBUY && rebuyAmountText != null) return rebuyAmountText;
+        return amount == Math.rint(amount) ? Long.toString((long) amount)
+                : BigDecimal.valueOf(amount).setScale(2).toPlainString();
     }
-    int minimumAmount() { return minimumAmount; }
-    int maximumAmount() { return maximumAmount; }
+    double minimumAmount() { return minimumAmount; }
+    double maximumAmount() { return maximumAmount; }
     CompletionStage<Boolean> result() { return result; }
 
     GdxTableDialog exitChoice() {
@@ -431,9 +437,10 @@ final class GdxTableDialog {
             autoCallAmountText = decimalText(next);
             amount = centsForLegacyAmount(next);
         } else {
-            long next = (long) amount + (long) amountStep * direction;
-            amount = (int) Math.max(minimumAmount,
-                    Math.min(maximumAmount, next));
+            double step = wholeChipAmounts ? Math.max(1d, amountStep) : amountStep;
+            double next = MoneyMath.clean(amount + step * direction);
+            amount = Math.max(minimumAmount, Math.min(maximumAmount, next));
+            rebuyAmountText = null;
         }
     }
 
@@ -459,6 +466,33 @@ final class GdxTableDialog {
 
     boolean autoCallAmountEditable() {
         return isAutoCall() && optionEnabled && !noLimit;
+    }
+
+    boolean amountEditable() {
+        return !waitingForExternalClose()
+                && (kind == Kind.REBUY && !wholeChipAmounts || autoCallAmountEditable());
+    }
+
+    void useWholeChipAmounts() {
+        wholeChipAmounts = true;
+    }
+
+    boolean acceptsAmountText(String text) {
+        return kind == Kind.REBUY
+                ? text != null && text.matches("[0-9]{0,11}(?:[.,][0-9]{0,2})?")
+                : acceptsAutoCallAmountText(text);
+    }
+
+    void editAmountText(String text) {
+        if (kind != Kind.REBUY) {
+            autoCallAmountText(text);
+        } else if (acceptsAmountText(text)) {
+            rebuyAmountText = text;
+            if (text.chars().anyMatch(Character::isDigit)) {
+                double value = new BigDecimal(text.replace(',', '.')).doubleValue();
+                amount = Math.max(minimumAmount, Math.min(maximumAmount, value));
+            }
+        }
     }
 
     boolean showsMinimumAmount() {

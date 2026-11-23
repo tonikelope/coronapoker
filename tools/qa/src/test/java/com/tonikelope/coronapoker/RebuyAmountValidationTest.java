@@ -21,6 +21,8 @@ class RebuyAmountValidationTest {
         assertEquals(75, Crupier.normalizeRequestedRebuy("120", 75));
         assertEquals(25, Crupier.normalizeRequestedRebuy("25", 75));
         assertEquals(0, Crupier.normalizeRequestedRebuy("25", 0));
+        assertEquals(5.70d, Crupier.normalizeRequestedRebuy("5.71", 5.70d));
+        assertEquals("5.70", Crupier.canonicalRemoteRebuyAmount("5.71", 5.70d));
     }
 
     @Test
@@ -50,8 +52,8 @@ class RebuyAmountValidationTest {
 
     @Test
     void canonicalEndOfHandZeroClearsAnOptimisticOriginatorEntry() {
-        Map<String, Integer> rebuyNow = new HashMap<>();
-        rebuyNow.put("nick", 75);
+        Map<String, Double> rebuyNow = new HashMap<>();
+        rebuyNow.put("nick", 75d);
 
         Crupier.applyCanonicalRemoteRebuy(rebuyNow, "nick", 0);
 
@@ -82,8 +84,8 @@ class RebuyAmountValidationTest {
 
     @Test
     void deniedImmediateRebuyClearsAnOptimisticClientEntry() {
-        Map<String, Integer> rebuyNow = new HashMap<>();
-        rebuyNow.put("nick", 75);
+        Map<String, Double> rebuyNow = new HashMap<>();
+        rebuyNow.put("nick", 75d);
 
         Crupier.clearImmediateRebuyOnDenied(rebuyNow, "nick");
 
@@ -101,7 +103,7 @@ class RebuyAmountValidationTest {
 
         for (int requested : requestedValues) {
             for (int headroom : headrooms) {
-                int actual = Crupier.canonicalImmediateRebuyAmount(requested, headroom);
+                double actual = Crupier.canonicalImmediateRebuyAmount(requested, headroom);
                 if (requested > 0 && headroom > 0) {
                     assertTrue(actual > 0 && actual <= requested && actual <= headroom,
                             "canonical amount escaped bounds for request=" + requested
@@ -131,23 +133,23 @@ class RebuyAmountValidationTest {
 
     @Test
     void optimisticRebuyStateIsIdempotentAcrossAcceptToggleAndDenial() {
-        Map<String, Integer> rebuyNow = new HashMap<>();
+        Map<String, Double> rebuyNow = new HashMap<>();
         String nick = "nick";
 
-        int accepted = Crupier.canonicalImmediateRebuyAmount(120, 75);
+        double accepted = Crupier.canonicalImmediateRebuyAmount(120, 75);
         rebuyNow.put(nick, accepted);
         rebuyNow.put(nick, Crupier.canonicalImmediateRebuyAmount(accepted, 75));
         assertEquals(75, rebuyNow.get(nick));
 
         // The canonical zero used by the host for a toggle-off/no-headroom denial
         // has one meaning: remove the pending request, never insert a zero entry.
-        int toggledOff = Crupier.canonicalImmediateRebuyAmount(0, 75);
+        double toggledOff = Crupier.canonicalImmediateRebuyAmount(0, 75);
         if (toggledOff == 0) {
             rebuyNow.remove(nick);
         }
         assertFalse(rebuyNow.containsKey(nick));
 
-        rebuyNow.put(nick, 75);
+        rebuyNow.put(nick, 75d);
         Crupier.clearImmediateRebuyOnDenied(rebuyNow, nick);
         Crupier.clearImmediateRebuyOnDenied(rebuyNow, nick);
         Crupier.clearImmediateRebuyOnDenied(rebuyNow, null);

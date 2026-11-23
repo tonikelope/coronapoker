@@ -25,8 +25,15 @@ public interface GameDecisionSink {
     int POST_STRADDLE = 1;
 
     record RebuyRequest(boolean cancelAllowed, int timeoutSeconds,
-            int minimum, int maximum, int defaultAmount, String headerKey,
-            boolean automatic, boolean deferClose) {
+            double minimum, double maximum, double defaultAmount, String headerKey,
+            boolean automatic, boolean deferClose, boolean fractional) {
+
+        public RebuyRequest(boolean cancelAllowed, int timeoutSeconds,
+                double minimum, double maximum, double defaultAmount,
+                String headerKey, boolean automatic, boolean deferClose) {
+            this(cancelAllowed, timeoutSeconds, minimum, maximum, defaultAmount,
+                    headerKey, automatic, deferClose, true);
+        }
 
         public RebuyRequest {
             Objects.requireNonNull(headerKey, "headerKey");
@@ -37,11 +44,11 @@ public interface GameDecisionSink {
         }
     }
 
-    record RebuyResult(boolean accepted, int amount) {
+    record RebuyResult(boolean accepted, double amount) {
     }
 
-    record GameOverRequest(boolean direct, int minimum, int maximum,
-            int defaultAmount, int timeoutSeconds) {
+    record GameOverRequest(boolean direct, double minimum, double maximum,
+            double defaultAmount, int timeoutSeconds) {
 
         public GameOverRequest(boolean direct) {
             this(direct, 0, 0, 0, 0);
@@ -56,7 +63,7 @@ public interface GameDecisionSink {
         }
     }
 
-    record GameOverResult(boolean continuePlaying, int rebuyAmount) {
+    record GameOverResult(boolean continuePlaying, double rebuyAmount) {
     }
 
     interface CloseHandle {

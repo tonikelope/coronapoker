@@ -82,7 +82,7 @@ public final class StatsSync {
 
     // Blob header: magic + format version, so a future format change is detectable.
     private static final int MAGIC = 0x43504442; // "CPDB"
-    private static final int FORMAT_VERSION = 1;
+    private static final int FORMAT_VERSION = 2;
 
     // Hard caps guarding against malformed / hostile blobs (the wire frame is
     // already ≤ 16 MB, but a gzip payload can expand, and lengths are attacker
@@ -126,6 +126,9 @@ public final class StatsSync {
         "winner:I", "pay:R", "profit:R"
     });
     private static final Cols BALANCE = new Cols(new String[]{
+        "player:T", "stack:R", "buyin:R", "rebuy_count:I"
+    });
+    private static final Cols LEGACY_BALANCE = new Cols(new String[]{
         "player:T", "stack:R", "buyin:I", "rebuy_count:I"
     });
     private static final Cols SHOWCARDS = new Cols(new String[]{
@@ -436,16 +439,18 @@ public final class StatsSync {
             return games;
         }
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(inflated));
+        final boolean legacyBalance;
         try {
             if (in.readInt() != MAGIC) {
                 LOGGER.log(Level.WARNING, "StatsSync: bad magic, blob rejected");
                 return games;
             }
             int version = in.readInt();
-            if (version != FORMAT_VERSION) {
+            if (version != 1 && version != FORMAT_VERSION) {
                 LOGGER.log(Level.WARNING, "StatsSync: unsupported format version {0}", version);
                 return games;
             }
+            legacyBalance = version == 1;
         } catch (IOException shortHeader) {
             LOGGER.log(Level.WARNING, "StatsSync: blob too short for header, rejected ({0})", shortHeader.getMessage());
             return games;
@@ -456,7 +461,7 @@ public final class StatsSync {
                 if (!in.readBoolean()) {
                     break;
                 }
-                games.add(readGame(in)); // fully decode + bound-check this game
+                games.add(readGame(in, legacyBalance)); // fully decode + bound-check this game
             } catch (IOException truncated) {
                 // Stream cut past this point — expected when a sync is interrupted.
                 // Keep the games decoded so far; the rest arrives on the next
@@ -592,7 +597,7 @@ public final class StatsSync {
     private static final int MAX_HANDS_PER_GAME = 200_000;
     private static final int MAX_ROWS_PER_LIST = 100_000;
 
-    private static GameData readGame(DataInputStream in) throws IOException {
+    private static GameData readGame(DataInputStream in, boolean legacyBalance) throws IOException {
         GameData g = new GameData();
         g.game = readRow(in, GAME);
         while (in.readBoolean()) {
@@ -604,7 +609,12 @@ public final class StatsSync {
             h.hand = readRow(in, HAND);
             h.actions = readRowList(in, ACTION);
             h.showdowns = readRowList(in, SHOWDOWN);
-            h.balances = readRowList(in, BALANCE);
+            h.balances = readRowList(in, legacyBalance ? LEGACY_BALANCE : BALANCE);
+            if (legacyBalance) {
+                for (Object[] balance : h.balances) {
+                    if (balance[2] instanceof Long buyin) balance[2] = buyin.doubleValue();
+                }
+            }
             h.showcards = readRowList(in, SHOWCARDS);
             g.hands.add(h);
         }

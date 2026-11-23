@@ -411,8 +411,8 @@ final class GdxSettingsContract {
                     "voice_messages"),
             option("audio_play_own_voice", "REPRODUCIR MIS NOTAS", true,
                     Gate.NONE, "audio_block_voice_messages"),
-            option("tts_server", "VOZ (TTS)", true, Gate.NONE),
-            invertedOption("audio_block_tts_local", "TTS (LOCAL)", false,
+            option("tts_server", "TTS DE LA MESA", true, Gate.NONE),
+            invertedOption("audio_block_tts_local", "TTS EN ESTE EQUIPO", false,
                     Gate.NONE, "tts_server"));
     private static final TogglePage APPEARANCE_TABLE_PAGE = withoutUnavailablePokerVideo(page(
             "MESA",

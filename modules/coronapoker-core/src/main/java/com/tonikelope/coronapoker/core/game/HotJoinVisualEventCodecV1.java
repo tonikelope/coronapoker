@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.core.game;
 
+import com.tonikelope.coronapoker.MoneyCents;
 import com.tonikelope.coronapoker.core.AnteMode;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableSessionSummary;
@@ -28,7 +29,7 @@ import java.util.Optional;
  */
 public final class HotJoinVisualEventCodecV1 {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final int MAX_BYTES = 256 * 1024;
     private static final int MAX_TEXT_BYTES = 16 * 1024;
     private static final int MAX_LIST = 32;
@@ -310,7 +311,7 @@ public final class HotJoinVisualEventCodecV1 {
                 } else if (event instanceof TableVisualEvent.ImmediateRebuyStatus value) {
                     out.writeByte(IMMEDIATE_REBUY_STATUS);
                     writeText(out, value.nickname());
-                    out.writeInt(value.amount());
+                    out.writeLong(MoneyCents.fromDouble(value.amount()).cents());
                 } else if (event instanceof TableVisualEvent.LastHandStatus value) {
                     out.writeByte(LAST_HAND_STATUS);
                     out.writeBoolean(value.enabled());
@@ -498,7 +499,8 @@ public final class HotJoinVisualEventCodecV1 {
                         readText(in), readText(in));
                 case IMMEDIATE_REBUY_STATUS ->
                     new TableVisualEvent.ImmediateRebuyStatus(sequence,
-                            readText(in), in.readInt());
+                            readText(in), MoneyCents.ofCents(in.readLong())
+                                    .toDecimal().doubleValue());
                 case DECK_CHANGED -> new TableVisualEvent.DeckChanged(sequence,
                         readText(in));
                 case LAST_HAND_STATUS -> new TableVisualEvent.LastHandStatus(
@@ -752,7 +754,7 @@ public final class HotJoinVisualEventCodecV1 {
             writeText(out, player.handName());
             writeCards(out, player.holeCards().stream()
                     .map(HotJoinVisualEventCodecV1::publicCard).toList());
-            out.writeInt(player.buyIn());
+            out.writeLong(MoneyCents.fromDouble(player.buyIn()).cents());
             out.writeInt(player.rebuyCount());
             out.writeBoolean(player.warming());
             TableSnapshot.PlayerPresentation presentation
@@ -768,7 +770,7 @@ public final class HotJoinVisualEventCodecV1 {
             writeIntegers(out, presentation.winningHoleCardSlots());
             writeIntegers(out, presentation.winningCommunityCardSlots());
             writeEnum(out, presentation.rebuyPhase());
-            out.writeInt(presentation.immediateRebuyAmount());
+            out.writeLong(MoneyCents.fromDouble(presentation.immediateRebuyAmount()).cents());
             writeText(out, presentation.publicActionLabel());
         }
     }
@@ -803,7 +805,7 @@ public final class HotJoinVisualEventCodecV1 {
             String lastAction = readText(in);
             String handName = readText(in);
             List<TableSnapshot.CardSnapshot> cards = readCards(in);
-            int buyIn = in.readInt();
+            double buyIn = MoneyCents.ofCents(in.readLong()).toDecimal().doubleValue();
             int rebuyCount = in.readInt();
             boolean warming = in.readBoolean();
             TableSnapshot.PlayerPresentation presentation
@@ -813,9 +815,8 @@ public final class HotJoinVisualEventCodecV1 {
                             in.readBoolean(), readIntegers(in),
                             readIntegers(in), readEnum(in,
                                     TableSnapshot.RebuyPhase.values(),
-                                    "rebuy phase"), boundedInt(in.readInt(),
-                                    0, Integer.MAX_VALUE,
-                                    "immediate rebuy amount"), readText(in));
+                                    "rebuy phase"), MoneyCents.ofCents(in.readLong())
+                                    .toDecimal().doubleValue(), readText(in));
             players.add(new TableSnapshot.PlayerSnapshot(nickname,
                     stack, streetBet, contribution, active, spectator, exited,
                     timedOut, latency, previousLatency, reconnections,

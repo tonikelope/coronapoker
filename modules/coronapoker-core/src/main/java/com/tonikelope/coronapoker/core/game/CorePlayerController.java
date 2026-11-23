@@ -33,7 +33,7 @@ public final class CorePlayerController implements GamePlayerController {
     private volatile Runnable potRegistration = () -> { };
     private volatile Runnable acceptedLocalFoldSignal = () -> { };
     private volatile Runnable acceptedLocalAllInSignal = () -> { };
-    private volatile Supplier<Integer> committedRebuy = () -> null;
+    private volatile Supplier<Double> committedRebuy = () -> null;
     private volatile boolean automaticRebuyEnabled = true;
 
     private CorePlayerController(String nickname, boolean local, boolean automated) {
@@ -167,7 +167,7 @@ public final class CorePlayerController implements GamePlayerController {
      * Binds the dealer-owned rebuy generation for the hand being opened.
      * The supplier must consume at most one already validated amount.
      */
-    public void bindCommittedRebuy(Supplier<Integer> supplier) {
+    public void bindCommittedRebuy(Supplier<Double> supplier) {
         committedRebuy = Objects.requireNonNull(supplier, "supplier");
     }
 
@@ -294,7 +294,7 @@ public final class CorePlayerController implements GamePlayerController {
     @Override public void marcarBotePot(int sidePot) { }
     @Override public void repaintLastAction() { }
     @Override public void checkGameOver() { }
-    @Override public int getBuyin() { return state.buyIn(); }
+    @Override public double getBuyin() { return state.buyIn(); }
     @Override public double getBote() { return state.potContribution(); }
     @Override public void setTimeout(boolean value) { state.setTimedOut(value); }
     @Override public String getNickname() { return state.nickname(); }
@@ -327,10 +327,10 @@ public final class CorePlayerController implements GamePlayerController {
         resetPresentationForNewHand();
         loser = false;
         resetBote();
-        Integer rebuy = committedRebuy.get();
+        Double rebuy = committedRebuy.get();
         if (rebuy != null && rebuy > 0) {
             setStack(getStack() + rebuy);
-            setBuyin(getBuyin() + rebuy);
+            setBuyin(MoneyMath.clean(getBuyin() + rebuy));
         }
         double winnings = getPagar();
         if (MoneyMath.compare(winnings, 0d) > 0) setStack(getStack() + winnings);
@@ -605,7 +605,7 @@ public final class CorePlayerController implements GamePlayerController {
         state.setLastAction(Objects.requireNonNullElse(departureLabel, ""));
     }
     @Override public String getLastActionString() { return state.lastAction(); }
-    @Override public void setBuyin(int buyin) { state.setBuyIn(buyin); }
+    @Override public void setBuyin(double buyin) { state.setBuyIn(buyin); }
     @Override public double getPagar() { return state.pendingPayment(); }
     @Override public void setPagar(double payment) {
         state.setPendingPayment(MoneyMath.clean(payment));

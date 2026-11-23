@@ -17,29 +17,30 @@ public class EndOfHandRebuyWireTest {
     void parsesExactCurrentFrameForAnAllowedPlayer() {
         String nick = Base64.getEncoder().encodeToString("alice".getBytes(StandardCharsets.UTF_8));
         EndOfHandRebuyWire parsed = EndOfHandRebuyWire.parse(
-                new String[]{"GAME", "8", "REBUY", nick, "1200"}, Set.of("alice"));
+                new String[]{"GAME", "8", "REBUY", nick, "5.70", "2"}, Set.of("alice"));
 
         assertEquals("alice", parsed.nick());
-        assertEquals(1200, parsed.requestedAmount());
+        assertEquals(5.70d, parsed.requestedAmount());
+        assertEquals(2, parsed.hand());
 
         assertThrows(IllegalArgumentException.class, () -> EndOfHandRebuyWire.parse(
-                new String[]{"GAME", "8", "REBUY", nick, "1200", ""}, Set.of("alice")));
+                new String[]{"GAME", "8", "REBUY", nick, "5.70", "2", ""}, Set.of("alice")));
         assertThrows(IllegalArgumentException.class, () -> EndOfHandRebuyWire.parse(
-                new String[]{"GAME", "8", "REBUY", nick, "NaN"}, Set.of("alice")));
+                new String[]{"GAME", "8", "REBUY", nick, "NaN", "2"}, Set.of("alice")));
         assertThrows(IllegalArgumentException.class, () -> EndOfHandRebuyWire.parse(
-                new String[]{"GAME", "8", "REBUY", nick, "1200"}, Set.of("bob")));
+                new String[]{"GAME", "8", "REBUY", nick, "5.70", "2"}, Set.of("bob")));
     }
 
     @Test
     void acceptsCanonicalZeroButRejectsBadNickEncoding() {
         String nick = Base64.getEncoder().encodeToString("alice".getBytes(StandardCharsets.UTF_8));
         assertEquals(0, EndOfHandRebuyWire.parse(
-                new String[]{"GAME", "8", "REBUY", nick, "0"}, Set.of("alice")).requestedAmount());
+                new String[]{"GAME", "8", "REBUY", nick, "0", "2"}, Set.of("alice")).requestedAmount());
         assertThrows(IllegalArgumentException.class, () -> EndOfHandRebuyWire.parse(
-                new String[]{"GAME", "8", "REBUY", "%%%", "0"}, Set.of("alice")));
+                new String[]{"GAME", "8", "REBUY", "%%%", "0", "2"}, Set.of("alice")));
         String invalidUtf8 = Base64.getEncoder().encodeToString(new byte[]{(byte) 0xc3, 0x28});
         assertThrows(IllegalArgumentException.class, () -> EndOfHandRebuyWire.parse(
-                new String[]{"GAME", "8", "REBUY", invalidUtf8, "0"}, Set.of("alice")));
+                new String[]{"GAME", "8", "REBUY", invalidUtf8, "0", "2"}, Set.of("alice")));
     }
 
     @Test

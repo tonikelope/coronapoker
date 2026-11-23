@@ -60,7 +60,7 @@ public interface GamePlayerController
 
     void checkGameOver();
 
-    int getBuyin();
+    double getBuyin();
 
     double getBote();
 
@@ -243,7 +243,7 @@ public interface GamePlayerController
 
     String getLastActionString();
 
-    void setBuyin(int buyin);
+    void setBuyin(double buyin);
 
     double getPagar();
 

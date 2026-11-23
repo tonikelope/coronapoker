@@ -3167,7 +3167,7 @@ class GdxMultiprocessScenarioTest {
                         candidate.diagnostic());
             }
             assertTrue(host.await("CP_GDX_E2E_BUSTED_REENTRY_ACTION_GATE"
-                    + " hand=4", Duration.ofSeconds(180)),
+                    + " hand=", Duration.ofSeconds(180)),
                     host.diagnostic());
             String owner = null;
             Path ownerHome = null;

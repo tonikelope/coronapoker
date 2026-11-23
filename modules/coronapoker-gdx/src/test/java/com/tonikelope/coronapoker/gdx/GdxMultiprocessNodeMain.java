@@ -523,6 +523,9 @@ public final class GdxMultiprocessNodeMain {
             GdxScenarioRenderer renderer = new GdxScenarioRenderer(table,
                     visibleExpectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
+            if (exitAtAdmission && late) {
+                renderer.gateActionOnHand(2L);
+            }
             if (remainderScenario && config.host()) {
                 renderer.foldOnHand(1L);
                 renderer.requestTwoRabbitCardsOnHand(1L);
@@ -1066,9 +1069,10 @@ public final class GdxMultiprocessNodeMain {
                     if (exitAtAdmission) {
                         await(() -> renderer.playingNicknames().contains(
                                         config.nickname)
-                                        && renderer.hasLocalDealAfter(1L),
+                                        && renderer.hasLocalDealAfter(1L)
+                                        && renderer.hasHeldAction(),
                                 Duration.ofSeconds(120),
-                                "hot admission active-hand deal");
+                                "hot admission active-hand decision");
                         marker("HOT_JOIN_ADMISSION_BOUNDARY", "nick="
                                 + config.nickname);
                         requireCommand("EXIT_AFTER_ADMISSION");
@@ -1590,10 +1594,12 @@ public final class GdxMultiprocessNodeMain {
                     expectedPlayers, productTable, lobby);
             scenarioRenderer.set(renderer);
             if (candidate && !reenteredOwner) {
-                renderer.allInOnHand(1L);
+                // A shared winning board can return every stack on the first hand.
+                renderer.allInThroughHand(3L);
             }
             if (config.host()) {
-                renderer.gateActionOnHand(4L);
+                // An uncontested hand can end without a decision for the host.
+                renderer.gateActionAtOrAfterHand(4L);
             }
             if (reenteredOwner) {
                 await(bootstrapAcceptedBeforeAttach::get,

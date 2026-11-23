@@ -112,7 +112,7 @@ final class GdxScenarioRenderer implements TableRenderer {
     private final AtomicBoolean sawTenCentRabbitFee = new AtomicBoolean();
     private final Set<String> rabbitHighlightNicknames
             = java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private final AtomicBoolean allInEveryHand = new AtomicBoolean();
+    private final AtomicLong allInThroughHand = new AtomicLong(-1L);
     private final AtomicBoolean raiseMix = new AtomicBoolean();
     private final AtomicInteger localRaiseSubmissions = new AtomicInteger();
     private final AtomicInteger acceptedRaiseActions = new AtomicInteger();
@@ -288,7 +288,11 @@ final class GdxScenarioRenderer implements TableRenderer {
     }
 
     void enableAllInEveryHand() {
-        allInEveryHand.set(true);
+        allInThroughHand(Long.MAX_VALUE);
+    }
+
+    void allInThroughHand(long lastHand) {
+        allInThroughHand.set(lastHand);
         allInCommandSent.set(false);
     }
 
@@ -424,7 +428,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                         "PREPARE arrived after END for hand "
                         + boundary.handId());
                 currentHand.set(boundary.handId());
-                if (allInEveryHand.get()) {
+                if (boundary.handId() <= allInThroughHand.get()) {
                     allInCommandSent.set(false);
                 }
             } else if (boundary.phase()
@@ -616,7 +620,7 @@ final class GdxScenarioRenderer implements TableRenderer {
                             "native GDX free-fold confirmation did not resolve");
                 }
             } else if ((allInAtFirstOpportunity.get()
-                    || allInEveryHand.get()
+                    || currentHand.get() <= allInThroughHand.get()
                     || allInHand.get() == currentHand.get())
                     && controls.state().allInEnabled()
                     && allInCommandSent.compareAndSet(false, true)) {

@@ -140,9 +140,8 @@ const schema = {
         <div class="wrap">
           <div class="section-head reveal">
             <div><p class="eyebrow"><span></span>{t.tableNav}</p><h2 id="game-title">{t.tableTitle}</h2></div>
-            <div>
-              <p class="body-copy">{t.tableText}</p>
-              <p class="note">{t.tableNote}</p>
+            <div class="body-copy game-history">
+              {t.tableHistory.map(paragraph => <p>{paragraph}</p>)}
             </div>
           </div>
           <figure class="game-feature reveal">

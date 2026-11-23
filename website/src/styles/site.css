@@ -130,6 +130,7 @@ h3 { line-height: 1.12; letter-spacing: -.03em; }
 .hero-platforms i, figcaption i { width: 4px; height: 4px; background: #d45b5e; transform: rotate(45deg); }
 
 .game { background: radial-gradient(ellipse at 57% 48%, #24161c, transparent 60%); }
+.game-history { display: grid; gap: .65em; }
 .game-feature a, .feature-media a, .gallery-grid figure a {
   position: relative; display: block; border: 1px solid #5b4245; background: #1b1419;
   isolation: isolate; transition: border-color .23s, box-shadow .23s;

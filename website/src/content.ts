@@ -66,9 +66,11 @@ export const copy = {
     heroTitle: 'Your move.',
     tagline: '“In many ways, the poker game we always deserved.”',
     primary: 'Download CoronaPoker', source: 'View on GitHub', explore: 'See the game',
-    tableTitle: 'Poker night. Your rules.',
-    tableText: 'Set up a private table for 2 to 10 players, with any mix of people and bots. One player hosts the game and the other players connect to that host. Set the blinds, buy-ins and rebuys, then save the setup for next time.',
-    tableNote: 'Host-based P2P, no accounts or external game servers',
+    tableTitle: 'How CoronaPoker began',
+    tableHistory: [
+      'CoronaPoker began in 2020 during the COVID-19 lockdown. Tonikelope built it to keep playing Texas Hold’em with friends.',
+      'The open-source game kept growing beyond those first poker nights. It later gained a 3D table and a Mental Poker protocol that lets players verify the shuffle and check that they all played the same hand.',
+    ],
     capture: 'In-game screenshot',
     mental: {
       title: 'Encrypt, shuffle and verify the hand.',
@@ -229,8 +231,9 @@ export const copy = {
     },
     features: {
       nav: 'Features',
-      title: 'Make it your poker night.',
-      intro: 'Fine-tune the rules, play with friends and study your sessions. The game interface is available in 30 languages.',
+      title: 'Poker night. Your rules.',
+      intro: 'Set up a private table for 2 to 10 players, with any mix of people and bots. One player hosts the game and the other players connect to that host. Set the blinds, buy-ins and rebuys, then save the setup for next time.',
+      introNote: 'Host-based P2P, no accounts or external game servers',
       botsLink: 'Explore the bot engine',
       statsLink: 'See the statistics guide',
       videosLink: 'See the video player guide',
@@ -347,9 +350,11 @@ export const copy = {
     heroTitle: 'Tú hablas',
     tagline: '«En muchos sentidos, el juego de póker que siempre merecimos».',
     primary: 'Descargar CoronaPoker', source: 'Ver en GitHub', explore: 'Ver el juego',
-    tableTitle: 'Tu noche de póker. Tus reglas.',
-    tableText: 'Crea una mesa privada de 2 a 10 jugadores, con la combinación de personas y bots que prefieras. Un jugador aloja la partida y los demás se conectan a él. Ajusta ciegas, entradas y recompras, y guarda la configuración para la próxima.',
-    tableNote: 'P2P con anfitrión, sin cuentas ni servidores de juego externos',
+    tableTitle: 'Cómo nació CoronaPoker',
+    tableHistory: [
+      'CoronaPoker nació en 2020, durante el confinamiento por la COVID-19. Tonikelope lo creó para seguir jugando al Texas Hold’em con sus amigos.',
+      'Aquel juego de código abierto siguió creciendo. Con el tiempo incorporó la mesa en 3D y un protocolo de Mental Poker que permite verificar el barajado y comprobar que todos jugaron la misma mano.',
+    ],
     capture: 'Captura del juego',
     mental: {
       title: 'Cifrar, barajar y verificar la mano.',
@@ -510,8 +515,9 @@ export const copy = {
     },
     features: {
       nav: 'Características',
-      title: 'Una noche de póker a tu manera.',
-      intro: 'Ajusta las reglas, juega con amigos y analiza tus sesiones. La interfaz del juego está disponible en 30 idiomas.',
+      title: 'Tu noche de póker. Tus reglas.',
+      intro: 'Crea una mesa privada de 2 a 10 jugadores, con la combinación de personas y bots que prefieras. Un jugador aloja la partida y los demás se conectan a él. Ajusta ciegas, entradas y recompras, y guarda la configuración para la próxima.',
+      introNote: 'P2P con anfitrión, sin cuentas ni servidores de juego externos',
       botsLink: 'Así juegan los bots',
       statsLink: 'Ver la guía de estadísticas',
       videosLink: 'Ver la guía del reproductor',

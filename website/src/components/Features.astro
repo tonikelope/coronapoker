@@ -27,7 +27,10 @@ const sampleBalance = [25, 33, 28, 44, 52, 47, 68, 57, 73, 72, 88, 95];
         <p class="eyebrow"><span></span>{features.nav}</p>
         <h2 id="features-title">{features.title}</h2>
       </div>
-      <p class="body-copy">{features.intro}</p>
+      <div>
+        <p class="body-copy">{features.intro}</p>
+        <p class="note">{features.introNote}</p>
+      </div>
     </div>
     <div class="feature-tabs" style={`--feature-count:${featureCategories.length}`} role="tablist" aria-label={features.nav} data-feature-tabs hidden>
       {featureCategories.map(({ id, suit }, index) => (

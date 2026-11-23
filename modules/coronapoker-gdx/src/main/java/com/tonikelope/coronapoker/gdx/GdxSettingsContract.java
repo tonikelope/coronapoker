@@ -1256,9 +1256,13 @@ final class GdxSettingsContract {
         };
     }
 
+    static String anteModeLabel(AnteMode mode, GdxGameText text) {
+        return text.translateUpper(mode.labelKey());
+    }
+
     static List<String> anteModeLabels(GdxGameText text) {
         return java.util.Arrays.stream(AnteMode.values())
-                .map(mode -> text.translate(mode.labelKey()))
+                .map(mode -> anteModeLabel(mode, text))
                 .toList();
     }
 

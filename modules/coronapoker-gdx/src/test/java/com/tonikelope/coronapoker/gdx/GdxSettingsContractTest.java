@@ -780,7 +780,7 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void dialogMotionSettingUsesLeftByDefaultAndRestoresThroughAppearanceSettings() {
+    void dialogMotionSettingUsesUpByDefaultAndRestoresThroughAppearanceSettings() {
         var properties = new Properties();
         var choice = GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION;
         var spanish = new GdxGameText("es");
@@ -789,16 +789,18 @@ final class GdxSettingsContractTest {
                         .mapToObj(index -> GdxAppearanceOptions.labelAt(choice, index, spanish))
                         .toList());
         assertTrue(GdxSettingsContract.PREFERENCE_KEYS.contains(choice.key()));
-        assertEquals(GdxDialogSlide.Direction.LEFT, GdxAppearanceOptions.dialogSlideDirection(properties));
+        assertEquals(GdxDialogSlide.Direction.UP, GdxAppearanceOptions.dialogSlideDirection(properties));
         properties.setProperty(choice.key(), "invalid");
+        assertEquals(GdxDialogSlide.Direction.UP, GdxAppearanceOptions.dialogSlideDirection(properties));
+        properties.setProperty(choice.key(), "left");
         assertEquals(GdxDialogSlide.Direction.LEFT, GdxAppearanceOptions.dialogSlideDirection(properties));
         properties.setProperty(choice.key(), "right");
         assertEquals(GdxDialogSlide.Direction.RIGHT, GdxAppearanceOptions.dialogSlideDirection(properties));
         properties.setProperty("animaciones", "false");
         assertEquals(GdxDialogSlide.Direction.OFF, GdxAppearanceOptions.dialogSlideDirection(properties));
         GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
-        assertEquals("left", properties.getProperty(choice.key()));
-        assertEquals(GdxDialogSlide.Direction.LEFT, GdxAppearanceOptions.dialogSlideDirection(properties));
+        assertEquals("up", properties.getProperty(choice.key()));
+        assertEquals(GdxDialogSlide.Direction.UP, GdxAppearanceOptions.dialogSlideDirection(properties));
     }
 
     @Test void onlyTheFlatTableOffersASeparateShuffleView() {

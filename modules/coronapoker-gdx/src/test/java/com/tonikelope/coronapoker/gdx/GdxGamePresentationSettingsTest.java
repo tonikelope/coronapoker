@@ -409,15 +409,15 @@ final class GdxGamePresentationSettingsTest {
             var properties = preferences.properties();
             var text = new GdxGameText("es");
             assertEquals(120, settings.requestedFrameRateLimit());
-            assertEquals("Personalizado *", GdxFrameRateLimit.selectedModeLabel(properties, text));
-            assertEquals(List.of("Igual que el refresco", "Personalizado"),
+            assertEquals("PERSONALIZADO *", GdxFrameRateLimit.selectedModeLabel(properties, text));
+            assertEquals(List.of("IGUAL QUE EL REFRESCO", "PERSONALIZADO"),
                     GdxFrameRateLimit.modeLabels(text));
             GdxFrameRateLimit.selectMode(properties, 0);
-            assertEquals("Igual que el refresco", GdxFrameRateLimit.selectedModeLabel(properties, text));
+            assertEquals("IGUAL QUE EL REFRESCO", GdxFrameRateLimit.selectedModeLabel(properties, text));
             GdxFrameRateLimit.selectMode(properties, 1);
             GdxFrameRateLimit.CUSTOM.select(properties, 165);
             assertEquals(165, settings.requestedFrameRateLimit());
-            assertEquals("Personalizado", GdxFrameRateLimit.selectedModeLabel(properties, text));
+            assertEquals("PERSONALIZADO", GdxFrameRateLimit.selectedModeLabel(properties, text));
             GdxFrameRateLimit.selectMode(properties, 0);
             assertEquals(0, settings.requestedFrameRateLimit());
             assertEquals(165, GdxFrameRateLimit.CUSTOM.value(properties));

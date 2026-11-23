@@ -26,15 +26,15 @@ enum GdxFrameRateLimit implements GdxSettingsSlider.Setting {
     }
 
     static List<String> modeLabels(GdxGameText text) {
-        return List.of(text.translate("gdx.settings.value.monitor_refresh"),
-                text.translate("gdx.settings.value.custom_fps"));
+        return List.of(text.translateUpper("gdx.settings.value.monitor_refresh"),
+                text.translateUpper("gdx.settings.value.custom_fps"));
     }
 
     static String selectedModeLabel(Properties settings, GdxGameText text) {
         if (matchRefresh(settings)) {
-            return text.translate("gdx.settings.value.monitor_refresh");
+            return text.translateUpper("gdx.settings.value.monitor_refresh");
         }
-        return GdxSettingsContract.markDefault(text.translate("gdx.settings.value.custom_fps"),
+        return GdxSettingsContract.markDefault(text.translateUpper("gdx.settings.value.custom_fps"),
                 CUSTOM.value(settings) == DEFAULT);
     }
 

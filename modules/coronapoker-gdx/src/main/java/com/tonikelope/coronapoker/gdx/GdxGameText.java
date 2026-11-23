@@ -49,6 +49,14 @@ final class GdxGameText implements GameText {
         return selection.language();
     }
 
+    String uppercase(String value) {
+        return value == null ? "" : value.toUpperCase(selection.locale());
+    }
+
+    String translateUpper(String key, Object... arguments) {
+        return uppercase(translate(key, arguments));
+    }
+
     @Override
     public String translate(String key, Object... arguments) {
         Objects.requireNonNull(key, "key");

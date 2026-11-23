@@ -132,6 +132,7 @@ final class GdxFrontendSettingsGpuTest {
                 screen.resize(WIDTH, HEIGHT);
                 invoke(screen, "cancelUpdateCheck", new Class<?>[0]);
                 screen.completeStartupReveal();
+                verifyAudioDeviceAlignment(screen);
                 verifyMenuDialogSlide(screen);
                 verifySettings(screen, presentation, GdxSettingsSession.Context.MENU);
                 verifyImageViewer(screen);
@@ -150,6 +151,45 @@ final class GdxFrontendSettingsGpuTest {
                 GdxVisualEffects.synchronize(prefs.properties());
                 verifyLiveTable(prefs, presentation, host);
             }
+        }
+    }
+
+    private static void verifyAudioDeviceAlignment(GdxFrontendScreen screen)
+            throws Exception {
+        var shapes = (com.badlogic.gdx.graphics.glutils.ShapeRenderer) field(screen, "shapes");
+        var fontType = com.badlogic.gdx.graphics.g2d.BitmapFont.class;
+        var dropdownType = field(screen, "dropdown").getClass();
+        Object dropdown = List.of(dropdownType.getEnumConstants()).stream()
+                .filter(item -> item.toString().equals("AUDIO_OUTPUT")).findFirst().orElseThrow();
+        var texts = (List<?>) field(screen, "texts");
+        var row = GdxSettingsLayout.audioDeviceChoiceRow(120f, 320f, 1_400f, 72f);
+        var longDevice = "USB Headset Audio Device With Long Manufacturer and Model Names ".repeat(3);
+        for (String name : List.of("PREDETERMINADO DEL SISTEMA *", longDevice)) {
+            int before = texts.size();
+            shapes.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+            try {
+                invoke(screen, "settingsAudioDeviceDropdownChoice",
+                        new Class<?>[]{float.class, float.class, float.class, float.class,
+                            String.class, String.class, dropdownType, boolean.class},
+                        row.bounds().x, row.bounds().y, row.bounds().width, row.bounds().height,
+                        "DISPOSITIVO DE SALIDA", name, dropdown, true);
+            } finally {
+                shapes.end();
+            }
+            Object value = texts.get(before + 1);
+            Object font = field(value, "font");
+            String display = (String) field(value, "text");
+            float width = (float) invoke(screen, "textWidth",
+                    new Class<?>[]{fontType, String.class}, font, display);
+            assertEquals(row.value().x + row.value().width,
+                    (float) field(value, "x") + width, 0.1f);
+            Object fitted = invoke(screen, "fittedTextItem",
+                    new Class<?>[]{fontType, String.class, float.class, float.class,
+                        com.badlogic.gdx.graphics.Color.class, boolean.class, float.class},
+                    field(screen, "uiFont"), name, 0f, 0f, com.badlogic.gdx.graphics.Color.WHITE,
+                    false, row.value().width - 12f);
+            assertSame(field(fitted, "font"), font);
+            assertEquals(field(fitted, "text"), display);
         }
     }
 
@@ -864,14 +904,14 @@ final class GdxFrontendSettingsGpuTest {
             invoke(table, "openSettings", new Class<?>[0]);
             var slide = (GdxDialogSlide) field(table, "settingsSlide");
             table.render();
-            assertSlideDirection(slide, -1, 0);
+            assertSlideDirection(slide, 0, 1);
             slide.advance(1f);
             table.render();
             invoke(table, "requestCancelTableSettings", new Class<?>[]{Runnable.class}, (Object) null);
             assertTrue(slide.closing());
             slide.advance(0.10f);
             table.render();
-            assertSlideDirection(slide, -1, 0);
+            assertSlideDirection(slide, 0, 1);
             assertEquals(CoronaPokerGdxTable.UI_SETTINGS, field(table, "uiLayer"));
             slide.advance(1f);
             assertEquals(CoronaPokerGdxTable.UI_NONE, field(table, "uiLayer"));

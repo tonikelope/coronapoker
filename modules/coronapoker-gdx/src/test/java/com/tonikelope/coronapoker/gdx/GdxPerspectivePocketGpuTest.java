@@ -498,7 +498,7 @@ final class GdxPerspectivePocketGpuTest {
 
             mouse.peekKeyDown = true;
             for (int frame = 0; frame < 20 && renderer.peekAmount() == 0f; frame++) table.render();
-            assertTrue(renderer.peekAmount() > 0f, "V still peeks with the button hidden");
+            assertTrue(renderer.peekAmount() > 0f, "Tab still peeks with the button hidden");
             mouse.peekKeyDown = false;
             renderer.coverCards();
             table.render();
@@ -741,7 +741,7 @@ final class GdxPerspectivePocketGpuTest {
                     (proxy, method, args) -> switch (method.getName()) {
                         case "getX" -> x;
                         case "getY" -> y;
-                        case "isKeyPressed" -> (int) args[0] == Input.Keys.V
+                        case "isKeyPressed" -> (int) args[0] == Input.Keys.TAB
                                 ? peekKeyDown : fallback.isKeyPressed((int) args[0]);
                         case "isKeyJustPressed" -> (int) args[0] == Input.Keys.SPACE
                                 ? spaceJustPressed : fallback.isKeyJustPressed((int) args[0]);

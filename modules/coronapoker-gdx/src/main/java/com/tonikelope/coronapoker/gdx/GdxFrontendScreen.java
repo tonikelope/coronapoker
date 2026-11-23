@@ -5304,8 +5304,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private String uppercase(String value) {
-        Locale locale = Locale.forLanguageTag(gameText.language());
-        return value == null ? "" : value.toUpperCase(locale);
+        return gameText.uppercase(value);
     }
 
     private String settingsGameText(String suffix, Object... arguments) {
@@ -9439,7 +9438,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         crispButtonTextInBox(actionFont,
                 lobbyCommandPending
                         ? uppercase(gameText.translate("gdx.saving"))
-                        : gameText.translate("ui.guardar"),
+                        : gameText.translateUpper("ui.guardar"),
                 save.x, save.y, save.width, save.height,
                 saveEnabled ? Color.WHITE : DISABLED);
         if (saveEnabled) {
@@ -10377,10 +10376,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         textFit(smallFont, uppercase(label), row.label().x,
                 GdxSettingsLayout.rowTextBaseline(y),
                 enabled ? Color.WHITE : DISABLED, false, row.label().width);
-        textFit(uiFont, value,
-                row.value().x + row.value().width / 2f,
+        textFitRight(uiFont, value, row.value().x + row.value().width,
                 GdxSettingsLayout.rowTextBaseline(y),
-                enabled ? GOLD : DISABLED, true, row.value().width - 12f);
+                enabled ? GOLD : DISABLED, row.value().width - 12f);
         shapes.setColor(enabled ? GOLD : DISABLED);
         float cx = row.arrow().x + row.arrow().width / 2f;
         float cy = row.arrow().y + row.arrow().height / 2f;
@@ -10663,7 +10661,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 rowWidth, anteModeIndex, groups, BLIND_ROW_COUNT);
         settingsDropdownChoice(row.x, row.y, row.width, row.height,
                 settingsGameText("row.ante_mode"),
-                gameText.translate(settingsTable.anteMode().labelKey()),
+                GdxSettingsContract.anteModeLabel(settingsTable.anteMode(), gameText),
                 Dropdown.ANTE_MODE, enabled && settingsTable.ante());
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_STRADDLE_ROW), rowWidth,
@@ -12022,7 +12020,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         tooltip(985f, 575f, 385f, 72f, "tooltip.cfg.server_ip");
         tooltip(1395f, 575f, 185f, 72f, "tooltip.cfg.server_port");
         String history = connection.serverHistory().isEmpty()
-                ? gameText.translate("gdx.newgame.no_previous_servers")
+                ? gameText.translateUpper("gdx.newgame.no_previous_servers")
                 : connection.serverHistory().get(historyIndex < 0
                         ? connection.serverHistory().size() - 1 : historyIndex);
         dropdownChoice(985f, 445f, 595f,
@@ -12061,7 +12059,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private String selectedPresetLabel() {
         return selectedGamePreset >= 0 && selectedGamePreset < gamePresets.size()
                 ? gamePresets.get(selectedGamePreset).name()
-                : gameText.translate("newgame.preset_por_defecto");
+                : gameText.translateUpper("newgame.preset_por_defecto");
     }
 
     private void refreshGamePresets(String selectName) {
@@ -12404,7 +12402,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         dropdownChoice(leftX, structureY, rowWidth,
                 gameText.translate("gdx.settings.game.row.blind_structure"),
                 table.structureName() == null
-                        ? gameText.translate("gdx.settings.value.default")
+                        ? gameText.translateUpper("gdx.settings.value.default")
                         : table.structureName(),
                 () -> openDropdown(Dropdown.BLIND_STRUCTURE,
                         leftX, structureY, rowWidth, 72f), editable);
@@ -12433,7 +12431,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         gameSettingTooltip(anteX, anteY, anteWidth, rowHeight, "ante");
         settingsDropdownChoice(anteX, modeY, anteWidth, rowHeight,
                 settingsGameText("row.ante_mode"),
-                gameText.translate(table.anteMode().labelKey()),
+                GdxSettingsContract.anteModeLabel(table.anteMode(), gameText),
                 () -> openDropdown(Dropdown.ANTE_MODE,
                         anteX, modeY, anteWidth, rowHeight),
                 editable && table.ante());
@@ -12456,8 +12454,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         dropdownChoice(rightX, intervalY, halfWidth,
                 settingsGameText("row.unit"),
                 table.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.MINUTES
-                        ? gameText.translate("gdx.settings.game.value.minutes")
-                        : gameText.translate("gdx.settings.game.value.hands"),
+                        ? settingsGameText("value.minutes")
+                        : settingsGameText("value.hands"),
                 () -> openDropdown(Dropdown.BLIND_UNIT,
                         rightX, intervalY, halfWidth, 72f),
                 editable && table.increaseBlinds());
@@ -12806,7 +12804,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void blindAmountStepper(float x, float y, float width,
             String label, double value, Runnable minus, Runnable plus) {
-        textFit(smallFont, label, x, y + 99f, MUTED, false, width);
+        textFit(smallFont, uppercase(label), x, y + 99f, MUTED, false, width);
         outerBox(x, y, width, 72f,
                 hovered(x, y, width, 72f) ? CYAN : LINE, PANEL_LIGHT);
         float side = 70f;
@@ -13070,10 +13068,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String rabbitLabel(NewGameTableDraft.RabbitHunting value) {
         return switch (value) {
-            case FREE -> gameText.translate("menu.free");
-            case FREE_SMALL_BLIND -> gameText.translate("menu.free_sb");
-            case FREE_SMALL_AND_BIG_BLIND -> gameText.translate("menu.free_sb_bb");
-            case OFF -> gameText.translate("menu.off");
+            case FREE -> gameText.translateUpper("menu.free");
+            case FREE_SMALL_BLIND -> gameText.translateUpper("menu.free_sb");
+            case FREE_SMALL_AND_BIG_BLIND -> gameText.translateUpper("menu.free_sb_bb");
+            case OFF -> gameText.translateUpper("menu.off");
         };
     }
 
@@ -13099,12 +13097,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         dropdownChoice(580f, 610f, 1110f,
                 gameText.translate("gdx.settings.game.row.bot_difficulty"),
                 table.botDifficulty() == NewGameTableDraft.BotDifficulty.EASY
-                        ? gameText.translate("gdx.settings.game.value.easy")
+                        ? settingsGameText("value.easy")
                         : table.botDifficulty() == NewGameTableDraft.BotDifficulty.HARD
-                                ? gameText.translate(
-                                        "gdx.settings.game.value.hard")
-                                : gameText.translate(
-                                        "gdx.settings.game.value.medium"),
+                                ? settingsGameText("value.hard")
+                                : settingsGameText("value.medium"),
                 () -> openDropdown(Dropdown.BOT_DIFFICULTY,
                         580f, 610f, 1110f, 72f), true);
         gameSettingTooltip(580f, 610f, 1110f, 102f, "bot_difficulty");
@@ -13260,16 +13256,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private String customBotDifficultyLabel() {
         return switch (customBotDifficultyDraft) {
-            case EASY -> gameText.translate("gdx.settings.game.value.easy");
-            case HARD -> gameText.translate("gdx.settings.game.value.hard");
-            case MEDIUM -> gameText.translate(
-                    "gdx.custom_bots.difficulty.normal");
+            case EASY -> settingsGameText("value.easy");
+            case HARD -> settingsGameText("value.hard");
+            case MEDIUM -> gameText.translateUpper("gdx.custom_bots.difficulty.normal");
         };
     }
 
     private String customBotPersonalityLabel(
             CustomBotProfile.Personality personality) {
-        return gameText.translate(switch (personality) {
+        return gameText.translateUpper(switch (personality) {
             case RANDOM -> "gdx.custom_bots.personality.random";
             case NIT -> "gdx.custom_bots.personality.nit";
             case STATION -> "gdx.custom_bots.personality.station";
@@ -14191,7 +14186,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             String id, boolean secret, boolean valid) {
         boolean focused = id.equals(activeField);
         boolean revealed = secret && id.equals(revealedPasswordField);
-        textFit(smallFont, label, x, y + 98f, MUTED, false,
+        textFit(smallFont, uppercase(label), x, y + 98f, MUTED, false,
                 Math.max(0f, w));
         Color border = !valid ? ORANGE
                 : focused || hovered(x, y, w, 70f) ? CYAN : LINE;
@@ -14572,8 +14567,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Color rowLabelColor = modOverrideLabel
                 ? enabled ? MOD_OVERRIDE : MOD_OVERRIDE_DISABLED
                 : enabled ? Color.WHITE : DISABLED;
+        String caption = uppercase(label);
         if (wrapLabel) {
-            List<String> lines = wrapText(labelFont, label, labelWidth, 2);
+            List<String> lines = wrapText(labelFont, caption, labelWidth, 2);
             float baseline = lines.size() > 1 ? y + 48f : y + 42f;
             for (String line : lines) {
                 textFit(labelFont, line, x + 22f, baseline,
@@ -14581,7 +14577,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 baseline -= 24f;
             }
         } else {
-            textFit(labelFont, label, x + 22f,
+            textFit(labelFont, caption, x + 22f,
                     GdxSettingsLayout.rowTextBaseline(y),
                     rowLabelColor, false, labelWidth);
         }
@@ -14635,7 +14631,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void stepper(float x, float y, float w, String label, String value,
             Runnable minus, Runnable plus, boolean enabled) {
-        textFit(smallFont, label, x, y + 99f,
+        textFit(smallFont, uppercase(label), x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
         GdxSettingsStyle.drawRow(shapes, x, y, w, 72f, enabled,
                 enabled && hovered(x, y, w, 72f),
@@ -14706,7 +14702,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void choice(float x, float y, float w, float h, String label,
             String value, Runnable action, boolean enabled) {
-        textFit(smallFont, label, x, y + 99f,
+        textFit(smallFont, uppercase(label), x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
@@ -14728,7 +14724,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void dropdownChoice(float x, float y, float w, String label,
             String value, Runnable action, boolean enabled) {
         float h = 72f;
-        textFit(smallFont, label, x, y + 99f,
+        textFit(smallFont, uppercase(label), x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
                 enabled && hovered(x, y, w, h),
@@ -14933,18 +14929,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             .toList();
             case ANTE_MODE -> GdxSettingsContract.anteModeLabels(gameText);
             case BLIND_UNIT -> List.of(
-                    gameText.translate("gdx.settings.game.value.minutes"),
-                    gameText.translate("gdx.settings.game.value.hands"));
+                    settingsGameText("value.minutes"),
+                    settingsGameText("value.hands"));
             case REBUY_CAP -> List.of("BUY-IN",
                     settingsGameText("value.highest_stack"));
             case BOT_DIFFICULTY, CUSTOM_BOT_DIFFICULTY -> List.of(
-                    gameText.translate("gdx.settings.game.value.easy"),
+                    settingsGameText("value.easy"),
                     target == Dropdown.CUSTOM_BOT_DIFFICULTY
-                            ? gameText.translate(
-                                    "gdx.custom_bots.difficulty.normal")
-                            : gameText.translate(
-                                    "gdx.settings.game.value.medium"),
-                    gameText.translate("gdx.settings.game.value.hard"));
+                            ? gameText.translateUpper("gdx.custom_bots.difficulty.normal")
+                            : settingsGameText("value.medium"),
+                    settingsGameText("value.hard"));
             case RABBIT -> Arrays.stream(
                     NewGameTableDraft.RabbitHunting.values())
                     .map(this::rabbitLabel).toList();
@@ -14953,13 +14947,13 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     .map(this::customBotPersonalityLabel).toList();
             case PROFILE -> {
                 ArrayList<String> values = new ArrayList<>();
-                values.add(gameText.translate("newgame.preset_por_defecto"));
+                values.add(gameText.translateUpper("newgame.preset_por_defecto"));
                 gamePresets.forEach(entry -> values.add(entry.name()));
                 yield List.copyOf(values);
             }
             case BLIND_STRUCTURE -> {
                 ArrayList<String> values = new ArrayList<>();
-                values.add(gameText.translate("gdx.settings.value.default"));
+                values.add(gameText.translateUpper("gdx.settings.value.default"));
                 BlindStructureCatalog.read(initialProperties)
                         .forEach(entry -> values.add(entry.name()));
                 yield List.copyOf(values);
@@ -15286,7 +15280,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void bidirectionalChoice(float x, float y, float w, String label,
             String value, Runnable previous, Runnable next, boolean enabled) {
         float h = 72f;
-        textFit(smallFont, label, x, y + 99f,
+        textFit(smallFont, uppercase(label), x, y + 99f,
                 enabled ? MUTED : DISABLED, false, Math.max(0f, w));
         Color border = enabled && hovered(x, y, w, h)
                 ? CYAN : enabled ? LINE : new Color(0x253044ff);
@@ -15328,7 +15322,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void summaryRow(float x, float y, String label, String value) {
         shapes.setColor(new Color(0x31445f77));
         shapes.rect(x, y - 18f, 810f, 1f);
-        textFit(smallFont, label, x, y + 18f, MUTED, false, 500f);
+        textFit(smallFont, uppercase(label), x, y + 18f, MUTED, false, 500f);
         textFit(uiFont, value, x + 790f, y + 18f, Color.WHITE, true, 280f);
     }
 
@@ -15467,7 +15461,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxUiButtonStyle.drawStepperSign(shapes, x, y, w, h,
                         "+".equals(label), labelColor, 1f);
             } else {
-                crispButtonTextInBox(labelFont, label, x, y, w, h, labelColor);
+                String caption = surface == Surface.NEW_GAME || surface == Surface.SETTINGS
+                        ? uppercase(label) : label;
+                crispButtonTextInBox(labelFont, caption, x, y, w, h, labelColor);
             }
         }
         if (enabled) {

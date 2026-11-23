@@ -94,7 +94,7 @@ final class GdxAppearanceOptions {
 
     static final Choice DIALOG_SLIDE_DIRECTION = exact(
             GdxSettingsContract.DIALOG_SLIDE_DIRECTION_KEY,
-            "MOVIMIENTO DE LOS DIÁLOGOS", "left",
+            "MOVIMIENTO DE LOS DIÁLOGOS", "up",
             new String[]{"up", "right", "left", "down", "off"},
             new String[]{"ARRIBA", "DERECHA", "IZQUIERDA", "ABAJO", "DESACTIVADO"});
 
@@ -104,11 +104,11 @@ final class GdxAppearanceOptions {
         }
         return switch (properties.getProperty(DIALOG_SLIDE_DIRECTION.key(),
                 DIALOG_SLIDE_DIRECTION.fallback())) {
-            case "up" -> GdxDialogSlide.Direction.UP;
+            case "left" -> GdxDialogSlide.Direction.LEFT;
             case "right" -> GdxDialogSlide.Direction.RIGHT;
             case "down" -> GdxDialogSlide.Direction.DOWN;
             case "off" -> GdxDialogSlide.Direction.OFF;
-            default -> GdxDialogSlide.Direction.LEFT;
+            default -> GdxDialogSlide.Direction.UP;
         };
     }
 
@@ -189,6 +189,7 @@ final class GdxAppearanceOptions {
 
     static String parentKey(Choice choice) {
         return switch (choice.key()) {
+            case GdxSettingsContract.DIALOG_SLIDE_DIRECTION_KEY -> "animaciones";
             case "vista_barajado", "duracion_barajado" -> "animacion_barajado";
             case "reparto_velocidad",
                     GdxSettingsContract.COMMUNITY_DEAL_STYLE_KEY ->
@@ -225,8 +226,8 @@ final class GdxAppearanceOptions {
 
     static String cardBackLabel(String cardBack, GdxGameText text) {
         return "default".equalsIgnoreCase(cardBack)
-                ? translated(text, "gdx.settings.value.default",
-                        "Por defecto") : deckLabel(cardBack, text);
+                ? translatedUpper(text, "gdx.settings.value.default",
+                        "POR DEFECTO") : deckLabel(cardBack, text);
     }
 
     static String feltLabel(String felt) {
@@ -244,7 +245,7 @@ final class GdxAppearanceOptions {
     static String feltLabel(String felt, GdxGameText text) {
         if (felt == null) return "";
         String fallback = feltLabel(felt);
-        return translated(text, "gdx.settings.felt."
+        return translatedUpper(text, "gdx.settings.felt."
                 + felt.toLowerCase(Locale.ROOT), fallback);
     }
 

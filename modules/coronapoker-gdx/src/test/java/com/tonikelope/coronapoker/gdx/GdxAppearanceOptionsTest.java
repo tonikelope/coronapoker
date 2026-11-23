@@ -18,11 +18,11 @@ final class GdxAppearanceOptionsTest {
         assertEquals("DEAL SPEED", deal.label(text));
         assertEquals("NORMAL",
                 GdxAppearanceOptions.selectedLabel(deal, properties, text));
-        assertEquals("Default",
+        assertEquals("DEFAULT",
                 GdxAppearanceOptions.cardBackLabel("default", text));
         assertEquals("Goliat", GdxAppearanceOptions.deckLabel("goliat", text));
         assertEquals("CustomDeck", GdxAppearanceOptions.deckLabel("CustomDeck", text));
-        assertEquals("No felt",
+        assertEquals("NO FELT",
                 GdxAppearanceOptions.feltLabel("madera", text));
     }
 

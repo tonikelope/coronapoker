@@ -1604,6 +1604,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private final GdxPocketOrder pocketOrder = new GdxPocketOrder();
     private boolean perspectiveActive;
     private static final float POCKET_PEEK_DRAG_DISTANCE = 96f;
+    private static final int POCKET_PEEK_KEY = Input.Keys.TAB;
     private final Rectangle pocketPeekButton = new Rectangle();
     private final GdxPointerHold pocketPeekPointer = new GdxPointerHold();
     private boolean pocketPeekInputThisFrame;
@@ -1917,7 +1918,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         || keycode == Input.Keys.NUMPAD_ENTER) return true;
                 if (fpsControl.keyDown(keycode, control, shift, settingsSession.frameRateDraft())) return true;
             }
-            if (keycode == Input.Keys.V && !alt && !control && !shift
+            if (keycode == POCKET_PEEK_KEY && !alt && !control && !shift
                     && canPeekPerspectivePocket()) return true;
             String action = shortcutBindings.actionFor(keycode, alt, control, shift);
             float volumeDelta = volumeShortcutDelta(action);
@@ -2878,8 +2879,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private String uppercase(String value) {
-        return value == null ? "" : value.toUpperCase(
-                Locale.forLanguageTag(gameText.language()));
+        return gameText.uppercase(value);
     }
 
     private static String uppercase(String value, GdxGameText text) {
@@ -7885,7 +7885,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
         boolean peekPressed = !alt && !control && !shift
-                && Gdx.input.isKeyJustPressed(Input.Keys.V) && canPeekPerspectivePocket();
+                && Gdx.input.isKeyJustPressed(POCKET_PEEK_KEY) && canPeekPerspectivePocket();
         String shortcutAction = peekPressed ? null
                 : shortcutBindings.justPressedAction(Gdx.input, alt, control, shift);
         if (terminationRequested) {
@@ -15535,7 +15535,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private static void layoutPeekButton(Rectangle bounds, float width, float height) {
-        bounds.set(width * 0.590f, height * 0.220f, 72f, 42f);
+        bounds.set(width * 0.590f, height * 0.220f, 86f, 42f);
     }
 
     private void drawPocketPeekButton(float width, float height) {
@@ -15560,13 +15560,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         shapes.circle(r.x + 23.5f, r.y + 21f, 5.3f, 24);
         shapes.end();
         batch.begin();
-        drawFittedMoneyInBox(settingsBodyFont, "V", r.x + 43f, r.y + 9f,
-                19f, 24f, Color.WHITE, 1f);
+        drawFittedMoneyInBox(settingsBodyFont, "TAB", r.x + 43f, r.y + 9f,
+                34f, 24f, Color.WHITE, 1f);
         batch.end();
     }
 
     private boolean pocketPeekRequested() {
-        return mousePeekHeld || Gdx.input.isKeyPressed(Input.Keys.V)
+        return mousePeekHeld || Gdx.input.isKeyPressed(POCKET_PEEK_KEY)
                 && !modifierPressed(Input.Keys.CONTROL_LEFT, Input.Keys.CONTROL_RIGHT)
                 && !modifierPressed(Input.Keys.ALT_LEFT, Input.Keys.ALT_RIGHT)
                 && !modifierPressed(Input.Keys.SHIFT_LEFT, Input.Keys.SHIFT_RIGHT);
@@ -15592,7 +15592,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 || perspectivePocketStillDealing(nickname, 1);
         pocketOrder.update(!dealing, liveSwapAnimationEnabled(), Gdx.graphics.getDeltaTime());
         if (liveHoleFold != null && liveHoleFold.event.nickname().equals(nickname)) pocketPeekNeedsRelease = true;
-        if (!Gdx.input.isKeyPressed(Input.Keys.V) && !Gdx.input.isButtonPressed(Input.Buttons.LEFT)) pocketPeekNeedsRelease = false;
+        if (!Gdx.input.isKeyPressed(POCKET_PEEK_KEY) && !Gdx.input.isButtonPressed(Input.Buttons.LEFT)) pocketPeekNeedsRelease = false;
         boolean canPeek = !pocketPeekNeedsRelease && !publicHand && reveal == null
                 && !dealing && !pocketOrder.busy()
                 && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
@@ -29569,7 +29569,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawLiveSettingsDropdownText(anteMode.x, anteMode.y, anteMode.width,
                     settingsGameText("row.ante_mode"),
                     liveSettingsDraft == null ? ""
-                            : gameText.translate(liveSettingsDraft.anteMode().labelKey()),
+                            : GdxSettingsContract.anteModeLabel(liveSettingsDraft.anteMode(), gameText),
                     dependentAccess(access, anteValue), alpha);
             drawLiveSettingsToggleText(straddle.x, straddle.y,
                     straddle.width,
@@ -30061,8 +30061,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         drawFittedLeft(settingsSmallFont, uppercase(label), row.label().x,
                 GdxSettingsLayout.rowTextBaseline(y), row.label().width,
                 labelColor, alpha);
-        drawFittedCentered(settingsBodyFont, value,
-                row.value().x + row.value().width / 2f,
+        drawFittedRight(settingsBodyFont, value,
+                row.value().x + row.value().width,
                 GdxSettingsLayout.rowTextBaseline(y), row.value().width,
                 valueColor, alpha);
     }
@@ -30353,12 +30353,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 .toList();
             case ANTE_MODE -> GdxSettingsContract.anteModeLabels(gameText);
             case BLIND_UNIT -> List.of(
-                    gameText.translate("gdx.settings.game.value.minutes"),
-                    gameText.translate("gdx.settings.game.value.hands"));
+                    settingsGameText("value.minutes"),
+                    settingsGameText("value.hands"));
             case BOT_DIFFICULTY -> List.of(
-                    gameText.translate("gdx.settings.game.value.easy"),
-                    gameText.translate("gdx.settings.game.value.medium"),
-                    gameText.translate("gdx.settings.game.value.hard"));
+                    settingsGameText("value.easy"),
+                    settingsGameText("value.medium"),
+                    settingsGameText("value.hard"));
             case RABBIT -> java.util.stream.IntStream.range(0,
                     NewGameTableDraft.RabbitHunting.values().length)
                     .mapToObj(index -> GdxLiveSettingsSummary

@@ -26,7 +26,14 @@ public interface GameDecisionSink {
 
     record RebuyRequest(boolean cancelAllowed, int timeoutSeconds,
             double minimum, double maximum, double defaultAmount, String headerKey,
-            boolean automatic, boolean deferClose, boolean fractional) {
+            boolean automatic, boolean deferClose, boolean fractional, long chipCents) {
+
+        public RebuyRequest(boolean cancelAllowed, int timeoutSeconds,
+                double minimum, double maximum, double defaultAmount,
+                String headerKey, boolean automatic, boolean deferClose, boolean fractional) {
+            this(cancelAllowed, timeoutSeconds, minimum, maximum, defaultAmount,
+                    headerKey, automatic, deferClose, fractional, 1L);
+        }
 
         public RebuyRequest(boolean cancelAllowed, int timeoutSeconds,
                 double minimum, double maximum, double defaultAmount,
@@ -38,7 +45,7 @@ public interface GameDecisionSink {
         public RebuyRequest {
             Objects.requireNonNull(headerKey, "headerKey");
             if (timeoutSeconds < 0 || minimum < 0 || maximum < minimum
-                    || defaultAmount < 0) {
+                    || defaultAmount < 0 || chipCents <= 0) {
                 throw new IllegalArgumentException("invalid rebuy request");
             }
         }
@@ -48,7 +55,11 @@ public interface GameDecisionSink {
     }
 
     record GameOverRequest(boolean direct, double minimum, double maximum,
-            double defaultAmount, int timeoutSeconds) {
+            double defaultAmount, int timeoutSeconds, long chipCents) {
+        public GameOverRequest(boolean direct, double minimum, double maximum,
+                double defaultAmount, int timeoutSeconds) {
+            this(direct, minimum, maximum, defaultAmount, timeoutSeconds, 1L);
+        }
 
         public GameOverRequest(boolean direct) {
             this(direct, 0, 0, 0, 0);
@@ -57,7 +68,7 @@ public interface GameDecisionSink {
         public GameOverRequest {
             if (minimum < 0 || maximum < minimum
                     || defaultAmount < minimum || defaultAmount > maximum
-                    || timeoutSeconds < 0) {
+                    || timeoutSeconds < 0 || chipCents <= 0) {
                 throw new IllegalArgumentException("invalid game-over request");
             }
         }

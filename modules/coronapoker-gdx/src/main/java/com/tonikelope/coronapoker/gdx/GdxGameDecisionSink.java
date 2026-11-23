@@ -205,8 +205,9 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                         tr("ui.aceptar", "ACEPTAR"),
                         request.minimum(), request.maximum(),
                         request.defaultAmount());
+                rebuy.useRebuyChipDenomination(request.chipCents());
                 rebuy.result().thenAccept(accepted -> result.complete(
-                        new GameOverResult(true, rebuy.amount())));
+                        new GameOverResult(accepted, accepted ? rebuy.amount() : 0d)));
                 presenter.accept(rebuy);
             });
         });
@@ -402,7 +403,8 @@ final class GdxGameDecisionSink implements GameDecisionSink {
                     tr("ui.aceptar", "ACEPTAR"),
                     request.minimum(), request.maximum(),
                     request.defaultAmount());
-            if (!request.fractional()) dialog.useWholeChipAmounts();
+            if (request.fractional()) dialog.useRebuyChipDenomination(request.chipCents());
+            else dialog.useWholeChipAmounts();
             if (request.deferClose()) {
                 dialog.deferCloseAfterDecision(tr(
                         "rebuy.esperando_jugadores",

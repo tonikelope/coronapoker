@@ -9901,7 +9901,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (dialog == null || dialog.isExternallyControlled()
                 || dialog.waitingForExternalClose()) return false;
         if (accepted) {
-            if (!dialog.showsPositive()) return false;
+            if (!dialog.showsPositive() || !dialog.amountCanBeAccepted()) return false;
             dialog.accept();
         } else {
             if (!dialog.allowsDismissal()) return false;
@@ -26436,8 +26436,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         if (dialog.showsPositive() && !dialog.waitingForExternalClose()) {
             drawDialogButton(acceptX, panelY + 34f, 230f, 64f,
                     dialog.isExitChoice() ? FOLD_RED : accent,
-                    contains(pointer.x, pointer.y, acceptX,
-                            panelY + 34f, 230f, 64f), 1f);
+                    dialog.amountCanBeAccepted() && contains(pointer.x, pointer.y, acceptX,
+                            panelY + 34f, 230f, 64f),
+                    dialog.amountCanBeAccepted() ? 1f : 0.46f);
             if (dialog.isExitChoice()) {
                 drawDialogExitIcon(acceptX, panelY + 34f, 230f, 64f, 1f);
             }
@@ -26471,7 +26472,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             || field.contains(pointer.x, pointer.y);
                     GdxUiDialogStyle.drawInset(shapes, field.x, field.y,
                             field.width, field.height, PANEL,
-                            emphasized ? CYAN : BUTTON_LINE, amountAlpha);
+                            !dialog.amountCanBeAccepted() ? FOLD_RED
+                                    : emphasized ? CYAN : BUTTON_LINE, amountAlpha);
                 }
             }
             if (amountAlpha > 0.5f) {
@@ -26580,7 +26582,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                             panelX, panelY, panelW, panelH)
                     : GdxTableDialogLayout.standardMessage(
                             panelX, panelY, panelW, panelH);
-            drawDialogMessage(dialog.message(), messageBounds,
+            String message = dialog.amountCanBeAccepted() ? dialog.message()
+                    : gameText.translate("rebuy.amount_chip_range",
+                            formatAmount(dialog.minimumAmount()),
+                            formatAmount(dialog.maximumAmount()),
+                            formatAmount(dialog.rebuyChipDenomination()));
+            drawDialogMessage(message, messageBounds,
                     dialog.isNotice() ? settingsActionFont : uiFont);
         }
         if (dialog.hasAmount()) {
@@ -26674,7 +26681,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawDialogButtonLabel(actionFont,
                     uppercase(dialog.positiveLabel()),
                     acceptX, panelY + 34f, 230f, 64f,
-                    Color.WHITE, 1f);
+                    Color.WHITE, dialog.amountCanBeAccepted() ? 1f : 0.46f);
         }
         batch.end();
     }

@@ -7877,9 +7877,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // Preserve unknown targets for the boundary roster check.
                     if (player == null) return requested;
                     if (player.isExit() || atRebuyLimit(nick)) return 0d;
-                    double amount = canonicalImmediateRebuyAmount(
+                    return validatedRebuyAmount(
                             requested, rebuyHeadroom(cap, rebuyOpeningStack(player)));
-                    return amount >= minimumRebuyAmount() ? amount : 0d;
                 });
                 rebuy_committed.values().removeIf(amount -> amount <= 0);
             }
@@ -8389,9 +8388,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         double amount = configuration().rebuy()
-                ? canonicalImmediateRebuyAmount(requested, immediateRebuyHeadroom(player))
-                : 0d;
-        if (amount > 0d && amount < minimumRebuyAmount()) amount = 0d;
+                ? validatedRebuyAmount(requested, immediateRebuyHeadroom(player)) : 0d;
         applyCanonicalRemoteRebuy(rebuy_now, nick, amount);
         publishImmediateRebuyStatus(nick, amount);
         broadcastGAMECommandFromServerLocked(
@@ -8399,8 +8396,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 null, true);
     }
 
+    private long rebuyChipCents() {
+        // Stack chip colors and denominations are based on the opening small blind.
+        return Math.max(1L, Math.round(initial_small_blind * 100d));
+    }
+
     private double minimumRebuyAmount() {
-        return configuration().fixedBuyin() ? 0.01d : buyinRange().min();
+        return RebuyAmountRules.minimum(
+                configuration().fixedBuyin() ? 0d : buyinRange().min(), rebuyChipCents());
+    }
+
+    private double validatedRebuyAmount(double requested, double headroom) {
+        long chipCents = rebuyChipCents();
+        if (!RebuyAmountRules.isPlayable(requested, chipCents)) return 0d;
+        double amount = RebuyAmountRules.floorToChip(Math.min(requested, headroom), chipCents);
+        return amount >= minimumRebuyAmount() ? amount : 0d;
+    }
+
+    private double defaultRebuyAmount(double maximum) {
+        double configured = configuration().fixedBuyin() ? configuration().buyin() : buyinDefault();
+        return Math.max(minimumRebuyAmount(),
+                RebuyAmountRules.floorToChip(Math.min(configured, maximum), rebuyChipCents()));
     }
 
     private void publishImmediateRebuyStatus(String nick, double amount) {
@@ -8686,19 +8702,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             configuration().rebuyLimit())));
                     return;
                 }
-                double headroom = immediateRebuyHeadroom(target);
+                long chipCents = rebuyChipCents();
+                double headroom = RebuyAmountRules.floorToChip(immediateRebuyHeadroom(target), chipCents);
                 double minimum = minimumRebuyAmount();
                 if (headroom < minimum) {
                     awaitDialog(game_dialogs.showError(
                             game_text.translate("rebuy.sin_margen")));
                     return;
                 }
-                double suggested = Math.min(configuration().fixedBuyin()
-                        ? configuration().buyin() : buyinDefault(), headroom);
                 dialog = game_decisions.showRebuy(
                         new GameDecisionSink.RebuyRequest(true, 0,
-                                minimum, headroom, suggested,
-                                "rebuy.recomprar_3", false, false));
+                                minimum, headroom, defaultRebuyAmount(headroom),
+                                "rebuy.recomprar_3", false, false, true, chipCents));
                 GameDecisionSink.RebuyResult selected = awaitRebuyResult(
                         dialog.result(), () -> tableWaitCancelled() || hand != immediateRebuyHand());
                 if (selected != null && selected.accepted()
@@ -9693,10 +9708,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 rebuyOpeningStack(jugador));
                         boolean deniedByLimit = hostDeniedByRebuyLimit(
                                 gameSession().isHost(), atRebuyLimit(nick));
-                        String canonicalRebuy = canonicalRemoteRebuyAmount(
-                                ImmediateRebuyWire.formatAmount(parsed.requestedAmount()),
-                                headroom, deniedByLimit);
-                        double safeRebuy = ImmediateRebuyWire.parseAmount(canonicalRebuy);
+                        double safeRebuy = gameSession().isHost()
+                                ? (deniedByLimit ? 0d : validatedRebuyAmount(parsed.requestedAmount(), headroom))
+                                : parsed.requestedAmount();
                         boolean recompra = safeRebuy > 0 && !deniedByLimit;
                         if (jugador != localPlayer()) {
                             if (skip_countdown) {
@@ -9716,7 +9730,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // excluding it would leave a denied/clamped request alive
                             // locally and diverge on the next hand.
                             broadcastGAMECommandFromServer("REBUY#" + partes[3]
-                                    + "#" + canonicalRebuy + "#" + getMano(), null);
+                                    + "#" + ImmediateRebuyWire.formatAmount(safeRebuy)
+                                    + "#" + getMano(), null);
                         }
 
                         if (safeRebuy <= 0) {
@@ -12171,7 +12186,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (atRebuyLimit(nick)) {
                             continue;
                         }
-                        double amount = canonicalImmediateRebuyAmount(requested,
+                        double amount = validatedRebuyAmount(
+                                RebuyAmountRules.floorToChip(requested, rebuyChipCents()),
                                 rebuyHeadroom(buyinCap(), 0d));
                         if (amount > 0) {
                             rebuy_now.put(nick, amount);
@@ -29664,16 +29680,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "coronapoker.qa.spectatorOnBrokeNicks",
                                 jugador.getNickname())
                         && !atRebuyLimit(jugador.getNickname())) {
-                    double amount = configuration().fixedBuyin()
-                            ? configuration().buyin() : buyinDefault();
-                    storeEndOfHandRebuy(jugador.getNickname(), amount);
-                } else {
-                    jugador.setSpectator(null);
-                    spectatorChanged = true;
-                    LOGGER.log(Level.INFO,
-                            "QA SPECTATOR_ENTERED nick={0} hand={1} cpu={2}",
-                            new Object[]{jugador.getNickname(), this.getMano(), bot});
+                    double headroom = rebuyHeadroom(buyinCap(), rebuyOpeningStack(jugador));
+                    double amount = validatedRebuyAmount(defaultRebuyAmount(headroom), headroom);
+                    if (amount > 0d) {
+                        storeEndOfHandRebuy(jugador.getNickname(), amount);
+                        continue;
+                    }
                 }
+                jugador.setSpectator(null);
+                spectatorChanged = true;
+                LOGGER.log(Level.INFO,
+                        "QA SPECTATOR_ENTERED nick={0} hand={1} cpu={2}",
+                        new Object[]{jugador.getNickname(), this.getMano(), bot});
             }
             if (spectatorChanged) {
                 awaitAttachedTableEvent(sequence -> new TableVisualEvent.SeatRoster(
@@ -29723,21 +29741,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.rebuy_time = true;
 
-            if (configuration().rebuy() && !atRebuyLimit(localPlayer().getNickname())
-                    && presentation_settings.autoRebuyOnBroke()) {
+            long chipCents = rebuyChipCents();
+            double minimum = minimumRebuyAmount();
+            double maximum = RebuyAmountRules.floorToChip(buyinCap(), chipCents);
+            boolean canRebuy = configuration().rebuy() && maximum >= minimum
+                    && !atRebuyLimit(localPlayer().getNickname());
+            if (canRebuy && presentation_settings.autoRebuyOnBroke()) {
 
                 // Automatic rebuy on going broke: skips the game-over animation and
                 // goes straight to the RebuyDialog (AUTO) — same countdown bar and
                 // default amount, plus a red cancel button. On expiry -> rebuy; on
                 // cancel -> spectator.
-                double rebuy_min = configuration().fixedBuyin() ? 0.01d : buyinRange().min();
-                double rebuy_max = buyinCap();
-                int rebuy_def = configuration().fixedBuyin() ? configuration().buyin() : buyinDefault();
-
                 GameDecisionSink.RebuyHandle autoRebuy = game_decisions.showRebuy(
                         new GameDecisionSink.RebuyRequest(false,
-                                REBUY_DIALOG_COUNTDOWN, rebuy_min, rebuy_max,
-                                rebuy_def, "rebuy.recomprar_auto", true, false));
+                                REBUY_DIALOG_COUNTDOWN, minimum, maximum,
+                                defaultRebuyAmount(maximum), "rebuy.recomprar_auto",
+                                true, false, true, chipCents));
                 GameDecisionSink.RebuyResult autoDecision = awaitRebuyResult(
                         autoRebuy.result(), this::tableWaitCancelled);
                 autoRebuy.close();
@@ -29747,20 +29766,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         new Object[]{localPlayer().getNickname(), autoDecision,
                             tableWaitCancelled(), Thread.currentThread().isInterrupted()});
 
-                if (autoDecision != null && autoDecision.accepted()) {
+                double amount = autoDecision != null && autoDecision.accepted()
+                        ? validatedRebuyAmount(autoDecision.amount(), maximum) : 0d;
+                if (amount > 0d) {
 
                     try {
 
                         rebuy_players.remove(localPlayer().getNickname());
 
-                        storeEndOfHandRebuy(localPlayer().getNickname(),
-                                autoDecision.amount());
+                        storeEndOfHandRebuy(localPlayer().getNickname(), amount);
 
                         String comando = "REBUY#"
                                 + Base64.getEncoder().encodeToString(
                                         localPlayer().getNickname().getBytes("UTF-8"))
                                 + "#"
-                                + ImmediateRebuyWire.formatAmount(autoDecision.amount()) + "#" + getMano();
+                                + ImmediateRebuyWire.formatAmount(amount) + "#" + getMano();
 
                         if (gameSession().isHost()) {
                             this.broadcastGAMECommandFromServer(comando, null);
@@ -29799,34 +29819,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             + game_text.translate("player.te_quedas_de_espectador"));
                 }
 
-            } else if (configuration().rebuy() && !atRebuyLimit(localPlayer().getNickname())) {
+            } else if (canRebuy) {
 
-                double gameOverMin = configuration().fixedBuyin()
-                        ? 0.01d : buyinRange().min();
-                double gameOverMax = Math.max(gameOverMin, buyinCap());
-                double gameOverDefault = Math.min(gameOverMax,
-                        Math.max(gameOverMin, configuration().fixedBuyin()
-                                ? configuration().buyin() : buyinDefault()));
                 GameDecisionSink.GameOverResult gameOver = awaitGameOverResult(
                         game_decisions.showGameOver(
                                 new GameDecisionSink.GameOverRequest(false,
-                                        gameOverMin, gameOverMax,
-                                        gameOverDefault, 10)));
+                                        minimum, maximum, defaultRebuyAmount(maximum), 10, chipCents)));
 
-                if (gameOver.continuePlaying()) {
+                double amount = gameOver.continuePlaying()
+                        ? validatedRebuyAmount(gameOver.rebuyAmount(), maximum) : 0d;
+                if (amount > 0d) {
 
                     try {
 
                         rebuy_players.remove(localPlayer().getNickname());
 
-                        storeEndOfHandRebuy(localPlayer().getNickname(),
-                                gameOver.rebuyAmount());
+                        storeEndOfHandRebuy(localPlayer().getNickname(), amount);
 
                         String comando = "REBUY#"
                                 + Base64.getEncoder().encodeToString(
                                         localPlayer().getNickname().getBytes("UTF-8"))
                                 + "#"
-                                + ImmediateRebuyWire.formatAmount(gameOver.rebuyAmount()) + "#" + getMano();
+                                + ImmediateRebuyWire.formatAmount(amount) + "#" + getMano();
 
                         if (gameSession().isHost()) {
                             this.broadcastGAMECommandFromServer(comando, null);
@@ -29893,14 +29907,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Automatic rebuy for a broke bot: in fixed mode it rebuys the full
                         // buy-in (as always); in variable mode, the default 50BB
                         // (consistent with its starting buy-in).
-                        int botbuy = configuration().fixedBuyin()
-                                ? configuration().buyin() : buyinDefault();
+                        double headroom = rebuyHeadroom(buyinCap(), rebuyOpeningStack(jugador));
+                        double botbuy = validatedRebuyAmount(defaultRebuyAmount(headroom), headroom);
                         storeEndOfHandRebuy(jugador.getNickname(), botbuy);
+                        if (botbuy <= 0d) jugador.setSpectator(null);
 
                         try {
                             String comando = "REBUY#"
                                     + Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
-                                    + "#" + String.valueOf(botbuy) + "#" + getMano();
+                                    + "#" + ImmediateRebuyWire.formatAmount(botbuy) + "#" + getMano();
 
                             this.broadcastGAMECommandFromServer(comando, null);
 

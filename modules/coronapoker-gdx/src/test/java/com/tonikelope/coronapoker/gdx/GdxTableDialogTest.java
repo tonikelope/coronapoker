@@ -28,6 +28,20 @@ final class GdxTableDialogTest {
     }
 
     @Test
+    void rebuyUsesWholeDenominationsAndNeverAutoAcceptsInvalidText() {
+        var dialog = new GdxTableDialog("REBUY", "", 820, 10, true,
+                "CANCEL", 0.05d, 2d, 2d);
+        dialog.useRebuyChipDenomination(5);
+        dialog.changeAmount(-1);
+        assertEquals(1.95d, dialog.amount());
+        dialog.editAmountText("1.99");
+        dialog.accept();
+        assertFalse(dialog.complete());
+        dialog.timeout();
+        assertFalse(dialog.result().toCompletableFuture().join());
+    }
+
+    @Test
     void automaticInfoDwellIsHiddenAndHonorsPauseAccounting() {
         GdxTableDialog dialog = GdxTableDialog.autoDismissInfo(
                 "GAME OVER", "", GameDialogSink.Icon.STOP, 860, 2.5f);

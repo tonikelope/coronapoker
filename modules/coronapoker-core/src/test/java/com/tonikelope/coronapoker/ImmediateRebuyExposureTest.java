@@ -48,6 +48,8 @@ class ImmediateRebuyExposureTest {
         winner.pagar(15.70d, null);
         setField(dealer, "showdownRebuyBalanceReady", true);
         dealer.rebuyNow("host", 5.71d);
+        assertTrue(dealer.getRebuy_now().isEmpty());
+        dealer.rebuyNow("host", 5.80d);
         dealer.rebuyNowFromClient("guest", 10d, dealer.immediateRebuyHand(), 1L, 1L, () -> true);
 
         assertEquals(5.70d, dealer.getRebuy_now().get("host"));
@@ -60,6 +62,41 @@ class ImmediateRebuyExposureTest {
         assertEquals(1d, row[2]);
         assertEquals(10d, loser.getStack());
         assertEquals(15.70d, loser.getBuyin());
+    }
+
+    @Test
+    void rejectsOffDenominationRequestsForLocalAndRemoteSeats() throws Exception {
+        var local = CorePlayerController.local("host");
+        var remote = CorePlayerController.remote("guest");
+        local.setStack(4.30d);
+        remote.setStack(4.30d);
+        var dealer = table(NewGameTableDraft.RebuyCapPolicy.BUY_IN, local, remote);
+        int hand = dealer.immediateRebuyHand();
+        for (double amount : new double[]{0.05d, 1.95d, 1.99d}) {
+            dealer.rebuyNow("host", amount);
+            dealer.rebuyNowFromClient("guest", amount, hand, 1L,
+                    Math.round(amount * 100d), () -> true);
+            assertTrue(dealer.getRebuy_now().isEmpty());
+        }
+        dealer.rebuyNow("host", 5.70d);
+        dealer.rebuyNowFromClient("guest", 1.90d, hand, 1L, 200L, () -> true);
+        assertEquals(5.70d, dealer.getRebuy_now().get("host"));
+        assertEquals(1.90d, dealer.getRebuy_now().get("guest"));
+    }
+
+    @Test
+    void aDifferentOpeningBlindChangesTheChipAndRoundsTheCapDown() throws Exception {
+        var local = CorePlayerController.local("host");
+        local.setStack(8.01d);
+        var dealer = table(draft -> {
+            draft.setBlindStructure(null,
+                List.of(new NewGameTableDraft.BlindLevel(0.05d, 0.10d)), 0);
+            draft.setBuyin(10);
+        }, local);
+        dealer.rebuyNow("host", 1.99d);
+        assertTrue(dealer.getRebuy_now().isEmpty());
+        dealer.rebuyNow("host", 2.00d);
+        assertEquals(1.95d, dealer.getRebuy_now().get("host"));
     }
 
     @Test
@@ -161,11 +198,11 @@ class ImmediateRebuyExposureTest {
         double[] row = sealAndProject(dealer, "guest");
         remote.nuevaMano();
 
-        assertEquals(25.70d, row[0]);
-        assertEquals(28.45d, row[1]);
+        assertEquals(25.65d, row[0]);
+        assertEquals(28.40d, row[1]);
         assertEquals(1d, row[2]);
-        assertEquals(25.70d, remote.getStack());
-        assertEquals(28.45d, remote.getBuyin());
+        assertEquals(25.65d, remote.getStack());
+        assertEquals(28.40d, remote.getBuyin());
     }
 
     @Test
@@ -208,11 +245,11 @@ class ImmediateRebuyExposureTest {
         remote.resetBote();
         double[] row = sealAndProject(client, "guest");
         remote.nuevaMano();
-        assertEquals(10d, row[0]);
-        assertEquals(12.75d, row[1]);
+        assertEquals(9.95d, row[0]);
+        assertEquals(12.70d, row[1]);
         assertEquals(1d, row[2]);
-        assertEquals(10d, remote.getStack());
-        assertEquals(12.75d, remote.getBuyin());
+        assertEquals(9.95d, remote.getStack());
+        assertEquals(12.70d, remote.getBuyin());
     }
 
     private static Crupier table(NewGameTableDraft.RebuyCapPolicy policy,
@@ -241,6 +278,7 @@ class ImmediateRebuyExposureTest {
         Crupier dealer = new Crupier();
         setField(dealer, "game_session", new GameSession(host ? "host" : "observer", host,
                 GameConfigCodecV1.fromSettings(draft.snapshot(), false, "rebuy-test")));
+        setField(dealer, "initial_small_blind", draft.blindLevels().get(0).smallBlind());
         setField(dealer, "player_controllers", List.of(players));
         setField(dealer, "peer_controllers", Map.of());
         for (CorePlayerController player : players) {

@@ -3,6 +3,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.game.GameText;
+import com.tonikelope.coronapoker.RebuyAmountRules;
 import com.tonikelope.coronapoker.core.game.MoneyMath;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -44,6 +45,8 @@ final class GdxTableDialog {
     private final double amountStep;
     private double amount;
     private String rebuyAmountText;
+    private long rebuyChipCents = 1L;
+    private boolean validRebuyAmount = true;
     private boolean wholeChipAmounts;
     private BigDecimal autoCallCommittedAmount;
     private String autoCallAmountText;
@@ -437,10 +440,12 @@ final class GdxTableDialog {
             autoCallAmountText = decimalText(next);
             amount = centsForLegacyAmount(next);
         } else {
-            double step = wholeChipAmounts ? Math.max(1d, amountStep) : amountStep;
+            double step = wholeChipAmounts ? Math.max(1d, amountStep)
+                    : rebuyChipCents > 1 ? rebuyChipCents / 100d : amountStep;
             double next = MoneyMath.clean(amount + step * direction);
             amount = Math.max(minimumAmount, Math.min(maximumAmount, next));
             rebuyAmountText = null;
+            validRebuyAmount = true;
         }
     }
 
@@ -473,6 +478,13 @@ final class GdxTableDialog {
                 && (kind == Kind.REBUY && !wholeChipAmounts || autoCallAmountEditable());
     }
 
+    void useRebuyChipDenomination(long chipCents) {
+        rebuyChipCents = chipCents;
+    }
+
+    double rebuyChipDenomination() { return rebuyChipCents / 100d; }
+    boolean amountCanBeAccepted() { return kind != Kind.REBUY || validRebuyAmount; }
+
     void useWholeChipAmounts() {
         wholeChipAmounts = true;
     }
@@ -488,9 +500,12 @@ final class GdxTableDialog {
             autoCallAmountText(text);
         } else if (acceptsAmountText(text)) {
             rebuyAmountText = text;
+            validRebuyAmount = false;
             if (text.chars().anyMatch(Character::isDigit)) {
                 double value = new BigDecimal(text.replace(',', '.')).doubleValue();
-                amount = Math.max(minimumAmount, Math.min(maximumAmount, value));
+                validRebuyAmount = value >= minimumAmount && value <= maximumAmount
+                        && RebuyAmountRules.isPlayable(value, rebuyChipCents);
+                if (validRebuyAmount) amount = value;
             }
         }
     }
@@ -519,8 +534,10 @@ final class GdxTableDialog {
         }
     }
 
-    void timeout() { result.complete(timeoutAccepts); }
-    void accept() { result.complete(true); }
+    void timeout() { result.complete(timeoutAccepts && amountCanBeAccepted()); }
+    void accept() {
+        if (amountCanBeAccepted()) result.complete(true);
+    }
     void dismiss() { result.complete(false); }
     boolean complete() { return result.isDone(); }
 

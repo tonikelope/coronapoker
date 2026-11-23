@@ -49,6 +49,7 @@ final class GdxRebuyAmountGpuTest {
             var edit = (GdxTextEditState) field.get(table);
             var dialog = new GdxTableDialog("REBUY", "", 820, 0, false,
                     "CANCEL", 0.01d, 10d, 10d);
+            dialog.useRebuyChipDenomination(10);
             table.showDialog(dialog);
             var input = table.inputProcessor();
 
@@ -80,8 +81,19 @@ final class GdxRebuyAmountGpuTest {
             table.advanceDialogState();
             var reopened = new GdxTableDialog("REBUY", "", 820, 0, false,
                     "CANCEL", 0.01d, 10d, 10d);
+            reopened.useRebuyChipDenomination(10);
             table.showDialog(reopened);
             assertEquals(0, edit.caret(reopened.amountText()));
+            input.keyDown(Input.Keys.TAB);
+            input.keyUp(Input.Keys.TAB);
+            for (char character : "1.99".toCharArray()) {
+                assertTrue(input.keyTyped(character));
+            }
+            assertFalse(table.resolveActiveDialogChoice(true));
+            assertFalse(reopened.complete());
+            table.render();
+            input.keyDown(Input.Keys.TAB);
+            input.keyUp(Input.Keys.TAB);
             input.keyDown(Input.Keys.TAB);
             input.keyUp(Input.Keys.TAB);
             for (char character : "5.70".toCharArray()) {
@@ -90,6 +102,7 @@ final class GdxRebuyAmountGpuTest {
             assertTrue(input.keyTyped('\u00b7'));
             assertEquals("5.70", reopened.amountText());
             assertEquals(5.70d, reopened.amount());
+            assertTrue(table.resolveActiveDialogChoice(true));
         } finally {
             table.dispose();
         }

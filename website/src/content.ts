@@ -67,6 +67,9 @@ export const copy = {
     tagline: '“In many ways, the poker game we always deserved.”',
     primary: 'Download CoronaPoker', source: 'View on GitHub', explore: 'See the game',
     tableTitle: 'How CoronaPoker began',
+    tourLabel: 'CoronaPoker tour in English',
+    tourChapters: 'Tour chapters',
+    tourDownload: 'Download the tour video',
     tableHistory: [
       'CoronaPoker began in 2020 during the COVID-19 lockdown. Tonikelope built it to keep playing Texas Hold’em with friends.',
       'The open-source game kept growing beyond those first poker nights. It later gained a 3D table and a Mental Poker protocol that lets players verify the shuffle and check that they all played the same hand.',
@@ -351,6 +354,9 @@ export const copy = {
     tagline: '«En muchos sentidos, el juego de póker que siempre merecimos».',
     primary: 'Descargar CoronaPoker', source: 'Ver en GitHub', explore: 'Ver el juego',
     tableTitle: 'Cómo nació CoronaPoker',
+    tourLabel: 'Tour de CoronaPoker en español',
+    tourChapters: 'Capítulos del tour',
+    tourDownload: 'Descargar el vídeo del tour',
     tableHistory: [
       'CoronaPoker nació en 2020, durante el confinamiento por la COVID-19. Tonikelope lo creó para seguir jugando al Texas Hold’em con sus amigos.',
       'Aquel juego de código abierto siguió creciendo. Con el tiempo incorporó la mesa en 3D y un protocolo de Mental Poker que permite verificar el barajado y comprobar que todos jugaron la misma mano.',

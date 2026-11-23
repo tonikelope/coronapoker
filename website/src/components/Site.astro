@@ -12,6 +12,7 @@ const t = copy[lang];
 const gameShotIndex = 1;
 const gameShot = gallery[gameShotIndex];
 const gameShotOriginal = `/media/${gameShot.id}-${gameShot.width}.webp`;
+const gameTour = `/media/coronapoker-tour-${lang}`;
 const altLang = lang === 'en' ? 'es' : 'en';
 const languageHref = altLang === 'es' ? routes.es : `${routes.en}?lang=en`;
 const canonical = site + routes[lang];
@@ -145,11 +146,12 @@ const schema = {
             </div>
           </div>
           <figure class="game-feature reveal">
-            <a href={gameShotOriginal} data-shot={gameShotIndex}>
-              <Capture index={gameShotIndex} alt={t.galleryItems[gameShotIndex][1]} sizes="(max-width: 1250px) 92vw, 1180px" />
-              <span class="expand-icon" aria-hidden="true">↗</span>
-            </a>
-            <figcaption><span><i></i>{t.capture}</span><span>{t.galleryItems[gameShotIndex][0]}</span></figcaption>
+            <video controls playsinline preload="none" poster={gameShotOriginal} aria-labelledby="tour-caption">
+              <source src={gameTour + '.mp4'} type="video/mp4" />
+              <track kind="chapters" src={gameTour + '.vtt'} srclang={lang} label={t.tourChapters} />
+              <a href={gameTour + '.mp4'}>{t.tourDownload}</a>
+            </video>
+            <figcaption id="tour-caption"><span><i></i>{t.tourLabel}</span></figcaption>
           </figure>
         </div>
       </section>

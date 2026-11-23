@@ -1352,6 +1352,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private float tableImageSendAllowedAt;
     private String chatDraft = "";
     private final GdxTextEditState chatEdit = new GdxTextEditState();
+    private static final String DIALOG_AMOUNT_FIELD = "dialogAmount";
     private final GdxTextEditState dialogAmountEdit = new GdxTextEditState();
     private final GdxTextKeyRepeat textKeyRepeat = new GdxTextKeyRepeat();
     private final GdxVolumeKeyRepeat volumeKeyRepeat =
@@ -1943,7 +1944,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 return true;
             }
             if (activeDialog != null && activeDialog.amountEditable()
-                    && handleAutoCallAmountEditingKey(keycode)) {
+                    && handleDialogAmountEditingKey(keycode)) {
                 textKeyRepeat.press(keycode, activeDialog);
                 return true;
             }
@@ -2075,7 +2076,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             if (tableVoiceConfirmationVisible()) return true;
             if (chipCatalogVisible) return true;
             if (activeDialog != null && activeDialog.amountEditable()) {
-                handleAutoCallAmountTyped(character);
+                handleDialogAmountTyped(character);
                 return true;
             }
             if (activeDialog != null) {
@@ -2769,21 +2770,27 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             textKeyRepeat.clear();
         } else if (activeDialog != null) {
             textKeyRepeat.update(delta, activeDialog.amountEditable() ? activeDialog : null,
-                    this::handleAutoCallAmountEditingKey);
+                    this::handleDialogAmountEditingKey);
         } else {
             textKeyRepeat.update(delta, uiLayer == UI_CHAT ? chatEdit : null, this::handleChatEditingKey);
         }
     }
 
-    private boolean handleAutoCallAmountEditingKey(int keycode) {
+    private boolean handleDialogAmountEditingKey(int keycode) {
         GdxTableDialog dialog = activeDialog;
         if (dialog == null || !dialog.amountEditable()) return false;
         String value = dialog.amountText();
-        dialogAmountEdit.focus("autoCallAmount", value);
         boolean control = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
         boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+        if (!dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)) {
+            if (dialog.isRebuy() && !(control
+                    && (keycode == Input.Keys.A || keycode == Input.Keys.V))) {
+                return false;
+            }
+            focusDialogAmount(dialog, dialog.isRebuy());
+        }
         if (control) {
             switch (keycode) {
                 case Input.Keys.A -> dialogAmountEdit.selectAll(value);
@@ -2797,13 +2804,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     if (dialogAmountEdit.hasSelection(value)) {
                         Gdx.app.getClipboard().setContents(
                                 dialogAmountEdit.selectedText(value));
-                        replaceAutoCallAmountSelection(dialog, "");
+                        replaceDialogAmountSelection(dialog, "");
                     }
                 }
                 case Input.Keys.V -> {
                     String pasted = Gdx.app.getClipboard().getContents();
                     if (pasted != null && !pasted.isEmpty()) {
-                        replaceAutoCallAmountSelection(dialog,
+                        replaceDialogAmountSelection(dialog,
                                 singleLine(pasted).trim());
                     }
                 }
@@ -2833,23 +2840,23 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         return true;
     }
 
-    private boolean handleAutoCallAmountTyped(char character) {
+    private boolean handleDialogAmountTyped(char character) {
         GdxTableDialog dialog = activeDialog;
         if (dialog == null || !dialog.amountEditable()) return false;
-        String value = dialog.amountText();
-        dialogAmountEdit.focus("autoCallAmount", value);
-        if (character == '\b') return true;
         if ((character >= '0' && character <= '9') || character == '.'
                 || character == ',' || character == '+' || character == '-') {
-            replaceAutoCallAmountSelection(dialog,
-                    Character.toString(character));
+            String input = Character.toString(character);
+            if (!dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD)) {
+                if (!dialog.acceptsAmountText(input)) return true;
+                focusDialogAmount(dialog, dialog.isRebuy());
+            }
+            replaceDialogAmountSelection(dialog, input);
         }
-        // The modal owns all typed input, including characters rejected by
-        // Swing's numeric spinner formatter.
+        // The modal also owns characters rejected by the amount formatter.
         return true;
     }
 
-    private void replaceAutoCallAmountSelection(GdxTableDialog dialog,
+    private void replaceDialogAmountSelection(GdxTableDialog dialog,
             String replacement) {
         String value = dialog.amountText();
         int start = dialogAmountEdit.selectionStart(value);
@@ -2864,11 +2871,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         dialog.editAmountText(candidate);
     }
 
-    private void focusAutoCallAmount(GdxTableDialog dialog,
+    private void focusDialogAmount(GdxTableDialog dialog,
             boolean selectAll) {
         dialogAmountEdit.blur();
         if (dialog == null || !dialog.amountEditable()) return;
-        dialogAmountEdit.focus("autoCallAmount", dialog.amountText());
+        dialogAmountEdit.focus(DIALOG_AMOUNT_FIELD, dialog.amountText());
         if (selectAll) dialogAmountEdit.selectAll(dialog.amountText());
     }
 
@@ -8556,7 +8563,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             }
             activeDialog = request;
             request.opened(totalTime);
-            focusAutoCallAmount(request, true);
+            focusDialogAmount(request.isAutoCall() ? request : null, true);
         } else {
             dialogQueue.addLast(request);
             if (seamlessGameOverRebuyHandoff(activeDialog, request)) {
@@ -8845,7 +8852,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             dialogAmountEdit.blur();
             if (activeDialog != null) {
                 activeDialog.opened(totalTime);
-                focusAutoCallAmount(activeDialog, true);
+                if (activeDialog.isAutoCall()) focusDialogAmount(activeDialog, true);
             }
         }
         restoreChipCatalogAfterRebuyIfReady();
@@ -8994,26 +9001,26 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && autoCallLayout.enabled().contains(pointer.x, pointer.y)) {
             runSwitchAction(dialog.optionEnabled(),
                     dialog::toggleOptionEnabled);
-            focusAutoCallAmount(dialog, dialog.autoCallAmountEditable());
+            focusDialogAmount(dialog, dialog.autoCallAmountEditable());
         } else if (dialog.isAutoCall()
                 && autoCallLayout.noLimit().contains(pointer.x, pointer.y)) {
             runSwitchAction(dialog.noLimit(), dialog::toggleNoLimit);
-            focusAutoCallAmount(dialog, dialog.autoCallAmountEditable());
+            focusDialogAmount(dialog, dialog.autoCallAmountEditable());
         } else if (dialog.isHandLimit()
                 && contains(pointer.x, pointer.y, panelX + 56f,
                         panelY + 244f, panelW - 112f, 64f)) {
             runSwitchAction(dialog.noLimit(), dialog::toggleNoLimit);
         } else if (dialog.amountEditable()
                 && amountValue.contains(pointer.x, pointer.y)) {
-            focusAutoCallAmount(dialog, true);
+            focusDialogAmount(dialog, true);
         } else if (dialog.hasAmount()
                 && amountMinus.contains(pointer.x, pointer.y)) {
             dialog.changeAmount(-1);
-            focusAutoCallAmount(dialog, false);
+            focusDialogAmount(dialog.isAutoCall() ? dialog : null, false);
         } else if (dialog.hasAmount()
                 && amountPlus.contains(pointer.x, pointer.y)) {
             dialog.changeAmount(1);
-            focusAutoCallAmount(dialog, false);
+            focusDialogAmount(dialog.isAutoCall() ? dialog : null, false);
         } else if (dialog.showsPositive() && contains(pointer.x, pointer.y,
                 dialogPositiveX(dialog, panelX, panelW), panelY + 34f,
                 230f, 64f)) {
@@ -26445,13 +26452,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         minus.width, minus.height,
                         RepeatOwner.DIALOG, dialog, () -> {
                             dialog.changeAmount(-1);
-                            focusAutoCallAmount(dialog, false);
+                            focusDialogAmount(dialog, false);
                         });
                 registerPointerRepeatHit(plus.x, plus.y,
                         plus.width, plus.height,
                         RepeatOwner.DIALOG, dialog, () -> {
                             dialog.changeAmount(1);
-                            focusAutoCallAmount(dialog, false);
+                            focusDialogAmount(dialog, false);
                         });
             }
         }
@@ -26557,14 +26564,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         if (dialog.hasAmount()) {
             boolean editingAmount = dialog.amountEditable()
-                    && dialogAmountEdit.focused("autoCallAmount");
+                    && dialogAmountEdit.focused(DIALOG_AMOUNT_FIELD);
             String amountText = dialog.isHandLimit() && dialog.noLimit()
                     ? uppercase(gameText.translate("auto_call.sin_limite"))
                     : editingAmount || dialog.isHandLimit() ? dialog.amountText()
                     : GdxChipAmountText.compactLabel(dialog.amountText());
-            if (editingAmount && ((int) (totalTime * 2f) & 1) == 0) {
-                amountText += "|";
-            }
             if (dialog.isAutoCall()) {
                 GdxSettingsLayout.StepperRow amount = autoCallLayout.amount();
                 float amountAlpha = dialogAmountAlpha(dialog);
@@ -26575,9 +26579,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         Color.WHITE, amountAlpha);
                 Rectangle value = amount.value();
                 if (dialog.autoCallAmountEditable()) {
-                    drawFittedCenteredInBox(uiFont, amountText,
-                            value.x, value.y, value.width, value.height,
-                            POT_GOLD, amountAlpha);
+                    if (editingAmount) {
+                        drawDialogAmountEditor(uiFont, amountText, value, amountAlpha);
+                    } else {
+                        drawFittedCenteredInBox(uiFont, amountText,
+                                value.x, value.y, value.width, value.height,
+                                POT_GOLD, amountAlpha);
+                    }
                 } else {
                     drawFittedMoneyInBox(uiFont, amountText,
                             value.x, value.y, value.width, value.height,
@@ -26591,8 +26599,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 panelY + 155f, 220f, 64f)
                         : rebuyLayout.value();
                 if (editingAmount) {
-                    drawFittedCenteredInBox(dialogAmountFont, amountText,
-                            value.x, value.y, value.width, value.height, POT_GOLD, 1f);
+                    drawDialogAmountEditor(dialogAmountFont, amountText, value, 1f);
                 } else {
                     drawFittedMoneyInBox(dialog.isRebuy()
                                     ? dialogAmountFont : uiFont, amountText,
@@ -33173,6 +33180,36 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 nativeTextTiers(font), crispButtonText);
         drawCenteredInBox(crispButtonText.font(), crispButtonText.text(),
                 x, y, width, height, color, alpha);
+    }
+
+    private void drawDialogAmountEditor(BitmapFont font, String text,
+            Rectangle bounds, float alpha) {
+        GdxCrispButtonText.resolveWithinBox(glyph, text, bounds.width - 14f,
+                bounds.height, nativeTextTiers(font), crispButtonText);
+        BitmapFont selectedFont = crispButtonText.font();
+        String fitted = crispButtonText.text();
+        glyph.setText(selectedFont, fitted);
+        float x = bounds.x + (bounds.width - glyph.width) / 2f;
+        float height = Math.min(bounds.height * 0.66f, selectedFont.getCapHeight());
+        float y = bounds.y + (bounds.height - height) / 2f;
+        if (dialogAmountEdit.hasSelection(text)) {
+            int start = Math.min(dialogAmountEdit.selectionStart(text), fitted.length());
+            int end = Math.min(dialogAmountEdit.selectionEnd(text), fitted.length());
+            float left = tableTextWidth(selectedFont, fitted.substring(0, start));
+            float right = tableTextWidth(selectedFont, fitted.substring(0, end));
+            batch.setColor(CYAN.r, CYAN.g, CYAN.b, 0.23f * alpha);
+            batch.draw(solidWhiteTexture, x + left, y - 2f, right - left, height + 4f);
+            batch.setColor(Color.WHITE);
+        }
+        drawCenteredInBox(selectedFont, fitted, bounds.x, bounds.y,
+                bounds.width, bounds.height, POT_GOLD, alpha);
+        if (((int) (totalTime * 2f) & 1) == 0) {
+            int caret = Math.min(dialogAmountEdit.caret(text), fitted.length());
+            float offset = tableTextWidth(selectedFont, fitted.substring(0, caret));
+            batch.setColor(CYAN.r, CYAN.g, CYAN.b, alpha);
+            batch.draw(solidWhiteTexture, x + offset + 2f, y, 2f, height);
+            batch.setColor(Color.WHITE);
+        }
     }
 
     private GdxChipAmountText.ZeroMode amountZeroMode() {

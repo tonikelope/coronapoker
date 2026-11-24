@@ -191,6 +191,7 @@ Walkie-talkie style, push-to-record: **hold a key (F9 by default, rebindable), s
 
 ### 🔊 Audio settings
 Click the speaker icon to mute or unmute the game. Open **Settings > Audio** for the **master volume**, **output device** and **microphone** controls. By default, Shift + Up or Down changes the volume. Rebind the volume and push-to-record shortcuts under **Settings > Controls**.
+Under **Settings > Audio > Sound effects**, toggle individual cues for opening dialogs, switching tabs or selecting bots, confirming saves, and starting the game from the waiting room.
 Marking or clearing **Last hand** plays its dedicated cue when the table confirms the change.
 
 ### Player avatars
@@ -259,13 +260,13 @@ can safely overlay the supported presentation assets:
 
 ## 🖥️ UX & display
 
-- **Main menu.** High-resolution PEGI 18 and Krusty seals fade in with the menu. Poker quotes stay centred between the footer elements, with each author kept on one line.
+- **Main menu.** Aligned PEGI 18 and Krusty seals fade in with the menu. Poker quotes stay centred between the footer elements, with each author kept on one line.
 - **One responsive GDX table layout** that scales and extends with the available window while preserving the same controls and presentation model.
 - **Three display modes**: exclusive fullscreen, borderless fullscreen (the default) and windowed, with optional automatic fullscreen when a table starts.
 - **Appearance controls** for the deck, card back, felt and table-light level. Right-click a visible card or an unoccupied area of the felt during play to open the corresponding deck or felt list. The selected appearance is saved to your profile.
 - **A 52-card riffle shuffle** uses the selected faces, card proportions and back. The default Medium animation splits the deck, interleaves the cards and squares the pack. Full adds a bridge with a second synchronized sound cue. Short starts at the riffle. The shuffle uses a 3D view by default with a 40° rotation. On a 2D table, players can also select a top-down 2D shuffle. Each view starts at 150% of a community card. The shuffle shaders are prepared during table loading when the animation is enabled. In 3D, each shuffle randomizes the visible artwork independently of the deal.
 - At showdown on the 3D table, the local pair flexes as it turns over and settles flat on the felt. The local peek and reveal reuse the curved card geometry to reduce render-thread work.
-- On the 3D table, the local dealer, blind, and straddle markers stay in a fixed spot between the hole cards and the right-hand chip rack. Reordering cards pass beneath the marker.
+- On the 3D table, the local dealer, blind, and straddle markers stay in a fixed spot between the hole cards and the right-hand chip rack. When the local cards reorder, they slide directly past each other beneath the marker. They briefly separate and close with the lower-ranked card sliding under the higher-ranked card.
 - **Graphics controls** for vertical synchronisation, frame-rate limit and overlay, and MSAA. Match the display refresh rate or set a custom limit from 30 to 400 FPS with a slider and an exact-value input. The FPS limit takes effect when you save. MSAA applies after restarting. The main window and live 3D geometry use the sample count granted by the driver, and graphics settings show that count when it differs from your selection. Cached geometry uses the effective scene MSAA. The card renderer offers Maximum performance (bilinear filtering and native-resolution 3D card layers), Balanced (trilinear filtering and up to 16× anisotropy), and Maximum quality (the default, with 16 artwork samples per pixel in addition to the trilinear and anisotropic filtering). Players can switch modes during play. The table takes card proportions from the selected face deck, including when a different back is used.
 - **Smoother native text** across the menu, HUD, chat and dialogs, with consistent font sizing and spacing. Long tooltips and dialog text use balanced line breaks and limit the extra space between words. Clickable controls show a hand cursor.
 - **Consistent settings controls** in the main menu, waiting room and live table: categorical choices use scrollable drop-down lists, while minus/plus steppers are reserved for quantities. Live-table restrictions keep the same layout and clearly show whether an option is locked for everyone or host-only. Discard restores the opening settings. Restore Defaults applies to the selected subsection and can itself be discarded.

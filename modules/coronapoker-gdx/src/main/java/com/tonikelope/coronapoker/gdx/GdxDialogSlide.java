@@ -74,6 +74,10 @@ final class GdxDialogSlide {
         return onClosed != null;
     }
 
+    boolean closing(Object visibleDialog) {
+        return dialog == visibleDialog && closing();
+    }
+
     boolean moving() {
         return dialog != null && (openness < 1f || closing());
     }

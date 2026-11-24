@@ -133,6 +133,8 @@ import javax.imageio.ImageIO;
 /** Native menu and staged NewGameDialog replacement. */
 final class GdxFrontendScreen extends ApplicationAdapter implements InputProcessor {
 
+    // Match the bundled bot join cue to the dialog opening cue's momentary loudness.
+    private static final float BOT_JOIN_CUE_GAIN = 0.1125f;
     private static final String DEFAULT_TABLE_SETTINGS_KEY =
             "gdx_default_table_settings";
 
@@ -963,7 +965,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         logo = new Texture(Gdx.files.internal("images/corona_poker_splash.png"));
         logo.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         pegi18 = new GdxMenuBadge("images/pegi18.png");
-        krustySeal = new GdxMenuBadge("images/krusty.png");
+        krustySeal = new GdxMenuBadge("images/krusty.png", true);
         avatarDefault = filteredTexture("images/avatar_default.png");
         avatarBot = filteredTexture("images/avatar_bot.png");
         soundIcon = filteredTexture("images/sound.png");
@@ -991,6 +993,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (preferenceBoolean("sonido_arranque", true)) {
             preloadPreferenceSound("misc/init.wav");
         }
+        preloadPreferenceSound(GdxSettingsContract.SAVE_SOUND_RESOURCE);
         backgroundMusic = music("sounds/misc/background_music.mp3", 0.40f);
         waitingRoomMusic = music("sounds/misc/waiting_room.mp3", 0.90f);
         aboutMusic = music("sounds/misc/about_music.mp3", 0.90f);
@@ -2229,6 +2232,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && menuDialogSlide.deferClose(dialog, finish);
     }
 
+    private void closeMenuDialog(Object dialog, Runnable finish) {
+        if (!deferMenuDialogClose(dialog, finish)) finish.run();
+    }
+
     private void drawRootModalSurface() {
         switch (surface) {
             case SETTINGS -> drawSettingsControls(this::drawSettingsScreen);
@@ -2565,7 +2572,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         try {
             if (change.joined()
                     && preferenceBoolean("sonido_entra", true)) {
-                participantJoinedCue.play(volume);
+                participantJoinedCue.play(volume
+                        * (change.botOnlyJoin() ? BOT_JOIN_CUE_GAIN : 1f));
             }
             if (change.left()
                     && preferenceBoolean("sonido_sale", true)) {
@@ -2579,22 +2587,30 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     static LobbyRosterChange lobbyRosterChange(LobbySnapshot previous,
             LobbySnapshot next) {
         if (previous == null || next == null) {
-            return new LobbyRosterChange(false, false);
+            return new LobbyRosterChange(false, false, false);
         }
         Set<String> before = new HashSet<>();
         for (LobbyParticipant participant : previous.participants()) {
             before.add(participant.nickname());
         }
         Set<String> after = new HashSet<>();
+        boolean botJoined = false;
+        boolean humanJoined = false;
         for (LobbyParticipant participant : next.participants()) {
             after.add(participant.nickname());
+            if (before.contains(participant.nickname())) continue;
+            if (participant.bot()) {
+                botJoined = true;
+            } else {
+                humanJoined = true;
+            }
         }
-        boolean joined = after.stream().anyMatch(nick -> !before.contains(nick));
         boolean left = before.stream().anyMatch(nick -> !after.contains(nick));
-        return new LobbyRosterChange(joined, left);
+        return new LobbyRosterChange(botJoined || humanJoined, left,
+                botJoined && !humanJoined);
     }
 
-    record LobbyRosterChange(boolean joined, boolean left) {
+    record LobbyRosterChange(boolean joined, boolean left, boolean botOnlyJoin) {
     }
 
     static boolean lobbyTableTransitionActive(boolean locallyStarting,
@@ -2642,10 +2658,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         mainMenuButton(595f, 730f, 730f, 82f,
                 gameText.translate("game.crear_timba"), 0,
                 ButtonTone.POSITIVE,
-                () -> openNewGame(NewGameConnectionDraft.Mode.CREATE));
+                () -> openMenuWorkflow(() ->
+                        openNewGame(NewGameConnectionDraft.Mode.CREATE)));
         mainMenuButton(595f, 625f, 730f, 82f,
                 gameText.translate("game.unirme_a_timba"), 1, false,
-                () -> openNewGame(NewGameConnectionDraft.Mode.JOIN));
+                () -> openMenuWorkflow(() ->
+                        openNewGame(NewGameConnectionDraft.Mode.JOIN)));
         mainMenuButton(595f, 520f, 730f, 82f,
                 gameText.translate("stats.estadisticas_2"), 2, false,
                 this::openStats);
@@ -2704,6 +2722,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         return wrapText(smallFont, quote, MENU_QUOTE_MAX_WIDTH, MENU_QUOTE_MAX_LINES);
     }
 
+    private void openMenuWorkflow(Runnable open) {
+        open.run();
+        playInterfaceSound(GdxSettingsContract.DIALOG_OPEN_SOUND_KEY);
+    }
+
     private void openStats() {
         captureFrontendModalInput();
         // Statistics is a single canonical surface.  Reclaim input here as
@@ -2741,6 +2764,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         openStatsDashboard();
         if (statsBrowser == null) loadStatsGames();
         syncMusicForSurface();
+        playInterfaceSound(GdxSettingsContract.DIALOG_OPEN_SOUND_KEY);
     }
 
     void openStatsFromTable(Runnable returnAction) {
@@ -2750,7 +2774,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeStats() {
-        if (deferMenuDialogClose(Surface.STATS, this::closeStats)) return;
+        closeMenuDialog(Surface.STATS, this::finishClosingStats);
+    }
+
+    private void finishClosingStats() {
         closeStatsDashboard();
         closeStatsEvidence();
         statsLoadGeneration++;
@@ -2778,10 +2805,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         activateSurface(Surface.SCREENSHOTS);
         refreshScreenshotFiles();
         syncMusicForSurface();
+        playInterfaceSound(GdxSettingsContract.DIALOG_OPEN_SOUND_KEY);
     }
 
     private void closeScreenshotViewer() {
-        if (deferMenuDialogClose(Surface.SCREENSHOTS, this::closeScreenshotViewer)) return;
+        closeMenuDialog(Surface.SCREENSHOTS,
+                this::finishClosingScreenshotViewer);
+    }
+
+    private void finishClosingScreenshotViewer() {
         screenshotGeneration++;
         screenshotScan = null;
         screenshotPreview.close();
@@ -3645,6 +3677,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void saveStatsSyncExclusions() {
+        playSaveSound();
         String nicks = statsExcludeNicksDraft.trim();
         initialProperties.setProperty("sync_stats_exclude_private",
                 Boolean.toString(statsExcludePrivateDraft));
@@ -6342,7 +6375,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     LOBBY_PLAY_BUTTON_HEIGHT,
                     uppercase(gameText.translate("ui.a_jugar")),
                     ButtonTone.POSITIVE,
-                    () -> lobbyConfirmation = LobbyConfirmation.START,
+                    this::requestLobbyStart,
                     !lobbyCommandPending && state.participants().size() >= 2
                             && !state.startingOrStarted());
         } else {
@@ -8003,7 +8036,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             closeLobbyPasswordDialog();
             return;
         }
+        if (lobbySession == null || lobbyCommandPending) return;
         String next = Objects.requireNonNullElse(lobbyPasswordDraft, "");
+        playSaveSound();
         submitLobbyCommand(new LobbyCommand.ChangePassword(next), () -> {
             if (connection != null) connection.setPassword(next);
             closeLobbyPasswordDialog();
@@ -8221,6 +8256,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         openVoiceNotes();
                     }
                 }));
+    }
+
+    private void requestLobbyStart() {
+        lobbyConfirmation = LobbyConfirmation.START;
+        playInterfaceSound(GdxSettingsContract.LOBBY_PLAY_SOUND_KEY);
     }
 
     private void confirmLobbyAction() {
@@ -8976,9 +9016,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         clearActiveField();
         clearPressedHit();
         activateSurface(Surface.SETTINGS);
+        playInterfaceSound(GdxSettingsContract.DIALOG_OPEN_SOUND_KEY);
     }
 
     private void closeSettings(boolean save) {
+        if (save) {
+            if (lobbyCommandPending || menuDialogSlide.closing(Surface.SETTINGS)) return;
+            audioPreview.stop();
+            playSaveSound();
+        }
         imagePreview.dispose();
         settingsShortcutCaptureId = null;
         if (save && settingsReturnSurface == Surface.LOBBY) {
@@ -9000,10 +9046,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void finishClosingSettings(boolean save) {
-        if (deferMenuDialogClose(Surface.SETTINGS, () -> finishClosingSettings(save))) {
-            settingsDiscardConfirmation = false;
-            return;
-        }
+        Runnable finish = () -> applySettingsClose(save);
+        if (!save) settingsDiscardConfirmation = false;
+        closeMenuDialog(Surface.SETTINGS, finish);
+    }
+
+    private void applySettingsClose(boolean save) {
         if (save) {
             fpsControl.finishEditing(settingsSession.frameRateDraft());
             settingsSession.commitFrameRate(initialProperties);
@@ -9210,8 +9258,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void selectSettingsSubpage(int index) {
+        boolean changed = index != settingsSubpageIndex();
         audioPreview.stop();
         settingsSession.selectSubpage(index);
+        if (changed) playInterfaceSound(GdxSettingsContract.DIALOG_TAB_SOUND_KEY);
         switch (settingsSession.section()) {
             case APPEARANCE -> {
                 settingsAppearancePage = index;
@@ -9288,8 +9338,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     label.x, label.y, label.width, label.height,
                     active ? Color.WHITE : MUTED);
             hit(tab.x, tab.y, tab.width, tab.height, () -> {
+                boolean changed = selected != settingsSession.tabIndex();
                 audioPreview.stop();
                 settingsSession.selectTab(selected);
+                if (changed) playInterfaceSound(GdxSettingsContract.DIALOG_TAB_SOUND_KEY);
                 settingsAppearanceScroll = 0f;
                 settingsAudioScroll = 0f;
                 settingsGameScroll = 0f;
@@ -11063,6 +11115,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxTableDialog dialog = settingsAutoCallDialog;
         if (dialog == null) return;
         if (save) {
+            playSaveSound();
             initialProperties.setProperty("auto_call_enabled",
                     Boolean.toString(dialog.optionEnabled()));
             initialProperties.setProperty("auto_call_max",
@@ -11264,6 +11317,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             participantJoinedCue.stop();
             participantLeftCue.stop();
         }
+    }
+
+    private void playSaveSound() {
+        playInterfaceSound(GdxSettingsContract.SAVE_SOUND_KEY);
+    }
+
+    private void playInterfaceSound(String key) {
+        var cue = GdxSettingsContract.audioPreviewForKey(key, gameText.language());
+        playPreferenceSound(cue.resource(), key, cue.volume());
     }
 
     private void playFrontendSwitchSound(boolean enabled) {
@@ -11863,11 +11925,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     selected ? CYAN : DISABLED);
             textFit(actionFont, names.get(i), x + 74f, y + 49f,
                     selected ? Color.WHITE : MUTED, false, 230f);
-            hit(x, y, 320f, 78f, () -> {
-                clearActiveField();
-                page = targetPage;
-            });
+            hit(x, y, 320f, 78f, () -> selectNewGamePage(targetPage));
         }
+    }
+
+    private void selectNewGamePage(int targetPage) {
+        clearActiveField();
+        if (page == targetPage) return;
+        page = targetPage;
+        playInterfaceSound(GdxSettingsContract.DIALOG_TAB_SOUND_KEY);
     }
 
     private void drawIdentityPage() {
@@ -12113,6 +12179,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         List<GamePresetCatalog.Entry> previous = List.copyOf(all.values());
         all.put(name, new GamePresetCatalog.Entry(name,
                 table.snapshot().serializeForWire()));
+        playSaveSound();
         if (!persistGamePresets(all.values(), previous)) return;
         refreshGamePresets(name);
         closePresetDialog();
@@ -12525,6 +12592,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     "gdx.newgame.blind_editor.review"));
             return;
         }
+        playSaveSound();
         if (!blindStructureSettingsTarget && preferences != null) {
             try {
                 // The Save button is a durability boundary: keep the editor
@@ -13145,6 +13213,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         activateField("customBotName");
     }
 
+    private void selectCustomBotFromList(int index) {
+        int previousSelection = customBotSelected;
+        selectCustomBot(index);
+        if (customBotSelected != previousSelection) {
+            playInterfaceSound(GdxSettingsContract.DIALOG_TAB_SOUND_KEY);
+        }
+    }
+
     private void selectCustomBot(int index) {
         if (index < 0 || index >= customBotProfiles.size()) return;
         customBotSelected = index;
@@ -13214,13 +13290,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void saveCustomBot() {
         try {
-            Path avatar = customBotAvatarDraft == null ? null
-                    : CustomBotProfileCatalog.importAvatar(
-                            customBotAvatarDraft, Path.of(
-                                    System.getProperty("user.home"),
-                                    ".coronapoker"));
             CustomBotProfile candidate = CustomBotProfile.create(
-                    customBotNameDraft, avatar, customBotDifficultyDraft,
+                    customBotNameDraft, customBotAvatarDraft, customBotDifficultyDraft,
                     customBotPersonalityDraft,
                     customBotAutomaticRebuyDraft);
             for (int index = 0; index < customBotProfiles.size(); index++) {
@@ -13231,12 +13302,21 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             "gdx.custom_bots.error.duplicate_name"));
                 }
             }
+            if (customBotSelected < 0
+                    && customBotProfiles.size() >= CustomBotProfileCatalog.MAX_PROFILES) {
+                throw new IllegalArgumentException(gameText.translate(
+                        "gdx.custom_bots.error.limit"));
+            }
+            playSaveSound();
+            Path avatar = candidate.avatar();
+            if (avatar != null) {
+                avatar = CustomBotProfileCatalog.importAvatar(avatar,
+                        Path.of(System.getProperty("user.home"), ".coronapoker"));
+                candidate = new CustomBotProfile(candidate.nickname(), avatar,
+                        candidate.difficulty(), candidate.personality(),
+                        candidate.automaticRebuy());
+            }
             if (customBotSelected < 0) {
-                if (customBotProfiles.size()
-                        >= CustomBotProfileCatalog.MAX_PROFILES) {
-                    throw new IllegalArgumentException(gameText.translate(
-                            "gdx.custom_bots.error.limit"));
-                }
                 customBotProfiles.add(candidate);
                 customBotSelected = customBotProfiles.size() - 1;
                 customBotNewSlotSelected = -1;
@@ -13564,7 +13644,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (hitTop > hitBottom) {
                 int selectedIndex = index;
                 hit(rowX, hitBottom, rowW, hitTop - hitBottom,
-                        () -> selectCustomBot(selectedIndex));
+                        () -> selectCustomBotFromList(selectedIndex));
                 tooltip(rowX, hitBottom, rowW, hitTop - hitBottom,
                         "tooltip.cfg.custom_bots.row");
             }
@@ -13929,7 +14009,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             return;
         }
-        if (deferMenuDialogClose(Surface.NEW_GAME, this::cancelOrReturnToMenu)) return;
+        closeMenuDialog(Surface.NEW_GAME, this::finishClosingNewGame);
+    }
+
+    private void finishClosingNewGame() {
         clearActiveField();
         cancelAndReleaseUpnp();
         dismissFrontendNotice();
@@ -15990,6 +16073,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void applyAvatarCrop() {
         AvatarCropSession session = avatarCropSession;
         if (session == null) return;
+        if (session.target == AvatarCropTarget.LOCAL && connection == session.connectionTarget) {
+            playSaveSound();
+        }
         try {
             Path cropped = writeAvatarCrop(session);
             if (session.target == AvatarCropTarget.LOCAL) {
@@ -17582,16 +17668,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean hostPages = surface == Surface.NEW_GAME
                 && connection.mode() != NewGameConnectionDraft.Mode.JOIN;
         if (hostPages && activeField == null && keycode == Input.Keys.LEFT && page > 0) {
-            page--;
+            selectNewGamePage(page - 1);
             return true;
         }
-        if (hostPages && activeField == null && keycode == Input.Keys.RIGHT && page < 5) {
-            page++;
+        if (hostPages && activeField == null && keycode == Input.Keys.RIGHT
+                && page < NEW_GAME_PAGE_LABEL_KEYS.size() - 1) {
+            selectNewGamePage(page + 1);
             return true;
         }
         if (hostPages && keycode == Input.Keys.TAB) {
-            clearActiveField();
-            page = (page + 1) % 6;
+            selectNewGamePage((page + 1) % NEW_GAME_PAGE_LABEL_KEYS.size());
             return true;
         }
         return false;

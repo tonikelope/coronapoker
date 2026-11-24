@@ -831,6 +831,27 @@ final class GdxFrontendSettingsWiringTest {
                 "The pause label must use the space freed by its old icon");
     }
 
+    @Test
+    void saveFeedbackStartsBeforeAnimatedClosureOrPersistence() throws Exception {
+        Path sources = Path.of("src/main/java/com/tonikelope/coronapoker/gdx");
+        String frontend = Files.readString(sources.resolve("GdxFrontendScreen.java"));
+        String table = Files.readString(sources.resolve("CoronaPokerGdxTable.java"));
+        String settings = methodSection(frontend, "private void closeSettings(boolean save)");
+        assertTrue(settings.contains("playSaveSound();"));
+        assertTrue(settings.indexOf("playSaveSound();") < settings.indexOf("submitLobbyCommand("));
+        assertFalse(methodSection(frontend, "private void applySettingsClose(boolean save)")
+                .contains("playSaveSound();"));
+        String tableSettings = methodSection(table,
+                "private void closeTableSettings(boolean save, Runnable afterClose)");
+        assertTrue(tableSettings.contains("playSaveSound();"));
+        assertTrue(tableSettings.indexOf("playSaveSound();") < tableSettings.indexOf("settingsSlide.deferClose("));
+        assertFalse(methodSection(table, "private void finishClosingTableSettings(boolean save)")
+                .contains("playSaveSound();"));
+        String bots = methodSection(frontend, "private void saveCustomBot()");
+        assertTrue(bots.contains("playSaveSound();"));
+        assertTrue(bots.indexOf("playSaveSound();") < bots.indexOf("CustomBotProfileCatalog.importAvatar("));
+    }
+
     private static String methodSection(String source, String signature) {
         int start = source.indexOf(signature);
         int end = source.indexOf("\n    private ", start + signature.length());

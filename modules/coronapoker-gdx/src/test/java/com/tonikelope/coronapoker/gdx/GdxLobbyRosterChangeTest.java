@@ -17,18 +17,31 @@ class GdxLobbyRosterChangeTest {
         LobbySnapshot withFirstBot = snapshot(bot("CoronaBot$1"));
         LobbySnapshot withSecondBot = snapshot(bot("CoronaBot$2"));
 
-        assertEquals(new GdxFrontendScreen.LobbyRosterChange(false, false),
+        assertEquals(new GdxFrontendScreen.LobbyRosterChange(false, false, false),
                 GdxFrontendScreen.lobbyRosterChange(null, hostOnly));
-        assertEquals(new GdxFrontendScreen.LobbyRosterChange(true, false),
+        assertEquals(new GdxFrontendScreen.LobbyRosterChange(true, false, true),
                 GdxFrontendScreen.lobbyRosterChange(hostOnly, withFirstBot));
-        assertEquals(new GdxFrontendScreen.LobbyRosterChange(false, true),
+        assertEquals(new GdxFrontendScreen.LobbyRosterChange(false, true, false),
                 GdxFrontendScreen.lobbyRosterChange(withFirstBot, hostOnly));
-        assertEquals(new GdxFrontendScreen.LobbyRosterChange(true, true),
+        assertEquals(new GdxFrontendScreen.LobbyRosterChange(true, true, true),
                 GdxFrontendScreen.lobbyRosterChange(withFirstBot,
                         withSecondBot));
-        assertEquals(new GdxFrontendScreen.LobbyRosterChange(false, false),
+        assertEquals(new GdxFrontendScreen.LobbyRosterChange(false, false, false),
                 GdxFrontendScreen.lobbyRosterChange(withFirstBot,
                         withFirstBot));
+    }
+
+    @Test
+    void humanOrMixedArrivalsKeepTheNormalJoinCueLevel() {
+        LobbySnapshot hostOnly = snapshot();
+        LobbyParticipant human = new LobbyParticipant("guest", null, false,
+                false, false, true, false, true,
+                LobbyParticipant.NO_LATENCY, LobbyParticipant.NO_LATENCY);
+        assertEquals(new GdxFrontendScreen.LobbyRosterChange(true, false, false),
+                GdxFrontendScreen.lobbyRosterChange(hostOnly, snapshot(human)));
+        assertEquals(new GdxFrontendScreen.LobbyRosterChange(true, false, false),
+                GdxFrontendScreen.lobbyRosterChange(hostOnly,
+                        snapshot(human, bot("CoronaBot$1"))));
     }
 
     @Test

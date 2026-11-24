@@ -41,6 +41,12 @@ final class GdxSettingsContract {
     static final String POKER_VIDEO_AUTO_OPEN_KEY = "abrir_video_poker_al_arrancar";
     static final boolean DEFAULT_POKER_VIDEO_AUTO_OPEN = false;
     static final String POKER_VIDEO_WINDOW_ANIMATION_KEY = "animacion_ventana_video_poker";
+    static final float INTERFACE_CUE_GAIN = 1.18f;
+    static final String DIALOG_OPEN_SOUND_KEY = "sonido_abrir_dialogo";
+    static final String SAVE_SOUND_KEY = "sonido_guardar_ajustes";
+    static final String SAVE_SOUND_RESOURCE = "interface/ui_e5_save.wav";
+    static final String DIALOG_TAB_SOUND_KEY = "sonido_cambiar_pestana";
+    static final String LOBBY_PLAY_SOUND_KEY = "sonido_boton_jugar";
     static final String DIALOG_SLIDE_DIRECTION_KEY = "gdx_dialog_slide_direction";
     static final String AUTO_REBUY_KEY = "auto_rebuy";
     static final String STRADDLE_ON_TIMEOUT_KEY = "straddle_on_timeout";
@@ -199,13 +205,15 @@ final class GdxSettingsContract {
     }
 
     static AudioPreview audioPreview(ToggleOption option, String language) {
-        if (option == null) return null;
-        String concreteJoke = GamePresentationSettings.jokeSoundResource(
-                option.key());
+        return option == null ? null : audioPreviewForKey(option.key(), language);
+    }
+
+    static AudioPreview audioPreviewForKey(String key, String language) {
+        String concreteJoke = GamePresentationSettings.jokeSoundResource(key);
         if (concreteJoke != null) {
             return new AudioPreview(concreteJoke, 1f, 10f);
         }
-        String resource = switch (option.key()) {
+        String resource = switch (key) {
             case "sonido_ascensor" -> "misc/background_music.mp3";
             case "musica_sala_espera" -> "misc/waiting_room.mp3";
             case "musica_about" -> "misc/about_music.mp3";
@@ -248,6 +256,10 @@ final class GdxSettingsContract {
             case "sonido_visor" -> "misc/card_visor.wav";
             case "sonido_volumen" -> "misc/volume_change.wav";
             case "sonido_arranque" -> "misc/init.wav";
+            case DIALOG_OPEN_SOUND_KEY -> "interface/ui_e1_open.wav";
+            case SAVE_SOUND_KEY -> SAVE_SOUND_RESOURCE;
+            case DIALOG_TAB_SOUND_KEY -> "interface/ui_e6_tab.wav";
+            case LOBBY_PLAY_SOUND_KEY -> "interface/ui_e10_play.wav";
             case "sonido_chorra_raise" -> GdxSoundFeedback.FUNNY_RAISE;
             case "sonido_chorra_norebuy" -> GdxSoundFeedback.FUNNY_NO_REBUY;
             case "sonido_chorra_indivisible" -> "misc/indivisible.wav";
@@ -257,7 +269,9 @@ final class GdxSettingsContract {
             default -> null;
         };
         if (resource == null) return null;
-        float volume = switch (option.key()) {
+        float volume = switch (key) {
+            case DIALOG_OPEN_SOUND_KEY, SAVE_SOUND_KEY, DIALOG_TAB_SOUND_KEY,
+                    LOBBY_PLAY_SOUND_KEY -> INTERFACE_CUE_GAIN;
             case "sonido_ascensor" -> 0.4f;
             case "musica_sala_espera", "musica_about" -> 0.9f;
             case "musica_stats" -> 0.3f;
@@ -265,7 +279,7 @@ final class GdxSettingsContract {
             case "musica_recuperacion" -> 0.4f;
             default -> 1f;
         };
-        float limit = "sonido_carga_stacks".equals(option.key())
+        float limit = "sonido_carga_stacks".equals(key)
                 ? 1f : 10f;
         return new AudioPreview(resource, volume, limit);
     }
@@ -586,6 +600,14 @@ final class GdxSettingsContract {
                     option("sonido_error", "ALERTA DE PELIGRO", true,
                             Gate.EFFECTS),
                     option("sonido_error_red", "ERROR DE RED", true,
+                            Gate.EFFECTS),
+                    option(DIALOG_OPEN_SOUND_KEY, "ABRIR DIÁLOGO", true,
+                            Gate.EFFECTS),
+                    option(SAVE_SOUND_KEY, "GUARDAR", true,
+                            Gate.EFFECTS),
+                    option(DIALOG_TAB_SOUND_KEY, "CAMBIAR DE PESTAÑA", true,
+                            Gate.EFFECTS),
+                    option(LOBBY_PLAY_SOUND_KEY, "BOTÓN JUGAR", true,
                             Gate.EFFECTS)),
             AUDIO_VOICE_CHAT_PAGE);
 
@@ -738,7 +760,9 @@ final class GdxSettingsContract {
             "sonido_zoom", "sonido_vista_compacta", "sonido_tapete",
             "sonido_visor", "sonido_volumen",
             "sonido_arranque", "sonido_aviso", "sonido_error",
-            "sonido_error_red", "tts_server", "voice_messages",
+            "sonido_error_red", DIALOG_OPEN_SOUND_KEY, SAVE_SOUND_KEY,
+            DIALOG_TAB_SOUND_KEY, LOBBY_PLAY_SOUND_KEY,
+            "tts_server", "voice_messages",
             "audio_output_device", "gdx_audio_output_device",
             "audio_capture_device",
             "audio_mic_enabled", AUDIO_MIC_AUTO_GAIN_KEY,

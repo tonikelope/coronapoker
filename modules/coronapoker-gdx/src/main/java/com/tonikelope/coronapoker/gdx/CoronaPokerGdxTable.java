@@ -3468,6 +3468,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void closeTableSettings(boolean save, Runnable afterClose) {
+        if (settingsSlide.closing(Boolean.TRUE)) return;
+        if (save) {
+            audioPreview.stop();
+            playSaveSound();
+        }
         Runnable finish = () -> {
             finishClosingTableSettings(save);
             if (afterClose != null) afterClose.run();
@@ -18839,21 +18844,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 this::playSwitchSound);
     }
 
+    private void playSaveSound() {
+        playInterfaceSound(GdxSettingsContract.SAVE_SOUND_KEY);
+    }
+
+    private void playInterfaceSound(String key) {
+        if (!tablePreference(key, true)) return;
+        var cue = GdxSettingsContract.audioPreviewForKey(key, gameText.language());
+        Sound sound = preferenceSound(cue.resource());
+        if (sound != null) playSurfaceSound(sound, cue.volume(), 1f);
+    }
+
     private void playPreferenceSound(String resource, String preferenceKey,
             float volume) {
-        if (!tablePreference(preferenceKey, true)
-                || failedPreferenceSoundCues.contains(resource)) return;
+        if (!tablePreference(preferenceKey, true)) return;
+        Sound sound = preferenceSound(resource);
+        if (sound != null) play(sound, volume, 1f);
+    }
+
+    private Sound preferenceSound(String resource) {
+        if (failedPreferenceSoundCues.contains(resource)) return null;
         FileHandle file = gameAudioResource(resource);
-        if (file == null) return;
+        if (file == null) return null;
         try {
-            Sound sound = liveAudioCueSounds.computeIfAbsent(resource,
+            return liveAudioCueSounds.computeIfAbsent(resource,
                     ignored -> Gdx.audio.newSound(file));
-            play(sound, volume, 1f);
         } catch (RuntimeException failure) {
             failedPreferenceSoundCues.add(resource);
             LOGGER.log(Level.WARNING,
                     "GDX optional sound could not be loaded: " + resource,
                     failure);
+            return null;
         }
     }
 
@@ -23900,6 +23921,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         gameLogScroll = 0f;
         ensureGameLogPanelBounds();
         openUiLayer(UI_GAME_LOG);
+        if (finalSummary != null) {
+            playInterfaceSound(GdxSettingsContract.DIALOG_OPEN_SOUND_KEY);
+        }
     }
 
     private Rectangle ensureGameLogPanelBounds() {
@@ -24095,6 +24119,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void openSettings() {
         beginTableSettings();
         openUiLayer(UI_SETTINGS);
+        playInterfaceSound(GdxSettingsContract.DIALOG_OPEN_SOUND_KEY);
+        preferenceSound(GdxSettingsContract.SAVE_SOUND_RESOURCE);
     }
 
     private void handleUiClick(float x, float y) {
@@ -24134,9 +24160,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float panelW = panel.width;
         for (int i = 0; i < sections.size(); i++) {
             if (frame.mainTab(i).contains(x, y)) {
+                boolean changed = i != settingsSession.tabIndex();
                 clearPointerRepeat();
                 audioPreview.stop();
                 settingsSession.selectTab(i);
+                if (changed) playInterfaceSound(GdxSettingsContract.DIALOG_TAB_SOUND_KEY);
                 settingsGameScroll = 0f;
                 settingsAppearanceScroll = 0f;
                 settingsAudioScroll = 0f;
@@ -24871,9 +24899,11 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void selectSettingsSubpage(int index) {
+        boolean changed = index != settingsSubpageIndex();
         clearPointerRepeat();
         audioPreview.stop();
         settingsSession.selectSubpage(index);
+        if (changed) playInterfaceSound(GdxSettingsContract.DIALOG_TAB_SOUND_KEY);
         switch (settingsSection()) {
             case APPEARANCE -> {
                 settingsAppearancePage = index;
@@ -24964,6 +24994,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 autoCallEnabled, autoCallMax, gameText);
         dialog.result().thenAccept(saved -> {
             if (!saved) return;
+            playSaveSound();
             autoCallEnabled = dialog.optionEnabled();
             autoCallMax = dialog.noLimit()
                     ? 0d : dialog.autoCallAmount();
@@ -25983,6 +26014,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void openScreenshotViewer() {
         refreshScreenshotFiles();
         openUiLayer(UI_SCREENSHOTS);
+        if (finalSummary != null) {
+            playInterfaceSound(GdxSettingsContract.DIALOG_OPEN_SOUND_KEY);
+        }
     }
 
     private void refreshScreenshotFiles() {

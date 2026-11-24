@@ -276,7 +276,7 @@ final class GdxGameAudioResources {
             return List.of("misc/button_on.wav", "misc/button_off.wav");
         }
         GdxSettingsContract.AudioPreview preview =
-                GdxSettingsContract.audioPreview(syntheticOption(settingKey),
+                GdxSettingsContract.audioPreviewForKey(settingKey,
                         language == null ? "es"
                                 : language.toLowerCase(Locale.ROOT));
         return preview == null ? List.of() : List.of(preview.resource());

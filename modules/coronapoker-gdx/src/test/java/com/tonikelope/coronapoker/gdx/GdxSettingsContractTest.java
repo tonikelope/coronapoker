@@ -2,6 +2,7 @@ package com.tonikelope.coronapoker.gdx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -455,6 +456,29 @@ final class GdxSettingsContractTest {
         assertEquals(13,
                 GdxSettingsContract.AUDIO_PAGES.get(3).options().size());
         assertTrue(keys.contains("sonido_entrar_sala"));
+    }
+
+    @Test
+    void interfaceCuesAreIndependentSoundEffectsWithTheSelectedPreviews() {
+        var effects = GdxSettingsContract.AUDIO_PAGES.get(2);
+        var resources = java.util.Map.of(
+                GdxSettingsContract.DIALOG_OPEN_SOUND_KEY, "interface/ui_e1_open.wav",
+                GdxSettingsContract.SAVE_SOUND_KEY, "interface/ui_e5_save.wav",
+                GdxSettingsContract.DIALOG_TAB_SOUND_KEY, "interface/ui_e6_tab.wav",
+                GdxSettingsContract.LOBBY_PLAY_SOUND_KEY, "interface/ui_e10_play.wav");
+        var properties = new Properties();
+        for (String key : resources.keySet()) {
+            var option = effects.options().stream()
+                    .filter(row -> row.key().equals(key)).findFirst().orElseThrow();
+            assertEquals(GdxSettingsContract.Gate.EFFECTS, option.gate());
+            assertTrue(GdxSettingsContract.displayedValue(option, properties, true));
+            properties.setProperty(key, "false");
+            assertFalse(GdxSettingsContract.displayedValue(option, properties, true));
+            var preview = GdxSettingsContract.audioPreview(option, "es");
+            assertNotNull(preview);
+            assertEquals(resources.get(key), preview.resource());
+            assertEquals(GdxSettingsContract.INTERFACE_CUE_GAIN, preview.volume());
+        }
     }
 
     @Test

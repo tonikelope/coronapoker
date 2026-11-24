@@ -241,6 +241,10 @@ final class GdxSettingsTooltips {
                     "sonido_screenshot", "sonido_tapete", "sonido_visor",
                     "sonido_zoom", "sonido_volumen", "sonido_arranque",
                     "sonido_aviso", "sonido_error", "sonido_error_red",
+                    GdxSettingsContract.DIALOG_OPEN_SOUND_KEY,
+                    GdxSettingsContract.SAVE_SOUND_KEY,
+                    GdxSettingsContract.DIALOG_TAB_SOUND_KEY,
+                    GdxSettingsContract.LOBBY_PLAY_SOUND_KEY,
                     "sonido_ascensor", "musica_sala_espera", "musica_about",
                     "musica_stats", "musica_gestor_bots" ->
                 "gdx.settings.tooltip.audio_event." + settingKey;

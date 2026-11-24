@@ -68,6 +68,10 @@ final class GdxCustomBotManagerContractTest {
         assertTrue(source.contains("pixelScrollbarThumbHeight"));
         assertTrue(source.contains("customBotScrollTarget"));
         assertTrue(source.contains("customBotRowsActive = true;"));
+        assertTrue(source.contains("() -> selectCustomBotFromList(selectedIndex)"));
+        assertTrue(source.contains(
+                "if (customBotSelected != previousSelection) {\n"
+                + "            playInterfaceSound(GdxSettingsContract.DIALOG_TAB_SOUND_KEY);"));
         int botList = source.indexOf("drawCustomBotManagerListLayer();");
         int dropdown = source.indexOf("drawDropdownTopLayer();", botList);
         int tooltip = source.indexOf("drawTooltipTopLayer(", dropdown);

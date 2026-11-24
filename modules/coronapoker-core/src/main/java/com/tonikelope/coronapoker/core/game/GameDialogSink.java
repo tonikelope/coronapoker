@@ -29,6 +29,15 @@ public interface GameDialogSink {
         return () -> { };
     }
 
+    enum ZeroTrustWaitContext {
+        GENERAL, INITIAL_DEAL
+    }
+
+    default WaitDialog showZeroTrustWait(String message, int preferredWidth,
+            ZeroTrustWaitContext context) {
+        return showZeroTrustWait(message, preferredWidth);
+    }
+
     enum Icon {
         NONE,
         ROBOT,

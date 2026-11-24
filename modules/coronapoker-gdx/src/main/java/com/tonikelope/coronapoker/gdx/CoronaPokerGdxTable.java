@@ -26845,7 +26845,17 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
 
     GdxTableDialog currentZeroTrustWait() {
         verificationWaits.removeIf(GdxTableDialog::complete);
-        return verificationWaits.peekLast();
+        GdxTableDialog latest = verificationWaits.peekLast();
+        LiveShuffle shuffle = liveShuffle;
+        // The shuffle is drawn first. Even its last frame of the first pass
+        // still belongs to cycle zero, so only a rendered repeat lifts the gate.
+        if (latest == null || !latest.isInitialDealWait()
+                || shuffle == null || !shuffle.animationEnabled || shuffle.lastCycle > 0) return latest;
+        for (var notices = verificationWaits.descendingIterator(); notices.hasNext();) {
+            var notice = notices.next();
+            if (!notice.isInitialDealWait()) return notice;
+        }
+        return null;
     }
 
     private void drawZeroTrustWait(float boardCenter, float boardTop) {

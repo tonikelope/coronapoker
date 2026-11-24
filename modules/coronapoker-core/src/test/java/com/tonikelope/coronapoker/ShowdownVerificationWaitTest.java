@@ -1,11 +1,26 @@
 package com.tonikelope.coronapoker;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShowdownVerificationWaitTest {
+    @Test
+    void pendingNoticeWaitsAtLeastThreeSeconds() throws Exception {
+        var shown = new CompletableFuture<Long>();
+        long started = System.nanoTime();
+        try (var waiting = ShowdownVerificationWait.schedule(() -> {
+            shown.complete(System.nanoTime());
+            return () -> { };
+        })) {
+            assertTrue(shown.get(10, TimeUnit.SECONDS) - started >= TimeUnit.SECONDS.toNanos(3));
+        }
+    }
+
     @Test
     void earlyVerdictPreventsTheWaitingModal() {
         var opens = new AtomicInteger();

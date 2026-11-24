@@ -48,7 +48,12 @@ final class GdxGameDialogSink implements GameDialogSink {
 
     @Override
     public WaitDialog showZeroTrustWait(String message, int preferredWidth) {
-        GdxTableDialog dialog = GdxTableDialog.zeroTrustWait(message, preferredWidth);
+        return showZeroTrustWait(message, preferredWidth, ZeroTrustWaitContext.GENERAL);
+    }
+
+    @Override
+    public WaitDialog showZeroTrustWait(String message, int preferredWidth, ZeroTrustWaitContext context) {
+        GdxTableDialog dialog = GdxTableDialog.zeroTrustWait(message, preferredWidth, context);
         GdxApplicationShell shell = GdxApplicationShell.active();
         if (shell != null) shell.showDialog(dialog);
         return dialog::dismiss;

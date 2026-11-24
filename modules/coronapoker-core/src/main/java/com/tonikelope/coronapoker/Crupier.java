@@ -2707,13 +2707,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private static final long ZERO_TRUST_NOTICE_DELAY_MS = 2_000L;
-
     private <T> T withZeroTrustWait(String message, java.util.function.Supplier<T> operation) {
-        try (var pending = new ShowdownVerificationWait(() -> tableWaitCancelled()
-                ? () -> { } : game_dialogs.showZeroTrustWait(message, zeroTrustPopupWidth()))) {
-            CompletableFuture.delayedExecutor(ZERO_TRUST_NOTICE_DELAY_MS, TimeUnit.MILLISECONDS)
-                    .execute(pending::countdownExpired);
+        return withZeroTrustWait(message, GameDialogSink.ZeroTrustWaitContext.GENERAL, operation);
+    }
+
+    private <T> T withZeroTrustWait(String message, GameDialogSink.ZeroTrustWaitContext context,
+            java.util.function.Supplier<T> operation) {
+        try (var pending = ShowdownVerificationWait.schedule(() -> tableWaitCancelled()
+                ? () -> { } : game_dialogs.showZeroTrustWait(message, zeroTrustPopupWidth(), context))) {
             return operation.get();
         }
     }
@@ -14880,6 +14881,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     // If the cascade fails (someone doesn't respond), abort initialization.
                     if (!withZeroTrustWait(game_text.translate("zero_trust.wait_deal"),
+                            GameDialogSink.ZeroTrustWaitContext.INITIAL_DEAL,
                             this::enviarCartasJugadoresRemotos)) {
                         if (shufflePresented) presentShufflePhaseToAttachedRenderer(TableVisualEvent.Shuffle.Phase.FINISH);
                         completeHotJoinFirstDealGate();
@@ -14900,6 +14902,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (!gameSession().isHost()
                     && !localPlayer().isCalentando() && this.game_recovered == 0) {
                 cartas_locales_recibidas = withZeroTrustWait(game_text.translate("zero_trust.wait_deal"),
+                        GameDialogSink.ZeroTrustWaitContext.INITIAL_DEAL,
                         this::recibirMisCartas);
             }
 
@@ -29278,20 +29281,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // balances instead of silently losing it at table close.
                                 settleFinalHandRemainder();
                                 this.showdownRebuyBalanceReady = true;
-                                // Keep the dealer as the sole owner of accounting and protocol state.
-                                // The concurrent task only owns the presentation countdown and notice.
+                                 // Keep the next-hand countdown independent of the verification notice.
                                 int pauseSeconds = acceleratedShowdown ? PAUSA_ENTRE_MANOS_TEST
                                         : showdownPauseSeconds(resisten.size());
-                                var pending = new ShowdownVerificationWait(() -> game_dialogs.showZeroTrustWait(
-                                        game_text.translate("game.settlement_verification_wait"), zeroTrustPopupWidth()));
+                                 var pending = ShowdownVerificationWait.schedule(() ->
+                                         tableWaitCancelled() || localPlayer().isExit() ? () -> { }
+                                                 : game_dialogs.showZeroTrustWait(
+                                                         game_text.translate("game.settlement_verification_wait"),
+                                                         zeroTrustPopupWidth()));
                                 showdownVerificationWait = pending;
                                 setTiempo_pausa(pauseSeconds);
-                                var countdown = game_async.execute(() -> {
-                                    waitForPauseCountdown();
-                                    if (!tableWaitCancelled() && !localPlayer().isExit()) {
-                                        pending.countdownExpired();
-                                    }
-                                });
+                                 var countdown = game_async.execute(this::waitForPauseCountdown);
                                 try {
                                     // Settlement attestation: absorb who-won-how-much into H_final and
                                     // run the closing receipt consensus over it. Here getBote()/getPagar()

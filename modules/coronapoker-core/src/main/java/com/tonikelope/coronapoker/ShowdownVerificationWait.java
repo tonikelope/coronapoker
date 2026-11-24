@@ -2,16 +2,26 @@
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /** Shows a slow-wait notice only while the operation is still pending. */
 final class ShowdownVerificationWait implements AutoCloseable {
+    private static final long NOTICE_DELAY_SECONDS = 3L;
     private final Supplier<GameDialogSink.WaitDialog> showDialog;
     private GameDialogSink.WaitDialog dialog;
     private boolean finished;
 
     ShowdownVerificationWait(Supplier<GameDialogSink.WaitDialog> showDialog) {
         this.showDialog = showDialog;
+    }
+
+    static ShowdownVerificationWait schedule(Supplier<GameDialogSink.WaitDialog> showDialog) {
+        var wait = new ShowdownVerificationWait(showDialog);
+        CompletableFuture.delayedExecutor(NOTICE_DELAY_SECONDS, TimeUnit.SECONDS)
+                .execute(wait::countdownExpired);
+        return wait;
     }
 
     synchronized void countdownExpired() {

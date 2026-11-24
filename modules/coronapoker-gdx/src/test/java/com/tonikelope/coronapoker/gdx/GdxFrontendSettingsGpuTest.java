@@ -26,6 +26,7 @@ import com.tonikelope.coronapoker.core.StatsRepository;
 import com.tonikelope.coronapoker.core.UpdateService;
 import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
@@ -1063,6 +1064,7 @@ final class GdxFrontendSettingsGpuTest {
             verifyShuffleAngleLock(table, preferences.properties());
             verifyDealerDeparture(table, preferences.properties());
             verifyShortShuffleContinuation(table, preferences.properties());
+            verifyZeroTrustShuffleWait(table, preferences.properties(), presentation);
             invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class},
                     GdxSettingsContract.appearanceGraphicsPageIndex());
             verifyFrameRateControl(table, table.inputProcessor(), table::render, preferences.properties());
@@ -1249,6 +1251,61 @@ final class GdxFrontendSettingsGpuTest {
         } finally {
             properties.setProperty(duration.key(), duration.fallback());
             properties.remove(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY);
+        }
+    }
+
+    private static void verifyZeroTrustShuffleWait(CoronaPokerGdxTable table,
+            Properties properties, GdxGamePresentationSettings presentation) throws Exception {
+        var saved = new Properties();
+        saved.putAll(properties);
+        properties.setProperty(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY, "false");
+        properties.setProperty("sonido_barajado", "false");
+        try {
+            long sequence = 9;
+            for (boolean animated : new boolean[]{true, false}) {
+                properties.setProperty("animacion_barajado", Boolean.toString(animated));
+                presentation.refreshRuntimePreferences();
+                table.acceptEvent(new TableVisualEvent.Shuffle(sequence++, "goliat",
+                        TableVisualEvent.Shuffle.Phase.START), new CompletableFuture<>());
+                table.render();
+                Object shuffle = field(table, "liveShuffle");
+                assertEquals(animated, field(shuffle, "animationEnabled"));
+
+                var notice = GdxTableDialog.zeroTrustWait("Waiting for cards", 980,
+                        GameDialogSink.ZeroTrustWaitContext.INITIAL_DEAL);
+                if (animated) {
+                    var otherNotice = GdxTableDialog.zeroTrustWait("Other verification", 980);
+                    table.showDialog(otherNotice);
+                    setLong(shuffle, "startedAtNanos", System.nanoTime() - 3_000_000_000L);
+                    table.showDialog(notice);
+                    table.render();
+                    assertSame(otherNotice, table.currentZeroTrustWait());
+                    otherNotice.dismiss();
+                    assertNull(table.currentZeroTrustWait(), "The first full pass is still running");
+
+                    float duration = (float) field(shuffle, "cycleSeconds");
+                    setLong(shuffle, "startedAtNanos",
+                            System.nanoTime() - (long) ((duration + .25) * 1e9));
+                    table.render();
+                    assertNull(table.currentZeroTrustWait(), "The last frame still belongs to the first pass");
+                    table.render();
+                } else {
+                    table.showDialog(notice);
+                }
+                assertSame(notice, table.currentZeroTrustWait());
+                notice.dismiss();
+                var finished = new CompletableFuture<Void>();
+                table.acceptEvent(new TableVisualEvent.Shuffle(sequence++, "goliat",
+                        TableVisualEvent.Shuffle.Phase.FINISH), finished);
+                table.render();
+                assertTrue(finished.isDone());
+                assertNull(table.currentZeroTrustWait());
+            }
+        } finally {
+            restoreKey(properties, saved, GdxSettingsContract.SHUFFLE_TO_DEALER_KEY);
+            restoreKey(properties, saved, "sonido_barajado");
+            restoreKey(properties, saved, "animacion_barajado");
+            presentation.refreshRuntimePreferences();
         }
     }
 

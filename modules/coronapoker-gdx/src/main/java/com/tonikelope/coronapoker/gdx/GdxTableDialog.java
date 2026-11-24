@@ -59,7 +59,7 @@ final class GdxTableDialog {
     private String standaloneOptionLabel = "";
     private boolean noLimit;
     private boolean externallyControlled;
-    private boolean verificationWait;
+    private GameDialogSink.ZeroTrustWaitContext verificationWaitContext;
     private boolean recovery;
     private boolean deferCloseAfterDecision;
     private boolean externalCloseReleased;
@@ -264,10 +264,15 @@ final class GdxTableDialog {
     }
 
     static GdxTableDialog zeroTrustWait(String message, int preferredWidth) {
+        return zeroTrustWait(message, preferredWidth, GameDialogSink.ZeroTrustWaitContext.GENERAL);
+    }
+
+    static GdxTableDialog zeroTrustWait(String message, int preferredWidth,
+            GameDialogSink.ZeroTrustWaitContext context) {
         GdxTableDialog dialog = new GdxTableDialog(Kind.ZERO_TRUST, "ZERO-TRUST",
                 message, GameDialogSink.Icon.NONE, preferredWidth, 0, false, "", "");
         dialog.externallyControlled = true;
-        dialog.verificationWait = true;
+        dialog.verificationWaitContext = Objects.requireNonNull(context, "context");
         return dialog;
     }
 
@@ -311,7 +316,10 @@ final class GdxTableDialog {
                 && !externallyControlled && !deferCloseAfterDecision;
     }
     boolean isZeroTrust() { return kind == Kind.ZERO_TRUST; }
-    boolean isVerificationWait() { return verificationWait; }
+    boolean isVerificationWait() { return verificationWaitContext != null; }
+    boolean isInitialDealWait() {
+        return verificationWaitContext == GameDialogSink.ZeroTrustWaitContext.INITIAL_DEAL;
+    }
     boolean isRecovery() { return recovery; }
     boolean isRebuy() { return kind == Kind.REBUY; }
     boolean allowsDismissal() { return !isRebuy() || showsNegative(); }

@@ -80,12 +80,12 @@ final class GdxAppearanceOptionsTest {
         var light = GdxAppearanceOptions.LIGHT_OFF;
         assertEquals(10, light.min());
         assertEquals(90, light.max());
-        assertEquals(5, light.step());
+        assertEquals(1, light.step());
         assertEquals(35, light.value(properties));
         properties.setProperty("nivel_luz", "88");
-        assertEquals(90, light.value(properties));
+        assertEquals(88, light.value(properties));
         light.select(properties, 43);
-        assertEquals("45", properties.getProperty("nivel_luz"));
+        assertEquals("43", properties.getProperty("nivel_luz"));
         light.select(properties, 0);
         assertEquals(10, light.value(properties));
         light.select(properties, 100);

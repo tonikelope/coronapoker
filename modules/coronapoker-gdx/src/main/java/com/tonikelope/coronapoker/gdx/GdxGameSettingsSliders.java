@@ -31,8 +31,8 @@ final class GdxGameSettingsSliders {
         INITIAL_BUYIN(null),
         REBUYS(new Range(1, Integer.MAX_VALUE, 1, 20)),
         HAND_LIMIT(new Range(1, Integer.MAX_VALUE, 1, 250)),
-        THINK_TIME(new Range(NewGameTableDraft.MIN_THINK_SECONDS, NewGameTableDraft.MAX_THINK_SECONDS, 5, 0)),
-        SHOWDOWN(new Range(NewGameTableDraft.MIN_SHOWDOWN_SECONDS, NewGameTableDraft.MAX_SHOWDOWN_SECONDS, 5, 0)),
+        THINK_TIME(new Range(NewGameTableDraft.MIN_THINK_SECONDS, NewGameTableDraft.MAX_THINK_SECONDS, 1, 0)),
+        SHOWDOWN(new Range(NewGameTableDraft.MIN_SHOWDOWN_SECONDS, NewGameTableDraft.MAX_SHOWDOWN_SECONDS, 1, 0)),
         SMALL_BLIND(new Range(5, 400_000_000, 5, 1_000)),
         BIG_BLIND(SMALL_BLIND.range),
         AUTO_CALL(new Range(5, Integer.MAX_VALUE, 5, 1_000));

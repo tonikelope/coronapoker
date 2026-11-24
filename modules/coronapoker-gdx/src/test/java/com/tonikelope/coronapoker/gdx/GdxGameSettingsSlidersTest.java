@@ -27,11 +27,14 @@ final class GdxGameSettingsSlidersTest {
     }
 
     @Test
-    void timeSlidersSnapToFiveSecondsAndKeepTheExactEndpoints() {
-        assertEquals(65, Control.THINK_TIME.range.valueAt(0.5d));
+    void timeSlidersUseOneSecondStepsAndKeepTheExactEndpoints() {
+        assertEquals(10, Control.THINK_TIME.range.valueAt(0d));
+        assertEquals(66, Control.THINK_TIME.range.valueAt(0.51d));
+        assertEquals(41, Control.THINK_TIME.range.adjust(40, 1));
         assertEquals(120, Control.THINK_TIME.range.valueAt(1d));
         assertEquals(5, Control.SHOWDOWN.range.valueAt(0d));
-        assertEquals(20, Control.SHOWDOWN.range.valueAt(0.55d));
+        assertEquals(19, Control.SHOWDOWN.range.valueAt(0.55d));
+        assertEquals(9, Control.SHOWDOWN.range.adjust(10, -1));
         assertEquals(30, Control.SHOWDOWN.range.valueAt(1d));
     }
 

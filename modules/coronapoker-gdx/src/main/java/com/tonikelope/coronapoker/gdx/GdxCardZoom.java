@@ -12,7 +12,6 @@ enum GdxCardZoom implements GdxSettingsSlider.Setting {
     static final String LEGACY_SHUFFLE_KEY = "barajado_tamano";
     static final String SHUFFLE_LABEL = "gdx.settings.row.shuffle_zoom";
     static final int MIN = 50;
-    static final int STEP = 5;
     final String key;
     final int normal, max;
 
@@ -36,19 +35,15 @@ enum GdxCardZoom implements GdxSettingsSlider.Setting {
             };
         }
         try {
-            return snap(Integer.parseInt(raw));
+            return MathUtils.clamp(Integer.parseInt(raw), MIN, max);
         } catch (NumberFormatException invalid) {
             return normal;
         }
     }
 
-    int snap(float value) {
-        return STEP * Math.round(MathUtils.clamp(value, MIN, max) / STEP);
-    }
-
     @Override public int min() { return MIN; }
     @Override public int max() { return max; }
-    @Override public int step() { return STEP; }
+    @Override public int step() { return 1; }
     @Override public int value(Properties settings) { return percent(settings); }
 
     @Override public boolean enabled(Properties settings) {

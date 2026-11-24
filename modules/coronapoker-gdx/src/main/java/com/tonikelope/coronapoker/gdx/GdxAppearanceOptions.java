@@ -10,16 +10,15 @@ final class GdxAppearanceOptions {
 
     private static final int LIGHT_MIN = 10;
     private static final int LIGHT_MAX = 90;
-    private static final int LIGHT_STEP = 5;
     static final int DEFAULT_LIGHT_LEVEL = 35;
     static final GdxSettingsSlider.Setting LIGHT_OFF = new GdxSettingsSlider.Setting() {
         @Override public int min() { return LIGHT_MIN; }
         @Override public int max() { return LIGHT_MAX; }
-        @Override public int step() { return LIGHT_STEP; }
+        @Override public int step() { return 1; }
         @Override public int value(Properties settings) { return lightLevel(settings); }
         @Override public boolean enabled(Properties settings) { return true; }
         @Override public void select(Properties settings, int value) {
-            settings.setProperty("nivel_luz", Integer.toString(snapLightLevel(value)));
+            settings.setProperty("nivel_luz", Integer.toString(clampLightLevel(value)));
         }
     };
 
@@ -254,15 +253,14 @@ final class GdxAppearanceOptions {
         try {
             int configured = Integer.parseInt(properties.getProperty(
                     "nivel_luz", Integer.toString(DEFAULT_LIGHT_LEVEL)));
-            return snapLightLevel(configured);
+            return clampLightLevel(configured);
         } catch (NumberFormatException invalid) {
             return DEFAULT_LIGHT_LEVEL;
         }
     }
 
-    private static int snapLightLevel(int value) {
-        int clamped = Math.max(LIGHT_MIN, Math.min(LIGHT_MAX, value));
-        return LIGHT_MIN + Math.round((clamped - LIGHT_MIN) / (float) LIGHT_STEP) * LIGHT_STEP;
+    private static int clampLightLevel(int value) {
+        return Math.max(LIGHT_MIN, Math.min(LIGHT_MAX, value));
     }
 
     static int selectedIndex(Choice choice, Properties properties) {

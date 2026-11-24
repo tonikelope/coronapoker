@@ -497,8 +497,8 @@ final class GdxFrontendSettingsGpuTest {
         draft.setThinkTime(true);
         render.run();
         dragGameSlider(screen, screen, Control.HAND_LIMIT, draft::handLimitCount, 1);
-        dragGameSlider(screen, screen, Control.THINK_TIME, draft::thinkSeconds, 5);
-        dragGameSlider(screen, screen, Control.SHOWDOWN, draft::showdownSeconds, 5);
+        dragGameSlider(screen, screen, Control.THINK_TIME, draft::thinkSeconds, 1);
+        dragGameSlider(screen, screen, Control.SHOWDOWN, draft::showdownSeconds, 1);
         draft.setThinkTime(false);
         render.run();
         assertFalse(gameSliderTargets(screen).containsKey(Control.THINK_TIME));
@@ -534,8 +534,8 @@ final class GdxFrontendSettingsGpuTest {
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 3);
         render.run();
         dragGameSlider(screen, screen, Control.HAND_LIMIT, draft::handLimitCount, 1);
-        dragGameSlider(screen, screen, Control.THINK_TIME, draft::thinkSeconds, 5);
-        dragGameSlider(screen, screen, Control.SHOWDOWN, draft::showdownSeconds, 5);
+        dragGameSlider(screen, screen, Control.THINK_TIME, draft::thinkSeconds, 1);
+        dragGameSlider(screen, screen, Control.SHOWDOWN, draft::showdownSeconds, 1);
     }
 
     private static Map<?, ?> gameSliderTargets(Object owner) throws Exception {
@@ -1073,10 +1073,9 @@ final class GdxFrontendSettingsGpuTest {
                 int y = HEIGHT - 1 - Math.round(start.y);
                 assertTrue(input.touchDown(Math.round(start.x), y, 0, Input.Buttons.LEFT));
                 assertEquals(GdxCardZoom.MIN, zoom.percent(properties));
-                int middle = Math.round(start.x + (end.x - start.x) * .38f);
+                int middle = Math.round(start.x + (end.x - start.x) * .384f);
                 assertTrue(input.touchDragged(middle, y, 0));
-                assertEquals(145, zoom.percent(properties),
-                        "The full-width track preserves five-point zoom steps");
+                assertEquals(146, zoom.percent(properties));
                 assertTrue(input.touchDragged(Math.round(end.x), y, 0));
                 assertTrue(input.touchUp(Math.round(end.x), y, 0, Input.Buttons.LEFT));
                 assertEquals(zoom.max, zoom.percent(properties));
@@ -1107,7 +1106,7 @@ final class GdxFrontendSettingsGpuTest {
             audio.restoreSessionEnabled(true);
             render.run();
             assertSame(volume, field(slider, "visible"));
-            dragPercentageTrack(owner, input, slider, () -> volume.value(properties), 0, 37, 100);
+            dragPercentageTrack(owner, input, slider, () -> volume.value(properties), 0, 36, 100);
             assertEquals(1, volume.step());
             assertEquals(overlay, field(owner, "volumeOverlayUntil"),
                     "Settings volume changes must not open the global volume overlay");
@@ -1120,7 +1119,7 @@ final class GdxFrontendSettingsGpuTest {
             render.run();
             var light = GdxAppearanceOptions.LIGHT_OFF;
             assertSame(light, field(slider, "visible"));
-            dragPercentageTrack(owner, input, slider, () -> light.value(properties), 10, 40, 90);
+            dragPercentageTrack(owner, input, slider, () -> light.value(properties), 10, 39, 90);
         } finally {
             audio.restoreSessionEnabled(soundEnabled);
             invoke(owner, owner instanceof CoronaPokerGdxTable
@@ -1141,7 +1140,7 @@ final class GdxFrontendSettingsGpuTest {
         int y = HEIGHT - 1 - Math.round(start.y);
         assertTrue(input.touchDown(Math.round(start.x), y, 0, Input.Buttons.LEFT));
         assertEquals(min, value.getAsInt());
-        assertTrue(input.touchDragged(Math.round(start.x + (end.x - start.x) * .37f), y, 0));
+        assertTrue(input.touchDragged(Math.round(start.x + (end.x - start.x) * .36f), y, 0));
         assertEquals(middle, value.getAsInt());
         assertTrue(input.touchDragged(Math.round(end.x), y, 0));
         assertTrue(input.touchUp(Math.round(end.x), y, 0, Input.Buttons.LEFT));

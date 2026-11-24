@@ -25,26 +25,28 @@ final class GdxSettingsContractTest {
             assertEquals(150, zoom.percent(p));
             p.setProperty(zoom.key, "100");
             assertEquals(100, zoom.percent(p));
+            assertEquals(1, zoom.step());
+            p.setProperty(zoom.key, "13");
+            assertEquals(50, zoom.percent(p));
+            p.setProperty(zoom.key, "303");
+            assertEquals(300, zoom.percent(p));
             p.remove(zoom.key);
-            assertEquals(155, zoom.snap(153));
-            assertEquals(50, zoom.snap(13));
-            assertEquals(300, zoom.snap(303));
         }
         p.setProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY, "1");
         assertEquals(100, GdxCardZoom.SHUFFLE_2D.percent(p));
         p.setProperty(GdxCardZoom.LEGACY_SHUFFLE_KEY, "2");
         assertEquals(200, GdxCardZoom.SHUFFLE_3D.percent(p));
-        p.setProperty(GdxCardZoom.SHUFFLE_2D.key, "165");
+        GdxCardZoom.SHUFFLE_2D.select(p, 163);
         assertEquals(200, GdxCardZoom.SHUFFLE_3D.percent(p));
-        p.setProperty(GdxCardZoom.SHUFFLE_3D.key, "180");
+        GdxCardZoom.SHUFFLE_3D.select(p, 181);
         try {
             prefs.save();
         } finally {
             prefs.close();
         }
         var loaded = new com.tonikelope.coronapoker.core.PreferencesService(file).properties();
-        assertEquals(165, GdxCardZoom.SHUFFLE_2D.percent(loaded));
-        assertEquals(180, GdxCardZoom.SHUFFLE_3D.percent(loaded));
+        assertEquals(163, GdxCardZoom.SHUFFLE_2D.percent(loaded));
+        assertEquals(181, GdxCardZoom.SHUFFLE_3D.percent(loaded));
     }
 
     @Test

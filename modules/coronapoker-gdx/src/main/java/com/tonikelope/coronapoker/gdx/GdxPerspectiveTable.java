@@ -35,7 +35,7 @@ final class GdxPerspectiveTable implements Disposable {
     private static final float TABLE_ZOOM = 1.10f;
     private static final float ELEVATION = 37f;
     private static final float CARD_REST_HEIGHT = 0.72f;
-    private static final float EDGE_MARGIN_SCALE = 1.065f;
+    static final float EDGE_MARGIN_SCALE = 1.065f;
     private static final int RAIL_STEPS = 36;
     private static final int CARD_STRIPS = 48;
     private static final int REVEAL_COLUMNS = 28;
@@ -808,7 +808,7 @@ final class GdxPerspectiveTable implements Disposable {
         // Separate them along the surface normal by their actual thickness.
         if (Float.isNaN(pocketAnchorZ)) pocketAnchorZ = cz;
         packetLayerHeight = publicFace ? pocketLayerHeight(1 - slot, cardWidth)
-                : pose.layers() * pocketLayerHeight(1, cardWidth) + pose.lift() * cardWidth;
+                : pose.layers() * pocketLayerHeight(1, cardWidth);
         packetBend = true;
         fillPocket(cx, cz, meshWidth, meshHeight, angle, lift, true);
         renderPocket(3, back, back, 0.20f * opacity, cardHeight / cardWidth);

@@ -28,32 +28,49 @@ final class GdxPocketOrderTest {
         }
     }
 
-    @Test void crossingSheetsStayApartAndReturnContinuouslyToTheirStack() {
-        var order=dealt("A_P","2_T");
-        order.update(true,true,0);
-        var a=order.pose("A_P",0);
-        var b=order.pose("2_T",1);
-        for(int i=0;i<800;i++) {
-            order.update(true,true,.001f);
-            var nextA=order.pose("A_P",0); var nextB=order.pose("2_T",1);
-            assertTrue(Math.abs(nextA.x()-a.x()) < .02f, "Horizontal teleport");
-            assertTrue(Math.abs(nextB.lift()-b.lift()) < .005f, "Vertical teleport");
-            float ha=nextA.layers()*GdxPerspectiveTable.pocketLayerHeight(1,1)+nextA.lift();
-            float hb=nextB.layers()*GdxPerspectiveTable.pocketLayerHeight(1,1)+nextB.lift();
-            // A conservative rotated-card footprint. Layers can only change
-            // while the sheets are fully separated on the table.
-            if(Math.abs(nextA.x()-nextB.x()) < halfWidth(nextA) + halfWidth(nextB)) {
-                assertTrue(Math.abs(ha-hb) >= GdxPlasticCard.thickness(1), "Intersecting sheets");
+    @Test void cardsSlideDirectlyThenTheKingReturnsUnderTheAce() {
+        var order = dealt("A_P", "K_C");
+        order.update(true, true, 0);
+        var ace = order.pose("A_P", 0);
+        var king = order.pose("K_C", 1);
+        float layerHeight = GdxPerspectiveTable.pocketLayerHeight(1, 1);
+        boolean changedLayersWithClearance = false;
+        boolean kingReturnedUnderAce = false;
+        for (int i = 0; i < 800; i++) {
+            order.update(true, true, .001f);
+            var nextAce = order.pose("A_P", 0);
+            var nextKing = order.pose("K_C", 1);
+            assertTrue(Math.abs(nextAce.x() - ace.x()) < .02f, "Horizontal teleport");
+            assertTrue(Math.abs(nextKing.layers() - king.layers()) * layerHeight < .005f,
+                    "Vertical teleport");
+            assertTrue(nextKing.layers() <= king.layers() + .00001f, "The king lifted");
+
+            float gap = Math.abs(nextAce.x() - nextKing.x()) - halfWidth(nextAce) - halfWidth(nextKing);
+            if (nextKing.layers() > .00001f) {
+                assertTrue(nextAce.x() <= ace.x() + .00001f && nextKing.x() >= king.x() - .00001f,
+                        "The cards reversed before they changed layers");
+                if (nextKing.layers() < .99999f) {
+                    assertTrue(gap >= .05f, "The cards need clearance to change layers");
+                    changedLayersWithClearance = true;
+                }
             }
-            a=nextA; b=nextB;
+            if (gap < 0f) {
+                float heightDifference = (nextAce.layers() - nextKing.layers()) * layerHeight;
+                assertTrue(Math.abs(heightDifference) >= GdxPlasticCard.thickness(1), "Intersecting sheets");
+                kingReturnedUnderAce |= heightDifference > 0f && order.busy();
+            }
+            ace = nextAce;
+            king = nextKing;
         }
-        assertEquals(GdxPocketOrder.Pose.resting(1),a);
-        assertEquals(GdxPocketOrder.Pose.resting(0),b);
+        assertTrue(changedLayersWithClearance);
+        assertTrue(kingReturnedUnderAce);
+        assertEquals(GdxPocketOrder.Pose.resting(1), ace);
+        assertEquals(GdxPocketOrder.Pose.resting(0), king);
     }
 
     private static float halfWidth(GdxPocketOrder.Pose pose) {
         double angle = Math.toRadians(pose.fan());
-        return (float) (Math.cos(angle) + 1.40 * Math.abs(Math.sin(angle))) * .5f;
+        return (float) (Math.cos(angle) + 1.40 * Math.abs(Math.sin(angle))) * GdxPerspectiveTable.EDGE_MARGIN_SCALE * .5f;
     }
 
     @Test void reconnectAndDisabledAnimationHaveStableSortedPresentation() {

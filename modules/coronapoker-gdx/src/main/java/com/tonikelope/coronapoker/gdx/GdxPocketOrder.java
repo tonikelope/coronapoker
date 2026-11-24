@@ -9,9 +9,15 @@ import java.util.List;
 
 /** Card identity survives the core's logical sort and the physical crossing. */
 final class GdxPocketOrder {
-    record Pose(int slot, float x, float fan, float layers, float lift) {
+    static final float DURATION_SECONDS = .56f;
+    private static final float SLIDE_END = .64f;
+    private static final float LAYER_CHANGE_END = .76f;
+    // Allow a gap of 5.6% of a card width beyond the aligned mesh edges.
+    private static final float SEPARATED_X = GdxPerspectiveTable.EDGE_MARGIN_SCALE * .5f + .028f;
+
+    record Pose(int slot, float x, float fan, float layers) {
         static Pose resting(int slot) {
-            return new Pose(slot, slot == 0 ? .18f : -.18f, slot == 0 ? -3f : 3f, slot, 0f);
+            return new Pose(slot, slot == 0 ? .18f : -.18f, slot == 0 ? -3f : 3f, slot);
         }
     }
     private final String[] dealt = {"", ""};
@@ -44,7 +50,7 @@ final class GdxPocketOrder {
         if (!crossing() || !animateDeal || !animate) { complete = true; return; }
         if (elapsed < 0f) { elapsed = 0f; return; }
         elapsed += MathUtils.clamp(delta, 0f, .05f);
-        complete = elapsed >= duration();
+        complete = elapsed >= DURATION_SECONDS;
     }
 
     boolean busy() { return animateDeal && known() && crossing() && !complete; }
@@ -53,7 +59,6 @@ final class GdxPocketOrder {
         return CardCode.parseShortCode(dealt[0]).rank().aceHighValue()
                 > CardCode.parseShortCode(dealt[1]).rank().aceHighValue();
     }
-    private float duration() { return .74f; }
 
     int dealtSlot(String code, int fallbackSlot) {
         return dealt[0].equals(code) ? 0 : dealt[1].equals(code) ? 1 : fallbackSlot;
@@ -65,23 +70,19 @@ final class GdxPocketOrder {
         int target = crossing() ? 1 - identity : identity;
         if (complete) return Pose.resting(target);
         if (elapsed < 0f) return Pose.resting(identity);
-        float p = MathUtils.clamp(elapsed / duration(), 0f, 1f);
-        float sign = identity == 0 ? 1f : -1f;
-        if (!crossing()) return Pose.resting(identity);
-        // Separate before changing the vertical order. Cross with one sheet
-        // lifted, change layers while disjoint, then close the compact fan.
-        float spread = ease(p / .22f);
-        float cross = ease((p - .34f) / .32f);
-        float settle = ease((p - .66f) / .12f);
-        float join = ease((p - .78f) / .22f);
-        float x = sign * MathUtils.lerp(.18f, .508f, spread) * (1f - 2f * cross);
-        x = MathUtils.lerp(x, -sign * .18f, join);
-        float lift = identity == 1 ? .07f * ease((p - .22f) / .12f) * (1f - settle) : 0f;
-        // Align the long sides when the cards exchange height, so the
-        // necessary gap stays inside the corridor between the stacks.
-        float fan = -3f * sign * (1f - 2f * cross) * (1f - spread * (1f - join));
-        return new Pose(target, x, fan,
-                MathUtils.lerp(identity, target, settle), lift);
+        if (target == identity) return Pose.resting(identity);
+        float p = MathUtils.clamp(elapsed / DURATION_SECONDS, 0f, 1f);
+        Pose start = Pose.resting(identity);
+        Pose end = Pose.resting(target);
+        // Slide past each other on the dealt layers, and change layers only
+        // after the edges clear, so the lower card slides underneath on return.
+        float slide = ease(p / SLIDE_END);
+        float settle = ease((p - SLIDE_END) / (LAYER_CHANGE_END - SLIDE_END));
+        float join = ease((p - LAYER_CHANGE_END) / (1f - LAYER_CHANGE_END));
+        float separatedX = Math.copySign(SEPARATED_X, end.x());
+        float x = MathUtils.lerp(MathUtils.lerp(start.x(), separatedX, slide), end.x(), join);
+        float fan = MathUtils.lerp(start.fan() * (1f - slide), end.fan(), join);
+        return new Pose(target, x, fan, MathUtils.lerp(start.layers(), end.layers(), settle));
     }
 
     private static float ease(float value) {

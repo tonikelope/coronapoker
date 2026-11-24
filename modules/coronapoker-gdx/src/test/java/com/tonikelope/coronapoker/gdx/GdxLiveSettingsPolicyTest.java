@@ -65,8 +65,10 @@ final class GdxLiveSettingsPolicyTest {
         assertEquals(8, GdxLiveSettingsPolicy.minimumHandLimit(7));
         assertEquals(8, GdxLiveSettingsPolicy.handLimitValue(7, -1));
         assertEquals(20, GdxLiveSettingsPolicy.handLimitValue(7, 20));
-        assertEquals(8, GdxLiveSettingsPolicy.adjustedHandLimit(7, 8, -1));
-        assertEquals(9, GdxLiveSettingsPolicy.adjustedHandLimit(7, 8, 1));
+        var range = GdxGameSettingsSliders.Control.HAND_LIMIT.between(
+                GdxLiveSettingsPolicy.minimumHandLimit(7), Integer.MAX_VALUE);
+        assertEquals(8, range.adjust(8, -1));
+        assertEquals(9, range.adjust(8, 1));
     }
 
     @Test
@@ -74,7 +76,7 @@ final class GdxLiveSettingsPolicyTest {
         assertEquals(GdxLiveSettingsPolicy.MAXIMUM_HAND_LIMIT,
                 GdxLiveSettingsPolicy.minimumHandLimit(Integer.MAX_VALUE));
         assertEquals(GdxLiveSettingsPolicy.MAXIMUM_HAND_LIMIT,
-                GdxLiveSettingsPolicy.adjustedHandLimit(0,
+                GdxGameSettingsSliders.Control.HAND_LIMIT.range.adjust(
                         GdxLiveSettingsPolicy.MAXIMUM_HAND_LIMIT, 1));
     }
 

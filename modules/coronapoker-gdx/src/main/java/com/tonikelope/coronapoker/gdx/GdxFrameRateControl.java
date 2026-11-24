@@ -51,7 +51,8 @@ final class GdxFrameRateControl {
         boolean enabled = available && GdxFrameRateLimit.CUSTOM.enabled(settings);
         slider.draw(shapes, row, rows, GdxFrameRateLimit.CUSTOM, value, enabled, alpha);
 
-        box.set(row.x + row.width - 94f, row.y + row.height * .5f - 20f, 82f, 40f);
+        Rectangle valueBox = GdxSettingsLayout.sliderRow(row).value();
+        box.set(valueBox.x, row.y + row.height * .5f - 20f, valueBox.width, 40f);
         float bottom = Math.max(box.y, rows.viewportBottom());
         float top = Math.min(box.y + box.height, rows.viewportTop());
         boxHit.set(box.x, bottom, box.width, enabled ? Math.max(0f, top - bottom) : 0f);

@@ -21,6 +21,7 @@ final class GdxSettingsStyle {
     static final int STEPPER_SIGN_FONT_SIZE = 38;
     static final int ACTION_FONT_SIZE = 26;
     static final int BODY_FONT_SIZE = 24;
+    static final int NUMERIC_FONT_SIZE = 22;
     static final int SMALL_FONT_SIZE = 18;
     static final int TINY_FONT_SIZE = 15;
 
@@ -217,6 +218,10 @@ final class GdxSettingsStyle {
 
     static void drawAngleSlider(ShapeRenderer shapes, Rectangle row, Rectangle track, float progress, float alpha) {
         drawRow(shapes, row.x, row.y, row.width, row.height, ROW_BORDER, ROW_FILL, alpha);
+        drawSliderTrack(shapes, track, progress, alpha);
+    }
+
+    static void drawSliderTrack(ShapeRenderer shapes, Rectangle track, float progress, float alpha) {
         shapes.setColor(ROW_BORDER.r, ROW_BORDER.g, ROW_BORDER.b, alpha);
         roundedRect(shapes, track.x, track.y, track.width, track.height, 4f);
         shapes.setColor(ROW_HOVER_BORDER.r, ROW_HOVER_BORDER.g, ROW_HOVER_BORDER.b, alpha);

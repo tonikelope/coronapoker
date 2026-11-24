@@ -55,11 +55,4 @@ final class GdxLiveSettingsPolicy {
         return Math.max(minimumHandLimit(currentHand), configuredMaximum);
     }
 
-    static int adjustedHandLimit(int currentHand, int currentValue,
-            int direction) {
-        long requested = (long) handLimitValue(currentHand, currentValue)
-                + Integer.signum(direction);
-        return (int) Math.max(minimumHandLimit(currentHand),
-                Math.min(MAXIMUM_HAND_LIMIT, requested));
-    }
 }

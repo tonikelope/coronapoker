@@ -11,6 +11,8 @@ final class GdxSettingsLayout {
 
     /** Canonical lane used by stepper values. */
     private static final float STANDARD_VALUE_WIDTH = 286f;
+    private static final float SLIDER_VALUE_WIDTH = 116f;
+    private static final float SLIDER_READOUT_WIDTH = SLIDER_VALUE_WIDTH + 24f;
     /** Wider value lane reserved for potentially long operating-system names. */
     static final float AUDIO_DEVICE_VALUE_WIDTH = 760f;
     /**
@@ -200,18 +202,37 @@ final class GdxSettingsLayout {
 
     static SliderRow sliderRow(Rectangle bounds) {
         float x = bounds.x, y = bounds.y, width = bounds.width, height = bounds.height;
-        float trackRight = x + width - 106f;
         Rectangle label = new Rectangle(x + 18f, y, width * .42f - 30f, height);
         Rectangle track = setSliderTrack(new Rectangle(), bounds);
-        Rectangle value = new Rectangle(trackRight + 12f, y, 82f, height);
+        Rectangle value = sliderValueBox(bounds);
+        return new SliderRow(bounds, label, track, value);
+    }
+
+    static SliderRow gameSliderRow(Rectangle bounds, boolean labelled) {
+        float labelWidth = labelled ? bounds.width * .42f - 30f : 0f;
+        float trackStart = bounds.x + (labelled ? bounds.width * .42f : 18f);
+        Rectangle label = new Rectangle(bounds.x + 18f, bounds.y, labelWidth, bounds.height);
+        Rectangle track = new Rectangle(trackStart, bounds.y + bounds.height / 2f - 4f,
+                Math.max(0f, bounds.x + bounds.width - SLIDER_READOUT_WIDTH - trackStart), 8f);
+        Rectangle value = sliderValueBox(bounds);
         return new SliderRow(bounds, label, track, value);
     }
 
     static Rectangle setSliderTrack(Rectangle track, Rectangle row) {
         float start = row.x + row.width * .42f;
-        float end = row.x + row.width - 106f;
+        float end = row.x + row.width - SLIDER_READOUT_WIDTH;
         return track.set(start, row.y + row.height / 2f - 4f,
                 Math.max(0f, end - start), 8f);
+    }
+
+    static Rectangle sliderReadout(Rectangle row) {
+        return new Rectangle(row.x + row.width - SLIDER_READOUT_WIDTH, row.y,
+                SLIDER_READOUT_WIDTH, row.height);
+    }
+
+    private static Rectangle sliderValueBox(Rectangle row) {
+        return new Rectangle(row.x + row.width - (SLIDER_READOUT_WIDTH + SLIDER_VALUE_WIDTH) / 2f,
+                row.y, SLIDER_VALUE_WIDTH, row.height);
     }
 
     /**

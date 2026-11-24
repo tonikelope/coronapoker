@@ -35,8 +35,8 @@ final class GdxTableDialogLayout {
                 new Rectangle(rowX, panelY + 392f, rowWidth, 48f),
                 new Rectangle(rowX, panelY + 318f, rowWidth, 64f),
                 new Rectangle(rowX, panelY + 244f, rowWidth, 64f),
-                GdxSettingsLayout.stepperRow(rowX, panelY + 155f,
-                        rowWidth, GdxSettingsLayout.ROW_HEIGHT));
+                GdxSettingsLayout.gameSliderRow(new Rectangle(rowX, panelY + 155f,
+                        rowWidth, GdxSettingsLayout.ROW_HEIGHT), true));
     }
 
     static RunItTwice runItTwice(float panelX, float panelY,
@@ -94,7 +94,7 @@ final class GdxTableDialogLayout {
     }
 
     record AutoCall(Rectangle detail, Rectangle enabled, Rectangle noLimit,
-            GdxSettingsLayout.StepperRow amount) {
+            GdxSettingsLayout.SliderRow amount) {
     }
 
     record RunItTwice(Rectangle pot, Rectangle onceVotes,

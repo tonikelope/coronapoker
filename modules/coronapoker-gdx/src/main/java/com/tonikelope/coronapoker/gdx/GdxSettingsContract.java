@@ -1193,8 +1193,11 @@ final class GdxSettingsContract {
 
     /** Host-authoritative communication rules, unlike local audio choices. */
     static boolean isGlobalCommunicationOption(ToggleOption option) {
-        return option != null && ("tts_server".equals(option.key())
-                || "voice_messages".equals(option.key()));
+        return option != null && isGlobalCommunicationKey(option.key());
+    }
+
+    static boolean isGlobalCommunicationKey(String key) {
+        return "tts_server".equals(key) || "voice_messages".equals(key);
     }
 
     static boolean hasAppearanceAnimationOptions(TogglePage page) {
@@ -1460,7 +1463,7 @@ final class GdxSettingsContract {
                     Float.toString(DEFAULT_MASTER_VOLUME));
         }
         for (ToggleOption option : page.options()) {
-            if (isGlobalCommunicationRule(option)
+            if (isGlobalCommunicationOption(option)
                     && !includeGlobalRules) continue;
             boolean fallback = "audio_mic_enabled".equals(option.key())
                     ? microphoneAvailable : option.fallback();
@@ -1485,7 +1488,7 @@ final class GdxSettingsContract {
             return false;
         }
         for (ToggleOption option : page.options()) {
-            if (isGlobalCommunicationRule(option)
+            if (isGlobalCommunicationOption(option)
                     && !includeGlobalRules) continue;
             boolean expected = "audio_mic_enabled".equals(option.key())
                     ? microphoneAvailable : option.fallback();
@@ -1656,11 +1659,6 @@ final class GdxSettingsContract {
             }
         }
         return true;
-    }
-
-    private static boolean isGlobalCommunicationRule(ToggleOption option) {
-        return "tts_server".equals(option.key())
-                || "voice_messages".equals(option.key());
     }
 
     private static boolean booleanAtDefault(Properties properties, String key,

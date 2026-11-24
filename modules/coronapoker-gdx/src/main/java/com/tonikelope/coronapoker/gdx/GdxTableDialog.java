@@ -481,6 +481,29 @@ final class GdxTableDialog {
         return isAutoCall() && optionEnabled && !noLimit;
     }
 
+    int autoCallSliderCents() {
+        return centsForLegacyAmount(autoCallCommittedAmount);
+    }
+
+    void selectAutoCallSliderCents(int cents) {
+        if (autoCallAmountEditable()) {
+            autoCallAmountText(decimalText(BigDecimal.valueOf(cents, 2)));
+        }
+    }
+
+    boolean selectAutoCallExactText(String text) {
+        if (!autoCallAmountEditable() || !acceptsAutoCallAmountText(text)
+                || !text.matches("[0-9]*(?:[.,][0-9]{0,2})?")) return false;
+        try {
+            BigDecimal value = new BigDecimal(text.replace(',', '.'));
+            if (value.compareTo(AUTO_CALL_STEP) < 0) return false;
+            autoCallAmountText(decimalText(value));
+            return true;
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
+    }
+
     boolean amountEditable() {
         return !waitingForExternalClose()
                 && (kind == Kind.REBUY && !wholeChipAmounts || autoCallAmountEditable());

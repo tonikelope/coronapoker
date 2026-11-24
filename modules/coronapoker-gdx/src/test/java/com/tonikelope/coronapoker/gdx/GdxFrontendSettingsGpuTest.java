@@ -28,14 +28,17 @@ import com.tonikelope.coronapoker.core.UpdaterService;
 import com.tonikelope.coronapoker.core.game.GameConfigCodecV1;
 import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.core.media.ModMediaCatalog;
+import com.tonikelope.coronapoker.gdx.GdxGameSettingsSliders.Control;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntSupplier;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -139,6 +142,7 @@ final class GdxFrontendSettingsGpuTest {
                 verifyAudioDeviceAlignment(screen);
                 verifyMenuDialogSlide(screen);
                 verifyMenuModalBackdrop(screen);
+                verifyNewGameSliders(screen);
                 verifySettings(screen, presentation, GdxSettingsSession.Context.MENU);
                 verifyImageViewer(screen);
                 try (var lobby = lobby()) {
@@ -392,6 +396,17 @@ final class GdxFrontendSettingsGpuTest {
                 renderSettings, point -> click(screen, point));
         var session = (GdxSettingsSession) field(screen, "settingsSession");
         assertEquals(context, session.context());
+        verifyFrontendGameSettingsSliders(screen, session, renderSettings);
+        invoke(screen, "openSettingsAutoCallDialog", new Class<?>[0]);
+        var autoCall = (GdxTableDialog) field(screen, "settingsAutoCallDialog");
+        if (!autoCall.optionEnabled()) autoCall.toggleOptionEnabled();
+        if (autoCall.noLimit()) autoCall.toggleNoLimit();
+        renderSettings.run();
+        typeSliderExact(screen, screen, "amountSliders", Control.AUTO_CALL, "0,67");
+        assertEquals(0.67d, autoCall.autoCallAmount());
+        typeSliderExact(screen, screen, "amountSliders", Control.AUTO_CALL, "0.01");
+        assertEquals(0.67d, autoCall.autoCallAmount());
+        invoke(screen, "closeSettingsAutoCallDialog", new Class<?>[]{boolean.class}, false);
         for (var section : session.sections()) {
             session.selectTab(session.sections().indexOf(section));
             List<?> pages = (List<?>) invoke(screen, "settingsSubpageLabels", new Class<?>[0]);
@@ -427,6 +442,219 @@ final class GdxFrontendSettingsGpuTest {
         verifyDeckPreview(screen, presentation);
         invoke(screen, "closeSettings", new Class<?>[]{boolean.class}, false);
         renderSettings.run();
+    }
+
+    private static void verifyNewGameSliders(GdxFrontendScreen screen) throws Exception {
+        invoke(screen, "openNewGame", new Class<?>[]{NewGameConnectionDraft.Mode.class},
+                NewGameConnectionDraft.Mode.CREATE);
+        var draft = (NewGameTableDraft) field(screen, "table");
+        Runnable render = settledSettingsRender(screen, screen::render);
+        verifyCenteredPort(screen, render);
+        invoke(screen, "selectNewGamePage", new Class<?>[]{int.class}, 1);
+        draft.setIncreaseBlinds(false);
+        render.run();
+        assertFalse(gameSliderTargets(screen).containsKey(Control.BLIND_INTERVAL));
+        draft.setIncreaseBlinds(true);
+        render.run();
+        dragGameSlider(screen, screen, Control.BLIND_INTERVAL, draft::blindInterval, 1);
+        typeSliderExact(screen, screen, "gameSliders", Control.BLIND_INTERVAL, "245");
+        assertEquals(245, draft.blindInterval());
+        render.run();
+        typeSliderExact(screen, screen, "gameSliders", Control.BLIND_INTERVAL, "2147483648");
+        assertEquals(245, draft.blindInterval());
+        screen.keyDown(Input.Keys.ESCAPE);
+        invoke(screen, "openBlindStructureEditor", new Class<?>[0]);
+        var editor = (GdxBlindStructureEditor) field(screen, "blindStructureEditor");
+        assertTrue(editor.create("slider-test-structure"));
+        render.run();
+        typeSliderExact(screen, screen, "amountSliders", Control.SMALL_BLIND, "0.15");
+        assertEquals(0.15d, editor.selectedLevel().smallBlind());
+        typeSliderExact(screen, screen, "amountSliders", Control.BIG_BLIND, "0,30");
+        assertEquals(0.30d, editor.selectedLevel().bigBlind());
+        typeSliderExact(screen, screen, "amountSliders", Control.BIG_BLIND, "0.40");
+        assertEquals(0.30d, editor.selectedLevel().bigBlind());
+        invoke(screen, "closeBlindStructureEditor", new Class<?>[0]);
+        draft.setBlindIncreaseType(NewGameTableDraft.BlindIncreaseType.HANDS);
+        render.run();
+        dragGameSlider(screen, screen, Control.BLIND_INTERVAL, draft::blindInterval, 1);
+
+        invoke(screen, "selectNewGamePage", new Class<?>[]{int.class}, 2);
+        draft.setRebuy(true);
+        draft.setRebuyLimit(true);
+        render.run();
+        dragGameSlider(screen, screen, Control.MIN_BUYIN, draft::minBuyinBb, 5);
+        render.run();
+        dragGameSlider(screen, screen, Control.MAX_BUYIN, draft::maxBuyinBb, 5);
+        dragGameSlider(screen, screen, Control.REBUYS, draft::rebuyLimitCount, 1);
+        verifyInlineInitialBuyin(screen, draft, render);
+        assertTrue(draft.minBuyinBb() <= draft.maxBuyinBb());
+        draft.setRebuyLimit(false);
+        render.run();
+        assertFalse(gameSliderTargets(screen).containsKey(Control.REBUYS));
+
+        invoke(screen, "selectNewGamePage", new Class<?>[]{int.class}, 3);
+        draft.setHandLimit(true);
+        draft.setThinkTime(true);
+        render.run();
+        dragGameSlider(screen, screen, Control.HAND_LIMIT, draft::handLimitCount, 1);
+        dragGameSlider(screen, screen, Control.THINK_TIME, draft::thinkSeconds, 5);
+        dragGameSlider(screen, screen, Control.SHOWDOWN, draft::showdownSeconds, 5);
+        draft.setThinkTime(false);
+        render.run();
+        assertFalse(gameSliderTargets(screen).containsKey(Control.THINK_TIME));
+        invoke(screen, "cancelOrReturnToMenu", new Class<?>[0]);
+        render.run();
+    }
+
+    private static void verifyFrontendGameSettingsSliders(GdxFrontendScreen screen,
+            GdxSettingsSession session, Runnable render) throws Exception {
+        session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.GAME));
+        var draft = (NewGameTableDraft) field(screen, "settingsTable");
+        draft.setIncreaseBlinds(true);
+        invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
+        render.run();
+        dragGameSlider(screen, screen, Control.BLIND_INTERVAL, draft::blindInterval, 1);
+        draft.setRebuy(true);
+        draft.setRebuyLimit(true);
+        invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 1);
+        render.run();
+        dragGameSlider(screen, screen, Control.MIN_BUYIN, draft::minBuyinBb, 5);
+        render.run();
+        dragGameSlider(screen, screen, Control.MAX_BUYIN, draft::maxBuyinBb, 5);
+        verifyInlineInitialBuyin(screen, draft, render);
+        if (!gameSliderTargets(screen).containsKey(Control.REBUYS)) {
+            var scroll = screen.getClass().getDeclaredField("settingsGameScroll");
+            scroll.setAccessible(true);
+            scroll.setFloat(screen, Float.MAX_VALUE);
+            render.run();
+        }
+        dragGameSlider(screen, screen, Control.REBUYS, draft::rebuyLimitCount, 1);
+        draft.setHandLimit(true);
+        draft.setThinkTime(true);
+        invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 3);
+        render.run();
+        dragGameSlider(screen, screen, Control.HAND_LIMIT, draft::handLimitCount, 1);
+        dragGameSlider(screen, screen, Control.THINK_TIME, draft::thinkSeconds, 5);
+        dragGameSlider(screen, screen, Control.SHOWDOWN, draft::showdownSeconds, 5);
+    }
+
+    private static Map<?, ?> gameSliderTargets(Object owner) throws Exception {
+        return (Map<?, ?>) field(field(owner, "gameSliders"), "visible");
+    }
+
+    private static void verifyInlineInitialBuyin(GdxFrontendScreen screen,
+            NewGameTableDraft draft, Runnable render) throws Exception {
+        draft.setFixedBuyin(true);
+        draft.setMinBuyinBb(10);
+        draft.setMaxBuyinBb(100);
+        int minimum = draft.minimumBuyin();
+        int maximum = draft.maximumBuyin();
+        draft.setBuyin(minimum);
+        render.run();
+        verifyGameSliderFonts(screen, "smallFont");
+        Object surface = field(screen, "surface");
+        String range = new GdxGameText("es").translate("gdx.settings.game.buyin_editor.range",
+                GdxChipAmountText.buyinLabel(minimum, "es"), GdxChipAmountText.buyinLabel(maximum, "es"));
+        boolean registered = false;
+        for (Object tooltip : (List<?>) field(screen, "tooltipHits")) {
+            for (Object argument : (Object[]) field(tooltip, "arguments")) {
+                if (argument.toString().contains(range)) registered = true;
+            }
+        }
+        assertTrue(registered, range);
+        typeSliderExact(screen, screen, "gameSliders", Control.INITIAL_BUYIN, Integer.toString(maximum));
+        assertEquals(maximum, draft.buyin());
+        assertEquals(surface, field(screen, "surface"));
+        typeSliderExact(screen, screen, "gameSliders", Control.INITIAL_BUYIN, Integer.toString(minimum - 1));
+        assertEquals(maximum, draft.buyin());
+        screen.keyDown(Input.Keys.ESCAPE);
+        assertEquals(surface, field(screen, "surface"));
+        draft.setFixedBuyin(false);
+        render.run();
+        assertFalse(gameSliderTargets(screen).containsKey(Control.INITIAL_BUYIN));
+        draft.setFixedBuyin(true);
+        render.run();
+    }
+
+    private static void verifyGameSliderFonts(Object owner, String smallFontField) throws Exception {
+        Class<?>[] parameters = {String.class, float.class};
+        var oldFont = (com.badlogic.gdx.graphics.g2d.BitmapFont) field(owner, smallFontField);
+        var valueFont = (com.badlogic.gdx.graphics.g2d.BitmapFont)
+                invoke(owner, "fitGameSliderFont", parameters, "10", 108f);
+        assertSame(field(owner, "settingsNumericFont"), valueFont);
+        assertTrue(valueFont.getCapHeight() > oldFont.getCapHeight());
+        var sliderBounds = new Rectangle(0f, 0f, 600f, GdxSettingsLayout.ROW_HEIGHT);
+        float readoutWidth = GdxSettingsLayout.sliderReadout(sliderBounds).width - 8f;
+        var zoom = GdxCardZoom.shuffle(false);
+        for (String label : List.of("30%", "100% *", zoom.display(zoom.normal))) {
+            var readoutFont = (com.badlogic.gdx.graphics.g2d.BitmapFont)
+                    invoke(owner, "fitGameSliderFont", parameters, label, readoutWidth);
+            assertSame(valueFont, readoutFont, label);
+            assertTrue(new com.badlogic.gdx.graphics.g2d.GlyphLayout(readoutFont, label).width
+                    <= readoutWidth, label);
+        }
+        String maximum = Integer.toString(Integer.MAX_VALUE);
+        var fitted = (com.badlogic.gdx.graphics.g2d.BitmapFont)
+                invoke(owner, "fitGameSliderFont", parameters, maximum, 108f);
+        assertTrue(new com.badlogic.gdx.graphics.g2d.GlyphLayout(fitted, maximum).width <= 108f);
+    }
+
+    private static void verifyCenteredPort(GdxFrontendScreen screen, Runnable render) throws Exception {
+        var connection = (NewGameConnectionDraft) field(screen, "connection");
+        String original = connection.port();
+        String port = "12345";
+        connection.setPort(port);
+        render.run();
+        Rectangle bounds = null;
+        for (Object hit : (List<?>) field(screen, "textFieldHits")) {
+            if ("port".equals(field(hit, "id"))) {
+                bounds = (Rectangle) field(hit, "bounds");
+                break;
+            }
+        }
+        assertNotNull(bounds);
+        click(screen, bounds.getCenter(new Vector2()));
+        var edit = (GdxTextEditState) field(screen, "textEdit");
+        assertTrue(edit.caret(port) == 2 || edit.caret(port) == 3);
+        connection.setPort(original);
+    }
+
+    private static void typeSliderExact(Object owner, com.badlogic.gdx.InputProcessor input,
+            String sliders, Control control, String text) throws Exception {
+        var targets = (Map<?, ?>) field(field(owner, sliders), "visible");
+        Object target = targets.get(control);
+        assertNotNull(target, control.name());
+        var box = (Rectangle) field(target, "boxHit");
+        var viewport = (Viewport) field(owner, "viewport");
+        var point = viewport.project(box.getCenter(new Vector2()));
+        int x = Math.round(point.x);
+        int y = HEIGHT - 1 - Math.round(point.y);
+        assertTrue(input.touchDown(x, y, 0, Input.Buttons.LEFT));
+        input.touchUp(x, y, 0, Input.Buttons.LEFT);
+        for (char letter : text.toCharArray()) assertTrue(input.keyTyped(letter), control.name());
+        assertTrue(input.keyDown(Input.Keys.TAB), control.name());
+        input.keyUp(Input.Keys.TAB);
+    }
+
+    private static void dragGameSlider(Object owner, com.badlogic.gdx.InputProcessor input,
+            Control control, IntSupplier value, int step) throws Exception {
+        Object target = gameSliderTargets(owner).get(control);
+        assertNotNull(target, control.name());
+        var track = (Rectangle) field(target, "track");
+        var viewport = (Viewport) field(owner, "viewport");
+        float height = track.y + track.height / 2f;
+        var start = viewport.project(new Vector2(track.x + track.width * .24f, height));
+        var end = viewport.project(new Vector2(track.x + track.width * .58f, height));
+        int y = HEIGHT - 1 - Math.round(start.y);
+        assertTrue(input.touchDown(Math.round(start.x), y, 0, Input.Buttons.LEFT), control.name());
+        int first = value.getAsInt();
+        assertTrue(input.touchDragged(Math.round(end.x), y, 0), control.name());
+        assertTrue(input.touchUp(Math.round(end.x), y, 0, Input.Buttons.LEFT), control.name());
+        int last = value.getAsInt();
+        assertTrue(last > first, control.name());
+        assertTrue(input.keyDown(Input.Keys.LEFT), control.name());
+        input.keyUp(Input.Keys.LEFT);
+        assertEquals(last - step, value.getAsInt(), control.name());
     }
 
     private static Runnable settledSettingsRender(Object owner, Runnable render) throws Exception {
@@ -1020,6 +1248,7 @@ final class GdxFrontendSettingsGpuTest {
                     TableVisualEvent.PreparationStatus.Phase.READY), ready);
             ready.join();
             verifyMixedDeckProportions(table, presentation);
+            verifyLiveGameSettingsSliders(table, lobby != null);
             invoke(table, "openSettings", new Class<?>[0]);
             var slide = (GdxDialogSlide) field(table, "settingsSlide");
             table.render();
@@ -1091,6 +1320,62 @@ final class GdxFrontendSettingsGpuTest {
             assertEquals(CoronaPokerGdxTable.UI_SETTINGS, field(table, "uiLayer"));
         } finally {
             table.dispose();
+        }
+    }
+
+    private static void verifyLiveGameSettingsSliders(CoronaPokerGdxTable table,
+            boolean host) throws Exception {
+        verifyGameSliderFonts(table, "settingsSmallFont");
+        invoke(table, "openSettings", new Class<?>[0]);
+        var session = (GdxSettingsSession) field(table, "settingsSession");
+        session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.GAME));
+        Runnable render = settledSettingsRender(table, table::render);
+        var draft = table.getClass().getDeclaredField("liveSettingsDraft");
+        draft.setAccessible(true);
+        var opened = (GameConfigCodecV1.Configuration) draft.get(table);
+        draft.set(table, opened.withBlindSettings(opened.smallBlind(), opened.bigBlind(),
+                60, opened.blindsDoubleType(), opened.blindCap(), opened.blindStructure())
+                .withHands(100));
+
+        invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
+        render.run();
+        if (host) {
+            dragGameSlider(table, table.inputProcessor(), Control.BLIND_INTERVAL,
+                    () -> liveSliderDraft(table).blindsDouble(), 1);
+        } else {
+            assertFalse(gameSliderTargets(table).containsKey(Control.BLIND_INTERVAL));
+        }
+        invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class}, 1);
+        render.run();
+        assertTrue(gameSliderTargets(table).isEmpty());
+        invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class}, 3);
+        render.run();
+        assertFalse(gameSliderTargets(table).containsKey(Control.THINK_TIME));
+        assertFalse(gameSliderTargets(table).containsKey(Control.SHOWDOWN));
+        if (host) {
+            dragGameSlider(table, table.inputProcessor(), Control.HAND_LIMIT,
+                    () -> liveSliderDraft(table).hands(), 1);
+            typeSliderExact(table, table.inputProcessor(), "gameSliders", Control.HAND_LIMIT, "501");
+            assertEquals(501, liveSliderDraft(table).hands());
+        } else {
+            assertFalse(gameSliderTargets(table).containsKey(Control.HAND_LIMIT));
+        }
+        invoke(table, "closeTableSettings", new Class<?>[]{boolean.class}, false);
+        render.run();
+        var autoCall = GdxTableDialog.autoCall(true, 2d);
+        table.showDialog(autoCall);
+        render.run();
+        typeSliderExact(table, table.inputProcessor(), "amountSliders", Control.AUTO_CALL, "3,47");
+        assertEquals(3.47d, autoCall.autoCallAmount());
+        autoCall.dismiss();
+        render.run();
+    }
+
+    private static GameConfigCodecV1.Configuration liveSliderDraft(CoronaPokerGdxTable table) {
+        try {
+            return (GameConfigCodecV1.Configuration) field(table, "liveSettingsDraft");
+        } catch (Exception failure) {
+            throw new AssertionError(failure);
         }
     }
 

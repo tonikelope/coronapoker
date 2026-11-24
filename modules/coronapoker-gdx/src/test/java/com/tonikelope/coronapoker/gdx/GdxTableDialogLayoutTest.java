@@ -45,11 +45,10 @@ final class GdxTableDialogLayoutTest {
                 < layout.enabled().y);
         assertTrue(layout.amount().label().x
                 + layout.amount().label().width
-                <= layout.amount().controls().x);
-        assertEquals(-1, layout.amount().directionAt(
-                layout.amount().minusButton().x + 1f));
-        assertEquals(1, layout.amount().directionAt(
-                layout.amount().plusButton().x + 1f));
+                <= layout.amount().track().x);
+        assertTrue(layout.amount().track().width > 0f);
+        assertTrue(layout.amount().track().x + layout.amount().track().width
+                < layout.amount().value().x);
     }
 
     @Test

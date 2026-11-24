@@ -54,15 +54,22 @@ final class GdxSettingsNavigationContractTest {
     }
 
     @Test
-    void liveHandLimitUsesTheSameInlineSwitchAndCounterAsTheLobby()
+    void handLimitUsesAnInlineSwitchAndSliderInLiveAndLobbySettings()
             throws IOException {
         String source = Files.readString(Path.of("src", "main", "java",
                 "com", "tonikelope", "coronapoker", "gdx",
                 "CoronaPokerGdxTable.java"));
 
+        String frontend = Files.readString(Path.of("src", "main", "java",
+                "com", "tonikelope", "coronapoker", "gdx",
+                "GdxFrontendScreen.java"));
+
         assertTrue(source.contains("toggleDraftHandLimit();"));
-        assertTrue(source.contains(
-                "adjustDraftHandLimit(settingsStepperDirection"));
+        assertTrue(source.contains("drawLiveSettingsSliderShape(bounds, rows, Control.HAND_LIMIT,"));
+        assertTrue(source.contains("this::setDraftHandLimit"));
+        assertTrue(frontend.contains(".setHandLimit(!settingsTable.handLimit()), editable)"));
+        assertTrue(frontend.contains("settingsGameSlider(bounds, \"row.hand_count\", Control.HAND_LIMIT,"));
+        assertTrue(frontend.contains("settingsTable::setHandLimitCount"));
         assertFalse(source.contains("openDraftHandLimitDialog("),
                 "the live hand limit must not fall back to a legacy modal");
     }

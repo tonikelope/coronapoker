@@ -116,6 +116,8 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
+import com.tonikelope.coronapoker.gdx.GdxGameSettingsSliders.Control;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -523,6 +525,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BitmapFont buttonCompactFont;
     private BitmapFont buttonTinyFont;
     private BitmapFont uiFont;
+    private BitmapFont settingsNumericFont;
     private BitmapFont volumeOverlayFont;
     private BitmapFont fpsFont;
     private final GdxProcessPerformanceSampler performanceSampler =
@@ -665,7 +668,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private BlindStructureDialog blindStructureDialog =
             BlindStructureDialog.NONE;
     private String blindStructureNameDraft = "";
-    private String initialBuyinInput;
     private boolean blindStructureSettingsTarget;
     private List<GamePresetCatalog.Entry> gamePresets = List.of();
     private int selectedGamePreset = -1;
@@ -728,6 +730,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private final GdxShuffleAngle shuffleAngleSlider = new GdxShuffleAngle();
     private final GdxSettingsSlider cardZoomSlider = new GdxSettingsSlider();
     private final GdxSettingsSlider percentageSlider = new GdxSettingsSlider();
+    private final GdxGameSettingsSliders gameSliders = new GdxGameSettingsSliders();
+    private final GdxGameSettingsSliders amountSliders = new GdxGameSettingsSliders();
     private final GdxMasterVolumeSetting masterVolumeSetting;
     private final GdxFrameRateControl fpsControl = new GdxFrameRateControl();
     private ScrollDrag scrollDrag = ScrollDrag.NONE;
@@ -1130,6 +1134,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         border, characters,
                         font -> uiFont = replaceFont(uiFont, font)),
                 new GdxFontRefresh.Font(mclaren,
+                        GdxSettingsStyle.NUMERIC_FONT_SIZE, 0f,
+                        border, characters,
+                        font -> settingsNumericFont = replaceFont(settingsNumericFont, font)),
+                new GdxFontRefresh.Font(mclaren,
                         GdxVolumeOverlayStyle.FONT_SIZE, GdxVolumeOverlayStyle.FONT_BORDER,
                         border, characters,
                         font -> volumeOverlayFont = replaceFont(volumeOverlayFont, font)),
@@ -1192,7 +1200,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         nativeTextTiers.clear();
         BitmapFont[] standard = {
             titleFont, settingsStepperSignFont, volumeOverlayFont,
-            headingFont, actionFont, uiFont, buttonMediumFont,
+            headingFont, actionFont, uiFont, settingsNumericFont, buttonMediumFont,
             buttonCompactFont, smallFont, buttonTinyFont, tinyFont,
             versionFont
         };
@@ -1291,7 +1299,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             rulesWindow.close();
             hoverAnimations.clear();
-            if (initialBuyinInput != null) closeInitialBuyinEditor();
+            gameSliders.cancel();
         }
         surface = next;
         clearPressedHit();
@@ -1442,6 +1450,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         shuffleAngleSlider.hide();
         cardZoomSlider.hide();
         percentageSlider.hide();
+        gameSliders.hide();
+        amountSliders.hide();
         fpsControl.hide();
         // The clipped chat layer belongs only to the message history. Clear
         // its previous-frame viewport before drawing a gallery or emoji
@@ -1620,8 +1630,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 drawUpdateDialog();
             } else if (blindStructureDialog != BlindStructureDialog.NONE) {
                 drawSettingsControls(this::drawBlindStructureDialog);
-            } else if (initialBuyinInput != null) {
-                drawSettingsControls(this::drawInitialBuyinEditor);
             } else if (voiceNotesOpen) {
                 drawVoiceNotesDialog();
             } else if (rootSurfaceModal) {
@@ -2101,7 +2109,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && (customBotManagerOpen || upnpOpenInFlight
                         || submissions.submitting()
                         || presetDialog != PresetDialog.NONE
-                        || initialBuyinInput != null
                         || blindStructureDialog != BlindStructureDialog.NONE))
                 || (surface == Surface.STATS
                 && (statsEvidenceOpen
@@ -2171,7 +2178,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     && frontendNoticeMessage.isBlank()
                     && !submissions.submitting()
                     && presetDialog == PresetDialog.NONE
-                    && initialBuyinInput == null
                     && blindStructureDialog == BlindStructureDialog.NONE;
         }
         if (surface == Surface.STATS && statsReturnAction == null) {
@@ -2198,7 +2204,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 && profileBackupSelection == null
                 && !imagePreview.isOpen()
                 && settingsAutoCallDialog == null
-                && initialBuyinInput == null
                 && !voiceNotesOpen
                 && blindStructureDialog == BlindStructureDialog.NONE;
     }
@@ -2206,6 +2211,18 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private boolean settingsSlidersInteractive() {
         return surface == Surface.SETTINGS && isFrontendRootModal()
                 && dropdown == Dropdown.NONE && !rulesWindow.isOpen();
+    }
+
+    private boolean gameSlidersInteractive() {
+        return (surface == Surface.SETTINGS || surface == Surface.NEW_GAME)
+                && isFrontendRootModal() && dropdown == Dropdown.NONE
+                && !rulesWindow.isOpen() && !menuDialogSlide.moving();
+    }
+
+    private boolean amountSlidersInteractive() {
+        return (settingsAutoCallDialog != null || blindStructureDialog == BlindStructureDialog.EDITOR)
+                && dropdown == Dropdown.NONE && !frontendNoticeOwnsPointer()
+                && !rulesWindow.isOpen() && !menuDialogSlide.moving();
     }
 
     private Object menuSlideTarget() {
@@ -2280,7 +2297,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || settingsDiscardConfirmation
                 || profileBackupSelection != null || settingsBackupPending
                 || settingsAutoCallDialog != null
-                || initialBuyinInput != null
                 || voiceNotesOpen
                 || blindStructureDialog != BlindStructureDialog.NONE;
     }
@@ -5392,6 +5408,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void captureFrontendModalInput() {
         cardZoomSlider.cancel();
         percentageSlider.cancel();
+        gameSliders.cancel();
+        amountSliders.cancel();
         fpsControl.cancel();
         shuffleAngleSlider.cancel();
         editMenu = null;
@@ -9022,6 +9040,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void closeSettings(boolean save) {
         if (save) {
             if (lobbyCommandPending || menuDialogSlide.closing(Surface.SETTINGS)) return;
+            gameSliders.finishEditing();
             audioPreview.stop();
             playSaveSound();
         }
@@ -9885,7 +9904,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             GdxSettingsLayout.PixelRows rows, GdxSettingsSlider.Setting setting,
             String labelKey, int defaultValue) {
         Rectangle label = row.label();
-        Rectangle percentage = row.value();
         int value = setting.value(initialProperties);
         boolean enabled = setting.enabled(initialProperties);
         percentageSlider.draw(shapes, row.bounds(), rows, setting,
@@ -9894,12 +9912,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 GdxSettingsLayout.sliderTextBaseline(row),
                 enabled ? Color.WHITE : DISABLED,
                 false, label.width);
-        textFit(smallFont, GdxSettingsContract.markDefault(
-                value + "%", value == defaultValue),
-                percentage.x + percentage.width / 2f,
-                GdxSettingsLayout.sliderTextBaseline(row),
-                enabled ? GOLD : DISABLED, true,
-                percentage.width - 8f);
+        drawSliderValue(GdxSettingsLayout.sliderReadout(row.bounds()),
+                GdxSettingsContract.markDefault(value + "%", value == defaultValue), enabled);
     }
 
     private void drawAppearanceSettings(float x, float y, float w, float h) {
@@ -10138,8 +10152,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 float baseline = bounds.y + bounds.height * .5f + 9f;
                 textFit(smallFont, uppercase(gameText.translate(GdxShuffleAngle.LABEL)), bounds.x + 18f,
                         baseline, enabled ? Color.WHITE : DISABLED, false, bounds.width * .42f - 30f);
-                textFit(smallFont, GdxShuffleAngle.labelValue(angle), bounds.x + bounds.width - 53f,
-                        baseline, enabled ? GOLD : DISABLED, true, 84f);
+                drawSliderValue(GdxSettingsLayout.sliderReadout(bounds),
+                        GdxShuffleAngle.labelValue(angle), enabled);
                 settingsTooltip(bounds, GdxShuffleAngle.KEY);
             } else if (animationRow.toggle() != null) {
                 GdxSettingsContract.ToggleOption option =
@@ -10194,13 +10208,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void drawFrameRateControl(Rectangle row, GdxSettingsLayout.PixelRows rows) {
         Properties frameRate = settingsSession.frameRateDraft();
         fpsControl.draw(shapes, row, rows, frameRate, true, 1f,
-                value -> textWidth(smallFont, value));
+                value -> textWidth(settingsNumericFont, value));
         boolean enabled = GdxFrameRateLimit.CUSTOM.enabled(frameRate);
         float baseline = row.y + row.height * .5f + 9f;
         textFit(smallFont, "FPS", row.x + 18f, baseline,
                 enabled ? Color.WHITE : DISABLED, false, row.width * .42f - 30f);
-        text(smallFont, fpsControl.text(frameRate), fpsControl.textCenterX(),
-                baseline, enabled ? GOLD : DISABLED, true);
+        drawSliderValue(GdxSettingsLayout.sliderRow(row).value(), fpsControl.text(frameRate), enabled);
     }
 
     private void drawCardZoomRow(Rectangle row, GdxSettingsLayout.PixelRows rows) {
@@ -10213,7 +10226,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         String label = gameText.translate(GdxCardZoom.SHUFFLE_LABEL);
         textFit(smallFont, uppercase(label) + (perspective ? " (3D)" : " (2D)"), row.x + 18f, baseline,
                 enabled ? Color.WHITE : DISABLED, false, row.width * .42f - 30f);
-        textFit(smallFont, zoom.display(value), row.x + row.width - 53f, baseline, enabled ? GOLD : DISABLED, true, 96f);
+        drawSliderValue(GdxSettingsLayout.sliderReadout(row), zoom.display(value), enabled);
     }
 
     private void drawSettingsRowScrollbar(float x,
@@ -10271,9 +10284,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void settingsDropdownChoice(float x, float y, float w, float h,
             String label, String value, Dropdown target, boolean enabled) {
-        settingsDropdownChoice(x, y, w, h, label, value, "",
-                () -> openDropdown(target, settingsDropdownAnchor(x, y, w, h)),
-                enabled);
+        settingsDropdownChoice(x, y, w, h, label, value, "", target, enabled);
     }
 
     private void settingsDropdownChoice(float x, float y, float w, float h,
@@ -10281,7 +10292,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             boolean enabled) {
         settingsDropdownChoice(x, y, w, h, label, value, status,
                 () -> openDropdown(target, settingsDropdownAnchor(x, y, w, h)),
-                enabled);
+                enabled, target == Dropdown.MSAA || target == Dropdown.VOICE_RETENTION);
     }
 
     private void settingsDropdownChoice(float x, float y, float w, float h,
@@ -10293,6 +10304,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void settingsDropdownChoice(float x, float y, float w, float h,
             String label, String value, String status, Runnable action,
             boolean enabled) {
+        settingsDropdownChoice(x, y, w, h, label, value, status, action, enabled, false);
+    }
+
+    private void settingsDropdownChoice(float x, float y, float w, float h,
+            String label, String value, String status, Runnable action,
+            boolean enabled, boolean numeric) {
         GdxSettingsLayout.ChoiceRow row = settingsChoiceTextRow(x, y, w, h,
                 value);
         GdxSettingsStyle.drawRow(shapes, x, y, w, h, enabled,
@@ -10320,8 +10337,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         float valueX = row.value().x + row.value().width / 2f;
         if (label.equals(settingsGameText("row.initial_blinds"))) {
-            moneyTextFit(uiFont, value, valueX, GdxSettingsLayout.rowTextBaseline(y),
-                    valueColor, true, row.value().width - 12f);
+            drawNumericMoneyValue(row.value(), value, valueColor);
+        } else if (numeric) {
+            drawNumericValue(row.value(), value, valueColor);
         } else {
             textFit(uiFont, value, valueX, GdxSettingsLayout.rowTextBaseline(y),
                     valueColor, true, row.value().width - 12f);
@@ -10477,8 +10495,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         float valueX = valueBounds.x + valueBounds.width / 2f;
         float valueBaseline = GdxSettingsLayout.stepperValueBaseline(y);
         if (label.equals(settingsGameText("row.cap"))) {
-            moneyTextFit(uiFont, value, valueX, valueBaseline,
-                    valueColor, true, valueBounds.width - 12f);
+            drawNumericMoneyValue(valueBounds, value, valueColor);
         } else {
             textFit(uiFont, value, valueX, valueBaseline,
                     valueColor, true, valueBounds.width - 12f);
@@ -10602,13 +10619,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_INTERVAL_ROW), rowWidth,
                 GdxSettingsContract.BLIND_INTERVAL_ROW, groups, BLIND_ROW_COUNT);
-        settingsStepper(row.x, row.y, row.width,
-                GdxSettingsLayout.ROW_HEIGHT,
-                settingsGameText("row.interval"),
-                settingsBlindInterval(),
-                () -> adjustSettingsBlindInterval(-1),
-                () -> adjustSettingsBlindInterval(1),
-                enabled && settingsTable.increaseBlinds());
+        settingsGameSlider(row, "row.interval", Control.BLIND_INTERVAL,
+                blindIntervalRange(settingsTable), settingsTable.blindInterval(),
+                enabled && settingsTable.increaseBlinds(), settingsTable::setBlindInterval);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BLIND_CAP_TOGGLE_ROW), rowWidth,
                 GdxSettingsContract.BLIND_CAP_TOGGLE_ROW, groups, BLIND_ROW_COUNT);
@@ -10675,21 +10688,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         Rectangle row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_MINIMUM_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_MINIMUM_ROW, groups, 8);
-        settingsStepper(row.x, row.y, row.width,
-                settingsGameText("row.minimum_range_bb"),
-                settingsTable.minBuyinBb(), () -> settingsTable
-                        .setMinBuyinBb(settingsTable.minBuyinBb() - 5),
-                () -> settingsTable.setMinBuyinBb(
-                        settingsTable.minBuyinBb() + 5), economyEditable);
+        settingsGameSlider(row, "row.minimum_range_bb", Control.MIN_BUYIN,
+                Control.MIN_BUYIN.between(NewGameTableDraft.MIN_BUYIN_BB, settingsTable.maxBuyinBb()),
+                settingsTable.minBuyinBb(), economyEditable, settingsTable::setMinBuyinBb);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_MAXIMUM_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_MAXIMUM_ROW, groups, 8);
-        settingsStepper(row.x, row.y, row.width,
-                settingsGameText("row.maximum_range_bb"),
-                settingsTable.maxBuyinBb(), () -> settingsTable
-                        .setMaxBuyinBb(settingsTable.maxBuyinBb() - 5),
-                () -> settingsTable.setMaxBuyinBb(
-                        settingsTable.maxBuyinBb() + 5), economyEditable);
+        settingsGameSlider(row, "row.maximum_range_bb", Control.MAX_BUYIN,
+                Control.MAX_BUYIN.between(settingsTable.minBuyinBb(), NewGameTableDraft.MAX_BUYIN_BB),
+                settingsTable.maxBuyinBb(), economyEditable, settingsTable::setMaxBuyinBb);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_FIXED_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_FIXED_ROW, groups, 8);
@@ -10701,7 +10708,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_INITIAL_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_INITIAL_ROW, groups, 8);
-        initialBuyinChoice(row.x, row.y, row.width, row.height,
+        initialBuyinField(row.x, row.y, row.width, row.height,
                 settingsTable, economyEditable);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_REBUY_ROW), rowWidth,
@@ -10723,14 +10730,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 rows.rowY(GdxSettingsContract.BUYIN_MAXIMUM_REBUYS_ROW),
                 rowWidth, GdxSettingsContract.BUYIN_MAXIMUM_REBUYS_ROW,
                 groups, 8);
-        settingsStepper(row.x, row.y, row.width,
-                settingsGameText("row.maximum_rebuys"),
-                settingsTable.rebuyLimitCount(),
-                () -> settingsTable.setRebuyLimitCount(
-                        settingsTable.rebuyLimitCount() - 1),
-                () -> settingsTable.setRebuyLimitCount(
-                        settingsTable.rebuyLimitCount() + 1),
-                editable && settingsTable.rebuyLimitCountEnabled());
+        settingsGameSlider(row, "row.maximum_rebuys", Control.REBUYS, Control.REBUYS.range,
+                settingsTable.rebuyLimitCount(), editable && settingsTable.rebuyLimitCountEnabled(),
+                settingsTable::setRebuyLimitCount);
         row = GdxSettingsLayout.groupedRow(rowX,
                 rows.rowY(GdxSettingsContract.BUYIN_REBUY_CAP_ROW), rowWidth,
                 GdxSettingsContract.BUYIN_REBUY_CAP_ROW, groups, 8);
@@ -10845,14 +10847,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (rows.firstIndex() <= 1 && rows.lastExclusive() > 1) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
                     rows.rowY(1), rowWidth, 1, groups, 9);
-            settingsStepper(bounds.x, bounds.y, bounds.width,
-                    settingsGameText("row.hand_count"),
-                    settingsTable.handLimitCount(), () -> settingsTable
-                            .setHandLimitCount(
-                                    settingsTable.handLimitCount() - 1),
-                    () -> settingsTable.setHandLimitCount(
-                            settingsTable.handLimitCount() + 1),
-                    editable && settingsTable.handLimit());
+            settingsGameSlider(bounds, "row.hand_count", Control.HAND_LIMIT, Control.HAND_LIMIT.range,
+                    settingsTable.handLimitCount(), editable && settingsTable.handLimit(),
+                    settingsTable::setHandLimitCount);
         }
         if (rows.firstIndex() <= 2 && rows.lastExclusive() > 2) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
@@ -10865,23 +10862,15 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (rows.firstIndex() <= 3 && rows.lastExclusive() > 3) {
             Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
                     rows.rowY(3), rowWidth, 3, groups, 9);
-            settingsStepper(bounds.x, bounds.y, bounds.width,
-                    settingsGameText("row.think_seconds"),
-                    settingsTable.thinkSeconds(),
-                    () -> settingsTable.setThinkSeconds(
-                            settingsTable.thinkSeconds() - 5),
-                    () -> settingsTable.setThinkSeconds(
-                            settingsTable.thinkSeconds() + 5),
-                    editable && settingsTable.thinkTime());
+            settingsGameSlider(bounds, "row.think_seconds", Control.THINK_TIME, Control.THINK_TIME.range,
+                    settingsTable.thinkSeconds(), editable && settingsTable.thinkTime(),
+                    settingsTable::setThinkSeconds);
         }
         if (rows.firstIndex() <= 4 && rows.lastExclusive() > 4) {
-            settingsStepper(rowX, rows.rowY(4), rowWidth,
-                    settingsGameText("row.showdown_seconds"),
-                    settingsTable.showdownSeconds(),
-                    () -> settingsTable.setShowdownSeconds(
-                            settingsTable.showdownSeconds() - 5),
-                    () -> settingsTable.setShowdownSeconds(
-                            settingsTable.showdownSeconds() + 5), editable);
+            Rectangle bounds = GdxSettingsLayout.groupedRow(rowX,
+                    rows.rowY(4), rowWidth, 4, groups, 9);
+            settingsGameSlider(bounds, "row.showdown_seconds", Control.SHOWDOWN, Control.SHOWDOWN.range,
+                    settingsTable.showdownSeconds(), editable, settingsTable::setShowdownSeconds);
         }
         if (rows.firstIndex() <= 5 && rows.lastExclusive() > 5) {
             settingsBooleanToggle(rowX, rows.rowY(5), rowWidth,
@@ -10925,22 +10914,14 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             Rectangle clipped = clippedSettingsHit(bounds.x, bounds.y,
                     bounds.width, bounds.height);
             if (clipped == null) continue;
-            String description = gameText.translate(
-                    GdxSettingsTooltips.descriptionKey(keys.get(row)));
+            String setting = keys.get(row);
+            String description = "initial_buyin".equals(setting)
+                    ? initialBuyinTooltip(settingsTable)
+                    : gameText.translate(GdxSettingsTooltips.descriptionKey(setting));
             tooltip(clipped.x, clipped.y, clipped.width, clipped.height,
                     "gdx.settings.tooltip.text", GdxSettingsTooltips.withLock(
                             description, lockForRow.apply(row), gameText));
         }
-    }
-
-    private void settingsStepper(float x, float y, float w, String label,
-            int value, Runnable minus, Runnable plus, boolean enabled) {
-        settingsStepper(x, y, w, GdxSettingsLayout.ROW_HEIGHT,
-                label, Integer.toString(value), minus, plus, enabled);
-    }
-
-    private String settingsBlindInterval() {
-        return Integer.toString(settingsTable.blindInterval());
     }
 
     private String settingsBlindUnit() {
@@ -10950,17 +10931,17 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         : settingsGameText("value.hands");
     }
 
+    private static GdxGameSettingsSliders.Range blindIntervalRange(NewGameTableDraft draft) {
+        return GdxGameSettingsSliders.blindIntervalRange(
+                draft.blindIncreaseType() == NewGameTableDraft.BlindIncreaseType.HANDS,
+                Integer.MAX_VALUE);
+    }
+
     private void toggleSettingsBlindIncreaseType() {
         settingsTable.setBlindIncreaseType(settingsTable.blindIncreaseType()
                 == NewGameTableDraft.BlindIncreaseType.MINUTES
                         ? NewGameTableDraft.BlindIncreaseType.HANDS
                         : NewGameTableDraft.BlindIncreaseType.MINUTES);
-    }
-
-    private void adjustSettingsBlindInterval(int direction) {
-        if (direction == 0) return;
-        settingsTable.setBlindInterval(settingsTable.blindInterval()
-                + Integer.signum(direction));
     }
 
     private String settingsBlindCap() {
@@ -11107,6 +11088,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void openSettingsAutoCallDialog() {
+        amountSliders.cancel();
         settingsAutoCallDialog = GdxTableDialog.autoCall(
                 preferenceBoolean("auto_call_enabled", false),
                 GdxSettingsContract.automaticCallLimit(initialProperties), gameText);
@@ -11117,6 +11099,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxTableDialog dialog = settingsAutoCallDialog;
         if (dialog == null) return;
         if (save) {
+            amountSliders.finishEditing();
             playSaveSound();
             initialProperties.setProperty("auto_call_enabled",
                     Boolean.toString(dialog.optionEnabled()));
@@ -11124,6 +11107,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     Double.toString(dialog.autoCallAmount()));
         }
         settingsAutoCallDialog = null;
+        amountSliders.cancel();
     }
 
     private void drawSettingsAutoCallDialog() {
@@ -11154,13 +11138,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 uppercase(gameText.translate("auto_call.sin_limite")),
                 dialog.noLimit(), true, dialog::toggleNoLimit,
                 dialog.optionEnabled());
-        GdxSettingsLayout.StepperRow amount = layout.amount();
-        settingsStepper(amount.bounds().x, amount.bounds().y,
-                amount.bounds().width, amount.bounds().height,
-                uppercase(settingsGameText("value.maximum")),
-                GdxChipAmountText.compactLabel(dialog.amountText()), () -> dialog.changeAmount(-1),
-                () -> dialog.changeAmount(1),
-                dialog.optionEnabled() && !dialog.noLimit());
+        var amount = layout.amount();
+        Rectangle row = amount.bounds();
+        boolean editable = dialog.autoCallAmountEditable();
+        GdxSettingsStyle.drawRow(shapes, row.x, row.y, row.width, row.height, editable, false, false, 1f);
+        amountSliders.draw(shapes, amount, row.y, row.y + row.height, Control.AUTO_CALL,
+                Control.AUTO_CALL.range, dialog.autoCallSliderCents(),
+                editable ? dialog::selectAutoCallSliderCents : null,
+                new GdxGameSettingsSliders.ExactValue(dialog.amountText(), true, dialog::selectAutoCallExactText),
+                1f, this::fitGameSliderFont);
+        textFit(smallFont, uppercase(settingsGameText("value.maximum")), amount.label().x,
+                GdxSettingsLayout.sliderTextBaseline(amount), editable ? Color.WHITE : DISABLED,
+                false, amount.label().width);
+        drawGameSliderValue(amount, amountSliders.text(Control.AUTO_CALL, dialog.amountText()), editable);
         float buttonY = panelY + 34f;
         themedButton(panelX + 42f, buttonY, 230f, 64f,
                 uppercase(gameText.translate("ui.cancelar")),
@@ -12451,12 +12441,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         rightX, intervalY, halfWidth, 72f),
                 editable && table.increaseBlinds());
         gameSettingTooltip(rightX, intervalY, halfWidth, 72f, "blind_unit");
-        stepper(rightX + halfWidth + 30f, intervalY, halfWidth,
-                settingsGameText("row.interval"),
-                table.blindInterval(), 1, Integer.MAX_VALUE,
-                () -> table.setBlindInterval(table.blindInterval() - 1),
-                () -> table.setBlindInterval(table.blindInterval() + 1),
-                editable && table.increaseBlinds());
+        newGameSlider(rightX + halfWidth + 30f, intervalY, halfWidth, "row.interval",
+                Control.BLIND_INTERVAL, blindIntervalRange(table), table.blindInterval(),
+                editable && table.increaseBlinds(), table::setBlindInterval);
         gameSettingTooltip(rightX + halfWidth + 30f, intervalY, halfWidth,
                 102f, "blind_interval");
 
@@ -12549,6 +12536,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
     private void openBlindStructureEditor() {
         if (table.economyLocked()) return;
+        amountSliders.cancel();
         dropdown = Dropdown.NONE;
         blindStructureSettingsTarget = false;
         blindStructureEditor.begin(initialProperties, table.structureName());
@@ -12562,6 +12550,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         boolean menuDefaults = settingsSession.context()
                 == GdxSettingsSession.Context.MENU;
         if (!menuDefaults && (lobby == null || !lobby.host())) return;
+        amountSliders.cancel();
         dropdown = Dropdown.NONE;
         blindStructureSettingsTarget = true;
         blindStructureEditor.begin(initialProperties,
@@ -12572,6 +12561,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
 
     private void closeBlindStructureEditor() {
+        amountSliders.cancel();
         dropdown = Dropdown.NONE;
         blindStructureDialog = BlindStructureDialog.NONE;
         blindStructureNameDraft = "";
@@ -12724,16 +12714,12 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                             levelIndex + 1, selected.levels().size()),
                     () -> blindStructureEditor.selectLevel(-1),
                     () -> blindStructureEditor.selectLevel(1), true);
-            blindAmountStepper(930f, 565f, 330f,
+            blindAmountSlider(930f, 565f, 330f,
                     gameText.translate("blinds.ciega_pequena"),
-                    level.smallBlind(),
-                    () -> adjustEditorBlind(true, -1),
-                    () -> adjustEditorBlind(true, 1));
-            blindAmountStepper(1290f, 565f, 330f,
+                    level.smallBlind(), true);
+            blindAmountSlider(1290f, 565f, 330f,
                     gameText.translate("blinds.ciega_grande_col"),
-                    level.bigBlind(),
-                    () -> adjustEditorBlind(false, -1),
-                    () -> adjustEditorBlind(false, 1));
+                    level.bigBlind(), false);
             button(930f, 455f, 330f, 62f,
                     uppercase(gameText.translate("blinds.anadir_nivel")), false,
                     () -> {
@@ -12770,46 +12756,19 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 blindStructureEditor.dirty());
     }
 
-    private void adjustEditorBlind(boolean small, int direction) {
-        BlindStructureCatalog.BlindLevel level =
-                blindStructureEditor.selectedLevel();
-        if (level == null) return;
-        double value = small ? level.smallBlind() : level.bigBlind();
-        int stepCount = blindEditorStepCount(value) * direction;
-        boolean accepted = small
-                ? blindStructureEditor.adjustSmallBlind(stepCount)
-                : blindStructureEditor.adjustBigBlind(stepCount);
-        if (!accepted) {
-            showToast(gameText.translate(BlindStructureRules.ERR_VALUE_RANGE));
-        }
-    }
-
-    static int blindEditorStepCount(double value) {
-        if (value < 1d) return 1;
-        if (value < 10d) return 2;
-        if (value < 100d) return 20;
-        if (value < 1_000d) return 200;
-        if (value < 10_000d) return 2_000;
-        if (value < 100_000d) return 20_000;
-        return 200_000;
-    }
-
-    private void blindAmountStepper(float x, float y, float width,
-            String label, double value, Runnable minus, Runnable plus) {
+    private void blindAmountSlider(float x, float y, float width,
+            String label, double value, boolean small) {
         textFit(smallFont, uppercase(label), x, y + 99f, MUTED, false, width);
-        outerBox(x, y, width, 72f,
-                hovered(x, y, width, 72f) ? CYAN : LINE, PANEL_LIGHT);
-        float side = 70f;
-        embeddedButtonSurface(x, y, side + 3f, 72f, true);
-        embeddedButtonSurface(x + width - side - 3f, y,
-                side + 3f, 72f, true);
-        GdxUiButtonStyle.drawStepperSign(shapes, x, y, side + 3f, 72f, false, Color.WHITE, 1f);
-        GdxUiButtonStyle.drawStepperSign(shapes, x + width - side - 3f, y,
-                side + 3f, 72f, true, Color.WHITE, 1f);
-        moneyTextFit(headingFont, formatBlind(value), x + width / 2f,
-                y + 49f, GOLD, true, width - side * 2f - 24f);
-        repeatHit(x, y, side + 6f, 72f, minus);
-        repeatHit(x + width - side - 6f, y, side + 6f, 72f, plus);
+        var row = GdxSettingsLayout.gameSliderRow(new Rectangle(x, y, width, 72f), false);
+        var range = blindStructureEditor.sliderRange(small);
+        boolean editable = range.max() > range.min();
+        int cents = (int) Math.round(value * 100d);
+        Control control = small ? Control.SMALL_BLIND : Control.BIG_BLIND;
+        GdxSettingsStyle.drawRow(shapes, x, y, width, 72f, editable, false, false, 1f);
+        amountSliders.draw(shapes, row, y, y + 72f, control, range, cents,
+                next -> blindStructureEditor.selectSliderValue(small, next), 1f,
+                this::fitGameSliderFont);
+        drawGameSliderValue(row, amountSliders.text(control, GdxGameSettingsSliders.decimalText(cents)), editable);
     }
 
     private void drawBlindStructureNameDialog() {
@@ -12872,24 +12831,16 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setFixedBuyin(!table.fixedBuyin()), !table.economyLocked());
         gameSettingTooltip(470f, 625f, 590f, GdxSettingsLayout.ROW_HEIGHT,
                 "fixed_buyin");
-        initialBuyinChoice(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+        initialBuyinField(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT,
                 table, !table.economyLocked());
-        gameSettingTooltip(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT,
-                "initial_buyin");
-        stepper(470f, 315f, 280f,
-                settingsGameText("row.minimum_range_bb"),
-                table.minBuyinBb(), NewGameTableDraft.MIN_BUYIN_BB,
-                NewGameTableDraft.MAX_BUYIN_BB,
-                () -> table.setMinBuyinBb(table.minBuyinBb() - 5),
-                () -> table.setMinBuyinBb(table.minBuyinBb() + 5),
-                !table.economyLocked());
-        stepper(780f, 315f, 280f,
-                settingsGameText("row.maximum_range_bb"),
-                table.maxBuyinBb(), NewGameTableDraft.MIN_BUYIN_BB,
-                NewGameTableDraft.MAX_BUYIN_BB,
-                () -> table.setMaxBuyinBb(table.maxBuyinBb() - 5),
-                () -> table.setMaxBuyinBb(table.maxBuyinBb() + 5),
-                !table.economyLocked());
+        tooltip(470f, 480f, 590f, GdxSettingsLayout.ROW_HEIGHT,
+                "gdx.settings.tooltip.text", initialBuyinTooltip(table));
+        newGameSlider(470f, 315f, 280f, "row.minimum_range_bb", Control.MIN_BUYIN,
+                Control.MIN_BUYIN.between(NewGameTableDraft.MIN_BUYIN_BB, table.maxBuyinBb()),
+                table.minBuyinBb(), !table.economyLocked(), table::setMinBuyinBb);
+        newGameSlider(780f, 315f, 280f, "row.maximum_range_bb", Control.MAX_BUYIN,
+                Control.MAX_BUYIN.between(table.minBuyinBb(), NewGameTableDraft.MAX_BUYIN_BB),
+                table.maxBuyinBb(), !table.economyLocked(), table::setMaxBuyinBb);
         gameSettingTooltip(470f, 315f, 280f, 102f, "minimum_buyin");
         gameSettingTooltip(780f, 315f, 280f, 102f, "maximum_buyin");
 
@@ -12903,12 +12854,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 () -> table.setRebuyLimit(!table.rebuyLimit()), table.rebuyLimitEnabled());
         gameSettingTooltip(1170f, 505f, 645f, GdxSettingsLayout.ROW_HEIGHT,
                 "player_rebuy_limit");
-        stepper(1170f, 365f, 645f,
-                settingsGameText("row.maximum_rebuys"),
-                table.rebuyLimitCount(), 1, Integer.MAX_VALUE,
-                () -> table.setRebuyLimitCount(table.rebuyLimitCount() - 1),
-                () -> table.setRebuyLimitCount(table.rebuyLimitCount() + 1),
-                table.rebuyLimitCountEnabled());
+        newGameSlider(1170f, 365f, 645f, "row.maximum_rebuys", Control.REBUYS, Control.REBUYS.range,
+                table.rebuyLimitCount(), table.rebuyLimitCountEnabled(), table::setRebuyLimitCount);
         gameSettingTooltip(1170f, 365f, 645f, 102f, "maximum_rebuys");
         dropdownChoice(1170f, 225f, 645f,
                 settingsGameText("row.rebuy_cap"),
@@ -12921,75 +12868,39 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         gameSettingTooltip(1170f, 225f, 645f, 72f, "rebuy_cap");
     }
 
-    private void initialBuyinChoice(float x, float y, float width, float height,
+    private void initialBuyinField(float x, float y, float width, float height,
             NewGameTableDraft draft, boolean economyEditable) {
-        settingsChoice(x, y, width, height, settingsGameText("row.initial_buyin"),
-                GdxChipAmountText.buyinLabel(draft.buyin(), gameText.language()),
-                this::openInitialBuyinEditor, economyEditable && draft.fixedBuyin());
+        boolean enabled = economyEditable && draft.fixedBuyin();
+        var row = GdxSettingsLayout.gameSliderRow(new Rectangle(x, y, width, height), true);
+        GdxSettingsStyle.drawRow(shapes, x, y, width, height, enabled, false, false, 1f);
+        float bottom = settingsRowsActive ? settingsRowsClip.y : y;
+        float top = settingsRowsActive ? settingsRowsClip.y + settingsRowsClip.height : y + height;
+        var exact = GdxGameSettingsSliders.ExactValue.wholeChips(draft.buyin(),
+                text -> selectInitialBuyin(draft, text));
+        gameSliders.drawField(shapes, row.value(), bottom, top, Control.INITIAL_BUYIN,
+                exact, enabled, 1f, this::fitGameSliderFont);
+        textFit(smallFont, uppercase(settingsGameText("row.initial_buyin")), row.label().x,
+                GdxSettingsLayout.sliderTextBaseline(row), enabled ? Color.WHITE : DISABLED,
+                false, row.label().width);
+        drawGameSliderValue(row, gameSliders.text(Control.INITIAL_BUYIN,
+                GdxChipAmountText.buyinLabel(draft.buyin(), gameText.language())), enabled);
     }
 
-    private void openInitialBuyinEditor() {
-        NewGameTableDraft target = dropdownTableTarget();
-        if (!canEditTableEconomy(target) || !target.fixedBuyin()) return;
-        clearModalCompositionState();
-        initialBuyinInput = GdxChipAmountText.buyinLabel(
-                target.buyin(), gameText.language());
-        activateField("initialBuyin");
-        textEdit.selectAll(initialBuyinInput);
+    private boolean selectInitialBuyin(NewGameTableDraft draft, String value) {
+        if (!canEditTableEconomy(draft) || !draft.fixedBuyin()) return false;
+        OptionalInt amount = GdxChipAmountText.parseWholeChips(value, gameText.language());
+        if (amount.isEmpty() || amount.getAsInt() < draft.minimumBuyin()
+                || amount.getAsInt() > draft.maximumBuyin()) return false;
+        draft.setBuyin(amount.getAsInt());
+        return true;
     }
 
-    private void closeInitialBuyinEditor() {
-        initialBuyinInput = null;
-        editMenu = null;
-        clearActiveField();
-    }
-
-    private void submitInitialBuyin() {
-        NewGameTableDraft target = dropdownTableTarget();
-        if (!canEditTableEconomy(target) || !target.fixedBuyin()) return;
-        OptionalInt amount = GdxChipAmountText.parseWholeChips(
-                initialBuyinInput, gameText.language());
-        if (initialBuyinError(target, amount).isEmpty()) {
-            target.setBuyin(amount.getAsInt());
-            closeInitialBuyinEditor();
-        }
-    }
-
-    private static String initialBuyinError(NewGameTableDraft target, OptionalInt amount) {
-        if (amount.isEmpty()) return "gdx.settings.game.buyin_editor.invalid";
-        if (amount.getAsInt() < target.minimumBuyin()
-                || amount.getAsInt() > target.maximumBuyin()) {
-            return "gdx.settings.game.buyin_editor.out_of_range";
-        }
-        return "";
-    }
-
-    private void drawInitialBuyinEditor() {
-        NewGameTableDraft target = dropdownTableTarget();
+    private String initialBuyinTooltip(NewGameTableDraft draft) {
         String language = gameText.language();
-        OptionalInt amount = GdxChipAmountText.parseWholeChips(initialBuyinInput, language);
-        String error = initialBuyinError(target, amount);
-        boolean showError = !initialBuyinInput.isBlank() && !error.isEmpty();
-        GdxUiDialogStyle.drawPanel(shapes, 560f, 330f, 800f, 404f,
-                CYAN_DARK, 1f);
-        textFit(headingFont, settingsGameText("row.initial_buyin"),
-                960f, 681f, GOLD, true, 700f);
-        field(660f, 498f, 600f,
-                gameText.translate("gdx.settings.game.buyin_editor.amount"),
-                initialBuyinInput, "initialBuyin", false, !showError);
-        String range = gameText.translate("gdx.settings.game.buyin_editor.range",
-                GdxChipAmountText.buyinLabel(target.minimumBuyin(), language),
-                GdxChipAmountText.buyinLabel(target.maximumBuyin(), language));
-        textFit(smallFont, range, 660f, 479f, MUTED, false, 600f);
-        if (showError) {
-            dialogMessage(smallFont, gameText.translate(error),
-                    new Rectangle(660f, 418f, 600f, 40f), ORANGE, false);
-        }
-        themedButton(660f, 350f, 270f, 64f, gameText.translate("ui.cancelar"),
-                ButtonTone.NEUTRAL, this::closeInitialBuyinEditor, true);
-        themedButton(990f, 350f, 270f, 64f, uppercase(gameText.translate("ui.aceptar")),
-                ButtonTone.POSITIVE, this::submitInitialBuyin,
-                canEditTableEconomy(target) && target.fixedBuyin() && error.isEmpty());
+        String description = gameText.translate(GdxSettingsTooltips.descriptionKey("initial_buyin"));
+        return description + "\n" + gameText.translate("gdx.settings.game.buyin_editor.range",
+                GdxChipAmountText.buyinLabel(draft.minimumBuyin(), language),
+                GdxChipAmountText.buyinLabel(draft.maximumBuyin(), language));
     }
 
     private void drawGamePage() {
@@ -13003,11 +12914,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         gameSettingTooltip(470f, NEW_GAME_GAME_TOP_ROW_Y, 590f,
                 GdxSettingsLayout.ROW_HEIGHT,
                 "hand_limit");
-        inlineStepper(780f, NEW_GAME_GAME_TOP_ROW_Y, 280f,
-                table.handLimitCount(), 1, Integer.MAX_VALUE,
-                () -> table.setHandLimitCount(table.handLimitCount() - 1),
-                () -> table.setHandLimitCount(table.handLimitCount() + 1),
-                table.handLimit());
+        newGameSlider(780f, NEW_GAME_GAME_TOP_ROW_Y, 280f, null, Control.HAND_LIMIT,
+                Control.HAND_LIMIT.range, table.handLimitCount(), table.handLimit(), table::setHandLimitCount);
         toggle(470f, NEW_GAME_GAME_SECOND_ROW_Y, 280f,
                 gameText.translate("gdx.settings.game.row.think_time"),
                 table.thinkTime(),
@@ -13015,15 +12923,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         gameSettingTooltip(470f, NEW_GAME_GAME_SECOND_ROW_Y, 590f,
                 GdxSettingsLayout.ROW_HEIGHT,
                 "think_time");
-        inlineStepper(780f, NEW_GAME_GAME_SECOND_ROW_Y, 280f,
-                table.thinkSeconds(), 10, 120,
-                () -> table.setThinkSeconds(table.thinkSeconds() - 5),
-                () -> table.setThinkSeconds(table.thinkSeconds() + 5), table.thinkTime());
-        stepper(470f, NEW_GAME_GAME_LABELLED_ROW_Y, 590f,
-                gameText.translate("gdx.settings.game.row.showdown_seconds"),
-                table.showdownSeconds(), 5, 30,
-                () -> table.setShowdownSeconds(table.showdownSeconds() - 5),
-                () -> table.setShowdownSeconds(table.showdownSeconds() + 5));
+        newGameSlider(780f, NEW_GAME_GAME_SECOND_ROW_Y, 280f, null, Control.THINK_TIME,
+                Control.THINK_TIME.range, table.thinkSeconds(), table.thinkTime(), table::setThinkSeconds);
+        newGameSlider(470f, NEW_GAME_GAME_LABELLED_ROW_Y, 590f, "row.showdown_seconds", Control.SHOWDOWN,
+                Control.SHOWDOWN.range, table.showdownSeconds(), true, table::setShowdownSeconds);
         gameSettingTooltip(470f, NEW_GAME_GAME_LABELLED_ROW_Y, 590f, 102f,
                 "showdown_time");
         toggle(470f, NEW_GAME_GAME_BOTTOM_ROW_Y, 590f,
@@ -14200,15 +14103,23 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         outerBox(x, y, w, 70f, border,
                 pressed(x, y, w, 70f) ? new Color(0x0b1424ff) : PANEL_LIGHT);
         String visible = passwordDisplay(value, secret, revealed);
+        boolean numeric = "port".equals(id);
+        BitmapFont valueFont = numeric ? settingsNumericFont : uiFont;
         float textWidth = w - (secret ? 102f : 44f);
         FrontendInputWindow window = visible.isEmpty()
                 ? new FrontendInputWindow("—", 0, 0, 0f, 0f, 0f)
-                : frontendInputWindow(uiFont, value, visible, textWidth,
+                : frontendInputWindow(valueFont, value, visible, textWidth,
                         focused);
-        drawInputSelection(x + 22f, y + 17f, 36f, window, focused);
-        text(uiFont, window.text(), x + 22f, y + 44f,
+        float textX = numeric ? x + (w - textWidth(valueFont, window.text())) / 2f : x + 22f;
+        float textY = y + 44f;
+        if (numeric) {
+            glyph.setText(valueFont, window.text());
+            textY = y + (70f + glyph.height) / 2f;
+        }
+        drawInputSelection(textX, y + 17f, 36f, window, focused);
+        text(valueFont, window.text(), textX, textY,
                 visible.isEmpty() ? DISABLED : Color.WHITE, false);
-        drawInputCaret(x + 22f + window.caretOffset(), y + 17f, 36f,
+        drawInputCaret(textX + window.caretOffset(), y + 17f, 36f,
                 focused);
         if (secret) {
             Rectangle revealBounds = passwordRevealBounds(x, y, w);
@@ -14650,45 +14561,82 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         GdxUiButtonStyle.drawStepperSign(shapes, x, y, side + 3f, 72f, false, signColor, 1f);
         GdxUiButtonStyle.drawStepperSign(shapes, x + w - side - 3f, y,
                 side + 3f, 72f, true, signColor, 1f);
-        textFit(headingFont, value, x + w / 2f, y + 49f,
-                enabled ? GOLD : DISABLED, true,
-                Math.max(0f, w - 2f * side - 24f));
+        drawSliderValue(new Rectangle(x + side + 8f, y, Math.max(0f, w - 2f * side - 16f), 72f),
+                value, enabled);
         if (enabled) {
             repeatHit(x, y, side + 6f, 72f, minus);
             repeatHit(x + w - side - 6f, y, side + 6f, 72f, plus);
         }
     }
 
-    /**
-     * Counter paired horizontally with a labelled toggle. The toggle owns the
-     * row label, so this control must not add a second label above itself or
-     * use a different height. Keeping both halves on the shared settings row
-     * geometry prevents the visibly staggered controls previously present in
-     * Nueva Timba.
-     */
-    private void inlineStepper(float x, float y, float w, int value,
-            int min, int max, Runnable minus, Runnable plus,
-            boolean enabled) {
-        float height = GdxSettingsLayout.ROW_HEIGHT;
-        GdxSettingsStyle.drawRow(shapes, x, y, w, height, enabled,
-                enabled && hovered(x, y, w, height),
-                enabled && pressed(x, y, w, height), 1f);
-        float side = 66f;
-        embeddedButtonSurface(x, y, side + 3f, height, enabled);
-        embeddedButtonSurface(x + w - side - 3f, y,
-                side + 3f, height, enabled);
-        Color signColor = enabled ? Color.WHITE : DISABLED;
-        GdxUiButtonStyle.drawStepperSign(shapes, x, y,
-                side + 3f, height, false, signColor, 1f);
-        GdxUiButtonStyle.drawStepperSign(shapes, x + w - side - 3f, y,
-                side + 3f, height, true, signColor, 1f);
-        textFit(headingFont, Integer.toString(value), x + w / 2f,
-                y + 46f, enabled ? GOLD : DISABLED, true,
-                Math.max(0f, w - side * 2f - 24f));
-        if (enabled) {
-            repeatHit(x, y, side + 6f, height, minus);
-            repeatHit(x + w - side - 6f, y, side + 6f, height, plus);
+    private void newGameSlider(float x, float y, float width, String labelKey,
+            Control control, GdxGameSettingsSliders.Range range, int value,
+            boolean enabled, IntConsumer select) {
+        enabled &= range.max() > range.min();
+        if (labelKey != null) {
+            textFit(smallFont, uppercase(settingsGameText(labelKey)), x, y + 99f,
+                    enabled ? MUTED : DISABLED, false, width);
         }
+        Rectangle bounds = new Rectangle(x, y, width,
+                labelKey == null ? GdxSettingsLayout.ROW_HEIGHT : 72f);
+        var row = GdxSettingsLayout.gameSliderRow(bounds, false);
+        drawGameSlider(row, control, range, value, enabled, select);
+    }
+
+    private void settingsGameSlider(Rectangle bounds, String labelKey,
+            Control control, GdxGameSettingsSliders.Range range, int value,
+            boolean enabled, IntConsumer select) {
+        enabled &= range.max() > range.min();
+        var row = GdxSettingsLayout.gameSliderRow(bounds, true);
+        drawGameSlider(row, control, range, value, enabled, select);
+        textFit(smallFont, uppercase(settingsGameText(labelKey)), row.label().x,
+                GdxSettingsLayout.sliderTextBaseline(row), enabled ? Color.WHITE : DISABLED,
+                false, row.label().width);
+    }
+
+    private void drawGameSlider(GdxSettingsLayout.SliderRow row, Control control,
+            GdxGameSettingsSliders.Range range, int value, boolean enabled, IntConsumer select) {
+        Rectangle bounds = row.bounds();
+        GdxSettingsStyle.drawRow(shapes, bounds.x, bounds.y, bounds.width,
+                bounds.height, enabled, enabled && hovered(bounds.x, bounds.y, bounds.width, bounds.height),
+                false, 1f);
+        float bottom = settingsRowsActive ? settingsRowsClip.y : bounds.y;
+        float top = settingsRowsActive ? settingsRowsClip.y + settingsRowsClip.height : bounds.y + bounds.height;
+        gameSliders.draw(shapes, row, bottom, top, control, range, value, enabled ? select : null, 1f,
+                this::fitGameSliderFont);
+        drawGameSliderValue(row, gameSliders.text(control, Integer.toString(value)), enabled);
+    }
+
+    private void drawGameSliderValue(GdxSettingsLayout.SliderRow row, String value, boolean enabled) {
+        drawSliderValue(row.value(), value, enabled);
+    }
+
+    private void drawSliderValue(Rectangle box, String value, boolean enabled) {
+        drawNumericValue(box, value, enabled ? GOLD : DISABLED);
+    }
+
+    private void drawNumericValue(Rectangle box, String value, Color color) {
+        queueNumericText(box, fitGameSliderFont(value, box.width - 8f), value, color);
+    }
+
+    private void drawNumericMoneyValue(Rectangle box, String value, Color color) {
+        GdxCrispButtonText.resolveAmountWithinBox(glyph, value, box.width - 8f,
+                Float.POSITIVE_INFINITY, nativeTextTiers(settingsNumericFont),
+                crispButtonText, amountZeroMode());
+        queueNumericText(box, crispButtonText.font(), crispButtonText.text(), color);
+    }
+
+    private void queueNumericText(Rectangle box, BitmapFont font, String value, Color color) {
+        glyph.setText(font, value);
+        activeTextItems().add(new TextItem(font, value, box.x + box.width / 2f,
+                box.y + (box.height + glyph.height) / 2f,
+                new Color(color), true));
+    }
+
+    private BitmapFont fitGameSliderFont(String value, float width) {
+        GdxCrispButtonText.resolveWithinContentWidth(glyph, value, width,
+                nativeTextTiers(settingsNumericFont), crispButtonText);
+        return crispButtonText.font();
     }
 
     private void choice(float x, float y, float w, String label, String value,
@@ -14737,7 +14685,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 enabled && pressed(x, y, w, h), 1f);
         Color valueColor = enabled ? Color.WHITE : DISABLED;
         if (label.equals(gameText.translate("gdx.settings.game.row.initial_blinds"))) {
-            moneyTextFit(uiFont, value, x + 22f, y + 46f, valueColor, false, w - 92f);
+            drawNumericMoneyValue(new Rectangle(x + 16f, y, w - 88f, h), value, valueColor);
         } else {
             textFit(uiFont, value, x + 22f, y + 46f, valueColor, false, w - 92f);
         }
@@ -15310,9 +15258,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 x + w - 30f, cy, 3f);
         shapes.rectLine(x + w - 30f, cy,
                 x + w - 42f, cy + 12f, 3f);
-        textFit(uiFont, value, x + w / 2f, y + h / 2f + 10f,
-                enabled ? Color.WHITE : DISABLED, true,
-                Math.max(0f, w - side * 2f - 28f));
+        drawNumericValue(new Rectangle(x + side + 10f, y, Math.max(0f, w - side * 2f - 20f), h),
+                value, enabled ? Color.WHITE : DISABLED);
         if (enabled) {
             hit(x, y, side + 6f, h, previous);
             hit(x + w - side - 6f, y, side + 6f, h, next);
@@ -16647,6 +16594,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
         clearPressedHit();
+        if (button == Input.Buttons.LEFT && amountSlidersInteractive()
+                && amountSliders.begin(pointer.x, pointer.y, pointerIndex)) {
+            clearActiveField();
+            return true;
+        }
         if (rulesWindow.isOpen()) {
             rulesWindow.touchDown(pointer.x, pointer.y, pointerIndex, button);
             return true;
@@ -16745,6 +16697,11 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || percentageSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
                         || shuffleAngleSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties)
                         || cardZoomSlider.begin(pointer.x, pointer.y, pointerIndex, initialProperties))) return true;
+        if (button == Input.Buttons.LEFT && gameSlidersInteractive()
+                && gameSliders.begin(pointer.x, pointer.y, pointerIndex)) {
+            clearActiveField();
+            return true;
+        }
         boolean rootSurfaceOwnsPointer = isFrontendRootModal();
         if (avatarCropSession == null && dropdown != Dropdown.NONE
                 && button == Input.Buttons.LEFT
@@ -16838,6 +16795,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         || percentageSlider.drag(pointer.x, pointerIndex, initialProperties)
                         || shuffleAngleSlider.drag(pointer.x, pointerIndex, initialProperties)
                         || cardZoomSlider.drag(pointer.x, pointerIndex, initialProperties))) return true;
+        if (gameSlidersInteractive() && gameSliders.drag(pointer.x, pointerIndex)) return true;
+        if (amountSlidersInteractive() && amountSliders.drag(pointer.x, pointerIndex)) return true;
         if (rulesWindow.isOpen()) {
             rulesWindow.touchDragged(pointer.x, pointer.y, pointerIndex);
             return true;
@@ -16917,7 +16876,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (settingsDiscardConfirmation && button != Input.Buttons.LEFT) return true;
         pointer.set(screenX, screenY);
         viewport.unproject(pointer);
-        if (button == Input.Buttons.LEFT && (fpsControl.release(pointerIndex)
+        if (button == Input.Buttons.LEFT && (amountSliders.release(pointerIndex)
+                || gameSliders.release(pointerIndex) || fpsControl.release(pointerIndex)
                 || percentageSlider.release(pointerIndex) || shuffleAngleSlider.release(pointerIndex)
                 || cardZoomSlider.release(pointerIndex))) return true;
         if (lobbyVoicePointer.release(pointerIndex, button)) {
@@ -17339,6 +17299,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
         if (settingsSlidersInteractive()
                 && fpsControl.keyDown(keycode, control, shift, settingsSession.frameRateDraft())) return true;
+        if (!alt && activeField == null && gameSlidersInteractive()
+                && gameSliders.keyDown(keycode, control, shift)) return true;
+        if (!alt && activeField == null && amountSlidersInteractive()
+                && amountSliders.keyDown(keycode, control, shift)) return true;
         boolean capturingShortcut = surface == Surface.SETTINGS
                 && settingsSession.section() == GdxSettingsContract.Section.SHORTCUTS
                 && settingsShortcutCaptureId != null;
@@ -17454,10 +17418,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             }
             if (settingsRestartNotice) {
                 dismissSettingsRestartNotice();
-                return true;
-            }
-            if (initialBuyinInput != null) {
-                closeInitialBuyinEditor();
                 return true;
             }
             if (surface == Surface.SETTINGS
@@ -17749,10 +17709,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             if (!voiceNotesLoading) confirmVoiceNoteDeletion();
             return true;
         }
-        if (initialBuyinInput != null) {
-            submitInitialBuyin();
-            return true;
-        }
         if (surface == Surface.SETTINGS && settingsAutoCallDialog != null) {
             closeSettingsAutoCallDialog(true);
             return true;
@@ -17862,6 +17818,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (pendingLanguage != null) return true;
         if (settingsSlidersInteractive()
                 && fpsControl.keyTyped(character, settingsSession.frameRateDraft())) return true;
+        if (gameSlidersInteractive() && gameSliders.keyTyped(character)) return true;
+        if (amountSlidersInteractive() && amountSliders.keyTyped(character)) return true;
         if (rulesWindow.isOpen()) {
             rulesWindow.key(KeyEvent.KEY_TYPED, 0, character);
             return true;
@@ -17890,7 +17848,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         && newGameTextField(activeField))
                 || (lobbyPasswordDialog
                         && "lobbyPassword".equals(activeField))
-                || (initialBuyinInput != null && "initialBuyin".equals(activeField))
                 || (presetDialog == PresetDialog.NAME
                         && "presetName".equals(activeField))
                 || ((blindStructureDialog == BlindStructureDialog.NAME_NEW
@@ -18037,7 +17994,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "lobbyPassword" -> lobbyPasswordDraft;
             case "presetName" -> presetNameDraft;
             case "blindStructureName" -> blindStructureNameDraft;
-            case "initialBuyin" -> initialBuyinInput;
             case "customBotName" -> customBotNameDraft;
             case "statsExcludeNicks" -> statsExcludeNicksDraft;
             default -> "";
@@ -18069,7 +18025,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case "lobbyPassword" -> lobbyPasswordDraft = value;
             case "presetName" -> presetNameDraft = value;
             case "blindStructureName" -> blindStructureNameDraft = value;
-            case "initialBuyin" -> initialBuyinInput = value;
             case "customBotName" -> {
                 customBotNameDraft = value;
                 customBotValidationError = "";
@@ -18103,30 +18058,34 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         } else {
             boolean masked = isPasswordField(field.id)
                     && !field.id.equals(revealedPasswordField);
+            boolean numeric = "port".equals(field.id);
+            BitmapFont font = numeric ? settingsNumericFont : uiFont;
             String display = masked ? maskedPassword(value) : value;
-            FrontendInputWindow window = frontendInputWindow(uiFont, value,
+            FrontendInputWindow window = frontendInputWindow(font, value,
                     display, field.bounds.width
                             - (isPasswordField(field.id) ? 102f : 44f), true);
             int start = window.sourceStart();
+            float textX = numeric ? field.bounds.x + (field.bounds.width - textWidth(font, window.text())) / 2f
+                    : field.bounds.x + 22f;
             target = GdxTextEditState.nearestBoundary(value, start,
-                    window.sourceEnd(), localX,
+                    window.sourceEnd(), pointerX - textX,
                     index -> value.offsetByCodePoints(index, 1),
-                    index -> inputPrefixWidth(value, display, start, index));
+                    index -> inputPrefixWidth(font, value, display, start, index));
         }
         textEdit.setCaret(value, target, extend);
         normalizeLobbyEmojiCaret(value, pointerX < field.bounds.x
                 + field.bounds.width / 2f ? -1 : 1, extend);
     }
 
-    private float inputPrefixWidth(String source, String display,
+    private float inputPrefixWidth(BitmapFont font, String source, String display,
             int sourceStart, int sourceEnd) {
         if (source.equals(display)) {
-            return textWidth(uiFont, display.substring(sourceStart,
+            return textWidth(font, display.substring(sourceStart,
                     sourceEnd));
         }
         int displayStart = source.codePointCount(0, sourceStart);
         int displayEnd = source.codePointCount(0, sourceEnd);
-        return textWidth(uiFont, display.substring(displayStart, displayEnd));
+        return textWidth(font, display.substring(displayStart, displayEnd));
     }
 
     static String maskedPassword(String value) {
@@ -18264,6 +18223,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         buttonCompactFont.dispose();
         buttonTinyFont.dispose();
         uiFont.dispose();
+        settingsNumericFont.dispose();
         volumeOverlayFont.dispose();
         smallFont.dispose();
         if (languageOptionFont != null) languageOptionFont.dispose();
@@ -18301,7 +18261,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             pressedHit = null;
             clearPointerRepeat();
         }
-        if (b == Input.Buttons.LEFT && (fpsControl.release(p) || percentageSlider.release(p)
+        if (b == Input.Buttons.LEFT && (amountSliders.release(p) || gameSliders.release(p)
+                || fpsControl.release(p) || percentageSlider.release(p)
                 || shuffleAngleSlider.release(p) || cardZoomSlider.release(p))) return true;
         if (pendingLanguage != null) return true;
         if (rulesWindow.cancel(p, b)) return true;
@@ -18364,6 +18325,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     }
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        if (gameSlidersInteractive() && gameSliders.editing()) gameSliders.finishEditing();
         if (pendingLanguage != null || fileChooserPending()
                 || menuDialogSlide.moving()) return true;
         pointer.set(Gdx.input.getX(), Gdx.input.getY());

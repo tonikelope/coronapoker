@@ -66,6 +66,24 @@ final class GdxLiveSettingsMergeTest {
     }
 
     @Test
+    void editingTheBlindIntervalAndCapKeepsTheLatestBlindLevel() {
+        var opened = configuration().withBlindSettings(0.10d, 0.20d,
+                15, 1, 0d, List.of());
+        var edited = opened.withBlindSettings(0.10d, 0.20d,
+                20, 1, 0.30d, List.of());
+        var current = opened.withBlindSettings(0.20d, 0.40d,
+                15, 1, 0d, List.of());
+
+        var merged = GdxLiveSettingsMerge.merge(opened, edited, current);
+
+        assertEquals(0.20d, merged.smallBlind());
+        assertEquals(0.40d, merged.bigBlind());
+        assertEquals(20, merged.blindsDouble());
+        assertEquals(0.40d, merged.blindCap());
+        assertSame(merged, GameConfigCodecV1.requireValid(merged));
+    }
+
+    @Test
     void liveSaveCannotRewriteSettingsFixedWhenTheTableWasCreated() {
         GameConfigCodecV1.Configuration opened = configuration();
         GameConfigCodecV1.Configuration edited =

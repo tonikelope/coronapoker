@@ -186,6 +186,35 @@ final class GdxBlindStructureEditor {
         return adjustLevel(steps, false);
     }
 
+    GdxGameSettingsSliders.Range sliderRange(boolean small) {
+        var control = small ? GdxGameSettingsSliders.Control.SMALL_BLIND
+                : GdxGameSettingsSliders.Control.BIG_BLIND;
+        Entry entry = selected();
+        int index = selectedLevelIndex();
+        if (entry == null || index < 0) return control.range;
+        List<BlindLevel> levels = entry.levels();
+        int step = control.range.step();
+        int min = index == 0 ? control.range.min() : cents(levels.get(index - 1), small) + step;
+        int max = index + 1 == levels.size() ? control.range.max() : cents(levels.get(index + 1), small) - step;
+        int opposite = cents(levels.get(index), !small);
+        return control.between(small ? min : Math.max(min, opposite),
+                small ? Math.min(max, opposite) : max);
+    }
+
+    void selectSliderValue(boolean small, int cents) {
+        BlindLevel level = selectedLevel();
+        if (level == null) return;
+        var range = sliderRange(small);
+        if (cents < range.min() || cents > range.max()
+                || (cents - range.min()) % range.step() != 0) return;
+        int steps = (cents - cents(level, small)) / range.step();
+        if (steps != 0) adjustLevel(steps, small);
+    }
+
+    private static int cents(BlindLevel level, boolean small) {
+        return (int) Math.round((small ? level.smallBlind() : level.bigBlind()) * 100d);
+    }
+
     void save(Properties properties) {
         writeTo(properties);
         markPersisted();

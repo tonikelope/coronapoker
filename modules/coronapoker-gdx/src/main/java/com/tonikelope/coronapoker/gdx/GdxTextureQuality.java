@@ -26,6 +26,16 @@ final class GdxTextureQuality {
         return texture;
     }
 
+    static Texture loadDetailedAlphaEdgeUi(FileHandle file) {
+        Texture texture = loadAlphaEdgeUi(file);
+        // Blend the mip levels while the perspective changes.
+        texture.setFilter(TextureFilter.MipMapLinearLinear, uiMagnificationFilter());
+        // LibGDX clamps to the device limit. Inclined badges then retain
+        // detail along the less compressed axis of the projection.
+        texture.setAnisotropicFilter(16f);
+        return texture;
+    }
+
     static Pixmap resizePixmap(Pixmap source, int width, int height) {
         Pixmap resized = new Pixmap(width, height, source.getFormat());
         try {

@@ -23,9 +23,10 @@ final class GdxSettingsSession {
         MENU, WAITING_ROOM, LIVE_TABLE
     }
 
-    private static final List<String> FRAME_RATE_KEYS =
-            List.of(GdxFrameRateLimit.KEY, GdxFrameRateLimit.MODE_KEY);
-    private final Properties frameRateDraft = new Properties();
+    private static final List<String> DEFERRED_KEYS = List.of(
+            GdxFrameRateLimit.KEY, GdxFrameRateLimit.MODE_KEY,
+            GdxSettingsContract.DIALOG_SLIDE_DIRECTION_KEY);
+    private final Properties deferredProperties = new Properties();
     private Context context = Context.MENU;
     private int tabIndex;
     private final Map<Context, Integer> lastTabByContext =
@@ -34,6 +35,7 @@ final class GdxSettingsSession {
             lastSubpageByContext = new EnumMap<>(Context.class);
     private Map<String, String> preferenceSnapshot = Map.of();
     private boolean openedPerspective;
+    private GdxDialogSlide.Direction openedDialogSlideDirection;
     private boolean open;
 
     void begin(Context nextContext, Properties properties) {
@@ -41,8 +43,10 @@ final class GdxSettingsSession {
         tabIndex = lastTabByContext.getOrDefault(context, 0);
         preferenceSnapshot = properties == null
                 ? Map.of() : GdxSettingsContract.snapshot(properties);
-        resetFrameRateDraft();
+        resetDeferredProperties();
         openedPerspective = properties != null && GdxAppearanceOptions.perspectiveTable(properties);
+        openedDialogSlideDirection = properties == null ? GdxDialogSlide.Direction.UP
+                : GdxAppearanceOptions.dialogSlideDirection(properties);
         open = true;
     }
 
@@ -112,34 +116,45 @@ final class GdxSettingsSession {
     }
 
     Properties frameRateDraft() {
-        return frameRateDraft;
+        return deferredProperties;
     }
 
-    void commitFrameRate(Properties properties) {
-        if (!open || properties == null || FRAME_RATE_KEYS.stream().allMatch(key ->
-                Objects.equals(preferenceSnapshot.get(key), frameRateDraft.getProperty(key)))) return;
+    Properties appearanceChoiceProperties(GdxAppearanceOptions.Choice choice,
+            Properties properties) {
+        return open && choice == GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION
+                ? deferredProperties : properties;
+    }
+
+    GdxDialogSlide.Direction dialogSlideDirection(Properties properties) {
+        return open ? openedDialogSlideDirection
+                : GdxAppearanceOptions.dialogSlideDirection(properties);
+    }
+
+    void commitDeferredProperties(Properties properties) {
+        if (!open || properties == null) return;
         synchronized (properties) {
-            for (String key : FRAME_RATE_KEYS) {
-                String value = frameRateDraft.getProperty(key);
+            for (String key : DEFERRED_KEYS) {
+                String value = deferredProperties.getProperty(key);
+                if (Objects.equals(value, preferenceSnapshot.get(key))) continue;
                 if (value == null) properties.remove(key);
                 else properties.setProperty(key, value);
             }
         }
     }
 
-    private void resetFrameRateDraft() {
-        frameRateDraft.clear();
-        for (String key : FRAME_RATE_KEYS) {
+    private void resetDeferredProperties() {
+        deferredProperties.clear();
+        for (String key : DEFERRED_KEYS) {
             String value = preferenceSnapshot.get(key);
-            if (value != null) frameRateDraft.setProperty(key, value);
+            if (value != null) deferredProperties.setProperty(key, value);
         }
     }
 
     boolean propertiesChanged(Properties properties) {
         if (properties == null) return false;
         var current = GdxSettingsContract.snapshot(properties);
-        for (String key : FRAME_RATE_KEYS) {
-            current.put(key, frameRateDraft.getProperty(key));
+        for (String key : DEFERRED_KEYS) {
+            current.put(key, deferredProperties.getProperty(key));
         }
         // Selecting the active view is a no-op even if the opening profile used its implicit default.
         if (GdxAppearanceOptions.perspectiveTable(properties) == openedPerspective) {
@@ -149,13 +164,13 @@ final class GdxSettingsSession {
     }
 
     void restore(Properties properties, PreferencesService preferences) {
-        resetFrameRateDraft();
+        resetDeferredProperties();
         if (properties == null) return;
         synchronized (properties) {
             var current = GdxSettingsContract.snapshot(properties);
             var opening = new LinkedHashMap<>(preferenceSnapshot);
-            // The FPS draft never touched the shared preferences.
-            for (String key : FRAME_RATE_KEYS) {
+            // Deferred edits never touched the shared preferences.
+            for (String key : DEFERRED_KEYS) {
                 opening.put(key, current.get(key));
             }
             if (current.equals(opening)) return;
@@ -167,7 +182,7 @@ final class GdxSettingsSession {
 
     void close() {
         preferenceSnapshot = Map.of();
-        frameRateDraft.clear();
+        deferredProperties.clear();
         open = false;
     }
 

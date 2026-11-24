@@ -57,7 +57,7 @@ final class GdxPerspectivePocketGpuTest {
                     verifyAutoCallPreview(dir);
                     verifyPocket(dir);
                     verifyCrossDeckBack(dir);
-                    verifyFlopCallCost(dir);
+                    verifyCallCosts(dir);
                 } catch (Throwable error) {
                     failure.set(error);
                 } finally {
@@ -128,20 +128,32 @@ final class GdxPerspectivePocketGpuTest {
         return (pixels[i] & 255) > 200 && (pixels[i + 1] & 255) < 40 && (pixels[i + 2] & 255) > 200;
     }
 
-    private static void verifyFlopCallCost(Path dir) throws Exception {
-        try (var prefs = new PreferencesService(dir.resolve("call-cost.properties"))) {
+    private static void verifyCallCosts(Path dir) throws Exception {
+        var flop = List.of(new TableSnapshot.CardSnapshot("3_P", true, false),
+                new TableSnapshot.CardSnapshot("7_P", true, false),
+                new TableSnapshot.CardSnapshot("K_P", true, false));
+        var covered = new TableSnapshot.CardSnapshot("", false, false);
+        var classicBoard = new ArrayList<>(flop);
+        classicBoard.add(covered);
+        classicBoard.add(covered);
+        verifyCallCost(dir, TableSnapshot.Street.FLOP, classicBoard, "+2", 3);
+
+        var streetBoard = new ArrayList<>(flop);
+        streetBoard.add(new TableSnapshot.CardSnapshot("4_C", true, false));
+        verifyCallCost(dir, TableSnapshot.Street.TURN, streetBoard, "+0.8", 4);
+    }
+
+    private static void verifyCallCost(Path dir, TableSnapshot.Street street,
+            List<TableSnapshot.CardSnapshot> board, String amount, int firstHidden)
+            throws Exception {
+        try (var prefs = new PreferencesService(dir.resolve("call-cost-" + street + ".properties"))) {
             prefs.properties().setProperty("gdx_table_view", "3d");
             prefs.properties().setProperty("mostrar_coste_igualar", "true");
             var local = new TableSnapshot.PlayerSnapshot("local", 20d, 0d, 2d,
                     true, false, false, false, -2, -2, 0, 0L, false,
                     TableSnapshot.Position.NONE, "", "", List.of());
-            var covered = new TableSnapshot.CardSnapshot("", false, false);
-            var snapshot = new TableSnapshot(1L, "local", TableSnapshot.Street.FLOP,
-                    8d, "local", false, List.of(local), List.of(
-                            new TableSnapshot.CardSnapshot("3_P", true, false),
-                            new TableSnapshot.CardSnapshot("7_P", true, false),
-                            new TableSnapshot.CardSnapshot("K_P", true, false),
-                            covered, covered));
+            var snapshot = new TableSnapshot(1L, "local", street,
+                    8d, "local", false, List.of(local), board);
             var table = new CoronaPokerGdxTable(60, new GdxTableViewState(snapshot),
                     command -> {}, () -> {}, new GdxGameLogSink(), prefs);
             try {
@@ -152,7 +164,7 @@ final class GdxPerspectivePocketGpuTest {
                 travel.setFloat(table, 1f);
                 table.acceptEvent(new TableVisualEvent.PreparationStatus(2L,
                         TableVisualEvent.PreparationStatus.Phase.READY), new CompletableFuture<>());
-                table.acceptEvent(new TableVisualEvent.CallCost(3L, "+2", "rival"),
+                table.acceptEvent(new TableVisualEvent.CallCost(3L, amount, "rival"),
                         new CompletableFuture<>());
                 table.render();
 
@@ -177,14 +189,41 @@ final class GdxPerspectivePocketGpuTest {
                     }
                 }
                 assertTrue(firstColumn > bufferWidth * .55f && firstColumn < bufferWidth,
-                        "The flop amount must be drawn in the turn and river slots");
+                        "The 3D amount must be drawn in the unrevealed slots on " + street);
 
                 var perspective = CoronaPokerGdxTable.class.getDeclaredField("perspectiveActive");
                 perspective.setAccessible(true);
                 perspective.setBoolean(table, false);
+                Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
                 draw.invoke(table, width / 2f, height * .52f, tableWidth);
                 assertEquals(glyph.height, projectedSourceHeight, .01f,
                         "The source glyph has the same height before the 3D projection");
+                var cardWidthMethod = CoronaPokerGdxTable.class.getDeclaredMethod(
+                        "communityCardWidth", float.class);
+                cardWidthMethod.setAccessible(true);
+                float cardWidth = (float) cardWidthMethod.invoke(null, tableWidth);
+                float boardWidth = CoronaPokerGdxTable.communityBoardWidth(cardWidth);
+                float left = (width - boardWidth) / 2f
+                        + firstHidden * (boardWidth - cardWidth) / 4f;
+                float right = (width + boardWidth) / 2f;
+                byte[] flatPixels = ScreenUtils.getFrameBufferPixels(false);
+                int flatFirst = bufferWidth;
+                int flatLast = -1;
+                for (int offset = 0; offset < flatPixels.length; offset += 4) {
+                    if (Byte.toUnsignedInt(flatPixels[offset]) > 32) {
+                        int column = (offset / 4) % bufferWidth;
+                        flatFirst = Math.min(flatFirst, column);
+                        flatLast = Math.max(flatLast, column);
+                    }
+                }
+                assertTrue(flatLast >= flatFirst, "The 2D amount must be visible on " + street);
+                assertTrue(flatFirst >= left * bufferWidth / width - 2f
+                        && flatLast <= right * bufferWidth / width + 2f,
+                        "The 2D amount must stay off the exposed cards on " + street);
+                if (street == TableSnapshot.Street.TURN) {
+                    assertTrue(flatLast - flatFirst + 1 >= (right - left) * bufferWidth / width * .92f,
+                            "The turn amount must use the width of the last slot");
+                }
             } finally {
                 table.dispose();
             }

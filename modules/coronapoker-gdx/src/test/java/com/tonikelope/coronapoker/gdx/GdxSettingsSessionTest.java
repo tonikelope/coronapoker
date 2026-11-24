@@ -87,7 +87,7 @@ final class GdxSettingsSessionTest {
                 GdxSettingsContract.restoreAppearancePageDefaults(settings, draft, graphics, true, false);
                 assertTrue(GdxSettingsContract.appearancePageAtDefaults(settings, draft, graphics, true, false));
                 assertEquals(165, presentation.effectiveFrameRateLimit(240));
-                session.commitFrameRate(settings);
+                session.commitDeferredProperties(settings);
                 assertEquals(120, presentation.effectiveFrameRateLimit(240));
                 session.close();
 
@@ -95,11 +95,39 @@ final class GdxSettingsSessionTest {
                 GdxFrameRateLimit.CUSTOM.select(draft, 197);
                 GdxFrameRateLimit.selectMode(draft, 0);
                 assertEquals(120, presentation.effectiveFrameRateLimit(240));
-                session.commitFrameRate(settings);
+                session.commitDeferredProperties(settings);
                 assertEquals(241, presentation.effectiveFrameRateLimit(240));
                 assertEquals(197, GdxFrameRateLimit.CUSTOM.value(settings));
                 session.close();
             }
+        }
+    }
+
+    @Test
+    void dialogDirectionAndDefaultsStayInTheDraftUntilSave() {
+        var session = new GdxSettingsSession();
+        var properties = new Properties();
+        var choice = GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION;
+        for (var context : GdxSettingsSession.Context.values()) {
+            properties.setProperty(choice.key(), "off");
+            session.begin(context, properties);
+            var draft = session.appearanceChoiceProperties(choice, properties);
+            GdxAppearanceOptions.select(choice, draft, 1);
+            GdxAppearanceOptions.select(choice, draft, 2);
+            assertEquals("off", properties.getProperty(choice.key()));
+            assertEquals(GdxDialogSlide.Direction.OFF, session.dialogSlideDirection(properties));
+            assertTrue(session.propertiesChanged(properties));
+            session.restore(properties, null);
+            assertFalse(session.propertiesChanged(properties));
+            assertEquals(4, GdxAppearanceOptions.selectedIndex(choice, draft));
+
+            GdxSettingsContract.restoreAppearancePageDefaults(properties, draft, 1, true, false);
+            assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, draft, 1, true, false));
+            assertEquals("off", properties.getProperty(choice.key()));
+            assertTrue(session.propertiesChanged(properties));
+            session.commitDeferredProperties(properties);
+            session.close();
+            assertEquals(GdxDialogSlide.Direction.UP, session.dialogSlideDirection(properties));
         }
     }
 

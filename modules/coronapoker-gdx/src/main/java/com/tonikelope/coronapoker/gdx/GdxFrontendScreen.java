@@ -1330,7 +1330,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         prepareFrontendGraphicsState();
         elapsed += frameDelta;
         menuDialogSlide.update(menuSlideTarget(), frameDelta,
-                GdxAppearanceOptions.dialogSlideDirection(initialProperties));
+                settingsSession.dialogSlideDirection(initialProperties));
         if (networkBlockCache != null) {
             networkBlockCache.update(frameDelta,
                     lobby != null && lobby.host());
@@ -9054,7 +9054,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private void applySettingsClose(boolean save) {
         if (save) {
             fpsControl.finishEditing(settingsSession.frameRateDraft());
-            settingsSession.commitFrameRate(initialProperties);
+            settingsSession.commitDeferredProperties(initialProperties);
         }
         captureFrontendModalInput();
         audioPreview.stop();
@@ -10168,6 +10168,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         animationRow.choice();
                 boolean enabled = GdxAppearanceOptions.enabled(option,
                         initialProperties);
+                Properties choiceProperties = settingsSession.appearanceChoiceProperties(
+                        option, initialProperties);
                 Rectangle rowBounds = GdxSettingsLayout.groupedRow(baseX,
                         currentY, baseWidth, row, groups, rowCount);
                 Rectangle dropdownBounds = settingsDropdownAnchor(
@@ -10178,9 +10180,9 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                         option.label(gameText),
                         GdxSettingsContract.markDefault(
                                 GdxAppearanceOptions.selectedLabel(option,
-                                        initialProperties, gameText),
+                                         choiceProperties, gameText),
                                 GdxAppearanceOptions.isDefault(option,
-                                        initialProperties)),
+                                         choiceProperties)),
                         () -> openAppearanceChoiceDropdown(option,
                                 dropdownBounds), enabled);
                 settingsTooltip(rowBounds, option.key());
@@ -14813,7 +14815,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                     .indexOf(presentationSettings.requestedCardRenderingMode());
             case APPEARANCE_CHOICE -> dropdownAppearanceChoice == null ? -1
                     : GdxAppearanceOptions.selectedIndex(
-                            dropdownAppearanceChoice, initialProperties);
+                             dropdownAppearanceChoice, settingsSession.appearanceChoiceProperties(
+                                     dropdownAppearanceChoice, initialProperties));
             case ANTE_MODE -> dropdownTableTarget().anteMode().ordinal();
             case BLIND_UNIT -> dropdownTableTarget().blindIncreaseType()
                     .ordinal();
@@ -15026,7 +15029,8 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
             case APPEARANCE_CHOICE -> {
                 if (dropdownAppearanceChoice != null) {
                     GdxAppearanceOptions.select(dropdownAppearanceChoice,
-                            initialProperties, option);
+                             settingsSession.appearanceChoiceProperties(
+                                     dropdownAppearanceChoice, initialProperties), option);
                     presentationSettings.refreshRuntimePreferences();
                 }
             }

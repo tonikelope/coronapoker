@@ -41,10 +41,10 @@ final class GdxShuffleAudioSynchronizationTest {
         java.util.Arrays.fill(source, (byte) 79);
         var settings = new java.util.Properties();
         var choice = GdxAppearanceOptions.SHUFFLE_DURATION;
-        org.junit.jupiter.api.Assertions.assertEquals(GdxShuffleGeometry.Motion.FULL_DECK,
-                GdxAppearanceOptions.shuffleMotion(settings));
-        settings.setProperty(choice.key(), "full");
         org.junit.jupiter.api.Assertions.assertEquals(GdxShuffleGeometry.Motion.MID_BRIDGE,
+                GdxAppearanceOptions.shuffleMotion(settings));
+        settings.setProperty(choice.key(), "medium");
+        org.junit.jupiter.api.Assertions.assertEquals(GdxShuffleGeometry.Motion.FULL_DECK,
                 GdxAppearanceOptions.shuffleMotion(settings));
         for (int i = 1; i <= 2; i++) {
             GdxAppearanceOptions.select(choice, settings, i);
@@ -67,9 +67,13 @@ final class GdxShuffleAudioSynchronizationTest {
                 "private static float wavDurationSeconds(");
         int upload = update.indexOf("active.faces(0)");
         int clock = update.indexOf("active.startPresentation(System.nanoTime())");
-        int audio = update.indexOf("startShuffleSound(active.animationEnabled ? riffleTracks.get(active.motion) : shuffleSound, phase)");
+        int audio = update.indexOf("startShuffleSound(track, phase)");
         assertTrue(upload >= 0 && clock > upload && audio > clock,
                 "frame zero, shared epoch and WAV must arm in that order");
+        assertTrue(update.contains("riffleTracks.get(active.motionAt(cycle))"));
+        assertTrue(update.contains("active.poseAt(elapsed, cycle)"));
+        int stop = update.indexOf("stopShuffleSound();");
+        assertTrue(stop > clock && stop < update.indexOf("active.showFirstEnd = true;"));
         assertTrue(update.contains("active.elapsedSeconds(renderFrameNanos)"));
         assertTrue(method(table, "private void drawLiveShuffleOverlay()",
                 "private void drawTextOnlyShuffleOverlay(").contains(

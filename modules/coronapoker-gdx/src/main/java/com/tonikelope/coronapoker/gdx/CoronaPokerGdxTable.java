@@ -537,6 +537,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final float RIVAL_HAND_SIDE_DISTANCE = 34f;
     private static final float RIVAL_LEFT_CARD_SHIFT = 16f;
     private static final float REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO = 0.04f;
+    private static final float REMOTE_CALL_COST_VIEWPORT_INSET = 4f;
     /** Keeps the visible glyph clear of the remote nickname plate. */
     private static final float REMOTE_CALL_COST_POD_CLEARANCE = 4f;
     private static final float REMOTE_CHAT_MAX_WIDTH = 390f;
@@ -1057,6 +1058,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private static final Color DEFAULT_FONT_BORDER = new Color(0x02050ccc);
     private static final Color CALL_COST_FONT_COLOR = new Color(0f, 0f, 0f, 0.80f);
     private static final Color CALL_COST_FONT_BORDER = new Color(1f, 1f, 0f, 0.80f);
+    private static final int CALL_COST_SMALL_FONT_SIZE = 64;
+    private static final float CALL_COST_SMALL_FONT_BORDER = 2.4f;
     private static final Color FINAL_AMOUNT_FONT_BORDER = new Color(0x000000ef);
     private static final String TABLE_FONT_EXTRA_CHARACTERS =
             "\u2660\u2665\u2666\u2663\u2013"
@@ -1559,6 +1562,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private BitmapFont callCostFont;
     private BitmapFont callCostMediumFont;
     private BitmapFont callCostCompactFont;
+    private BitmapFont callCostSmallFont;
     private BitmapFont pauseFont;
     private BitmapFont pauseCompactFont;
     private BitmapFont finalHeroFont;
@@ -3483,7 +3487,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void finishClosingTableSettings(boolean save) {
         if (save && preferences != null) {
             fpsControl.finishEditing(settingsSession.frameRateDraft());
-            settingsSession.commitFrameRate(tableProperties);
+            settingsSession.commitDeferredProperties(tableProperties);
         }
         cardZoomSlider.cancel();
         percentageSlider.cancel();
@@ -4292,6 +4296,13 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     localOutcomeFont(creationFontGenerator, 24));
             case 32 -> localOutcomeNanoFont = cacheLocalOutcomeFont(21,
                     localOutcomeFont(creationFontGenerator, 21));
+            case 33 -> {
+                if (!createNextLargeFont(CALL_COST_SMALL_FONT_SIZE,
+                        CALL_COST_SMALL_FONT_BORDER, CALL_COST_FONT_COLOR,
+                        CALL_COST_FONT_BORDER, font -> callCostSmallFont = font)) {
+                    return false;
+                }
+            }
             default -> {
                 int missingSize = nextMissingLocalOutcomeFontSize();
                 if (missingSize >= 0) {
@@ -4985,6 +4996,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         fonts.add(new GdxFontRefresh.Font(mclaren, 96, 3.6f,
                 CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER, amountCharacters,
                 font -> callCostCompactFont = replaceFont(callCostCompactFont, font)));
+        fonts.add(new GdxFontRefresh.Font(mclaren, CALL_COST_SMALL_FONT_SIZE,
+                CALL_COST_SMALL_FONT_BORDER, CALL_COST_FONT_COLOR, CALL_COST_FONT_BORDER,
+                amountCharacters, font -> callCostSmallFont = replaceFont(callCostSmallFont, font)));
         fonts.add(new GdxFontRefresh.Font(mclaren, 76, 0f,
                 PAUSE_RED, new Color(0x640000cc), characters,
                 font -> pauseFont = replaceFont(pauseFont, font)));
@@ -5125,9 +5139,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                             localOutcomeFamily.length)));
         }
         registerNativeTextFamily(callCostFont, callCostMediumFont,
-                callCostCompactFont);
-        registerNativeTextFamily(callCostMediumFont, callCostCompactFont);
-        registerNativeTextFamily(callCostCompactFont);
+                callCostCompactFont, callCostSmallFont);
         registerNativeTextFamily(pauseFont, pauseCompactFont);
         registerNativeTextFamily(pauseCompactFont);
         registerNativeTextFamily(finalHeroFont, finalTitleFont,
@@ -7282,7 +7294,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         totalTime += delta;
         sceneTime += delta;
         settingsSlide.update(uiLayer == UI_SETTINGS ? Boolean.TRUE : null,
-                delta, GdxAppearanceOptions.dialogSlideDirection(tableSettingsProperties()));
+                delta, settingsSession.dialogSlideDirection(tableSettingsProperties()));
         if (!intro
                 && preparationPhase
                 == TableVisualEvent.PreparationStatus.Phase.READY
@@ -12093,7 +12105,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void selectTableAppearanceChoice(GdxAppearanceOptions.Choice choice,
             int option) {
         if (GdxAppearanceOptions.shuffleChoice(choice) && !tableAnimationChoiceEnabled(choice)) return;
-        GdxAppearanceOptions.select(choice, tableProperties, option);
+        GdxAppearanceOptions.select(choice, settingsSession.appearanceChoiceProperties(
+                choice, tableProperties), option);
         if (presentationSettings != null) {
             presentationSettings.refreshRuntimePreferences();
         }
@@ -17724,8 +17737,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private void drawCallCostOverlay(float cx, float cy, float tableWidth) {
         if (liveState == null || liveState.callCostText().isBlank()
                 || !tablePreference("mostrar_coste_igualar", true)
-                || (perspectiveActive && liveState.foldedThisHand(
-                        liveState.snapshot().localNickname()))) {
+                || liveState.foldedThisHand(liveState.snapshot().localNickname())) {
             return;
         }
         float cardW = communityCardWidth(tableWidth);
@@ -17734,24 +17746,21 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float firstX = cx - communityBoardWidth(cardW) / 2f;
         float cardY = cy - cardH * 0.36f;
         List<TableSnapshot.CardSnapshot> board = liveState.snapshot().communityCards();
-        // In 3D, an unrevealed slot can be empty in the snapshot.
-        int firstHidden = perspectiveActive && board.size() < 5 ? board.size() : -1;
-        for (int slot = 0; slot < Math.min(5, board.size()); slot++) {
-            TableSnapshot.CardSnapshot card = board.get(slot);
-            if (card.visible() ? !communityCardFaceUpForOverlay(slot, card)
-                    : perspectiveActive) {
-                firstHidden = slot;
+        int firstHidden = 0;
+        for (; firstHidden < Math.min(5, board.size()); firstHidden++) {
+            TableSnapshot.CardSnapshot card = board.get(firstHidden);
+            if (!card.visible() || !communityCardFaceUpForOverlay(firstHidden, card)) {
                 break;
             }
         }
-        if (firstHidden >= 0) {
+        if (firstHidden < 5) {
             float x = firstX + firstHidden * gap;
             float overlayWidth = cardW + (4 - firstHidden) * gap;
             // The hidden suffix is already the exact union of its board-card
             // slots. Do not spend part of that width on an extra inset: doing
             // so made short values such as +0.6 fall to the next native font
             // tier even though the two cards had enough room.
-            drawCallCostText(x, cardY, overlayWidth, cardH, true);
+            drawCallCostText(x, cardY, overlayWidth, cardH, true, firstHidden == 4);
             return;
         }
 
@@ -17765,19 +17774,20 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         LiveCardPlacement left = liveHolePlacement(aggressor, 0);
         LiveCardPlacement right = liveHolePlacement(aggressor, 1);
-        float minX = Math.min(left.x - left.width / 2f,
-                right.x - right.width / 2f);
-        float maxX = Math.max(left.x + left.width / 2f,
-                right.x + right.width / 2f);
-        float maxY = Math.max(left.y + left.height / 2f,
-                right.y + right.height / 2f);
+        // A remote seat can slide through the viewport edge on entry.
+        float minX = Math.max(REMOTE_CALL_COST_VIEWPORT_INSET,
+                Math.min(left.x - left.width / 2f, right.x - right.width / 2f));
+        float maxX = Math.min(viewport.getWorldWidth() - REMOTE_CALL_COST_VIEWPORT_INSET,
+                Math.max(left.x + left.width / 2f, right.x + right.width / 2f));
+        float maxY = Math.min(viewport.getWorldHeight() - REMOTE_CALL_COST_VIEWPORT_INSET,
+                Math.max(left.y + left.height / 2f, right.y + right.height / 2f));
         // Rival cards emerge exactly from the top of their PlayerPod. Anchor
         // the visible bottom of the amount to that same seat-relative edge;
         // centring the glyph in the full card-height box made it float too far
         // above the nickname on every remote seat.
-        float callY = remoteCallCostBottomY(
-                aggressor.podY + PLAYER_POD_HEIGHT);
-        drawCallCostText(minX, callY, maxX - minX, maxY - callY, false);
+        float callY = Math.max(REMOTE_CALL_COST_VIEWPORT_INSET,
+                remoteCallCostBottomY(aggressor.podY + PLAYER_POD_HEIGHT));
+        drawCallCostText(minX, callY, maxX - minX, maxY - callY, false, true);
     }
 
     static float remoteCallCostBottomY(float podTopY) {
@@ -17794,30 +17804,37 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     }
 
     private void drawCallCostText(float x, float y, float width, float height,
-            boolean onBoard) {
+            boolean onBoard, boolean fillBox) {
         boolean projected = onBoard && perspectiveActive;
         float inset = onBoard ? 0f : width * REMOTE_CALL_COST_HORIZONTAL_INSET_RATIO;
-        float pulse = localCallCostPulse();
         float contentWidth = width - inset * 2f;
+        if (contentWidth <= 0f || height <= 0f) return;
+        float pulse = localCallCostPulse();
         Color tint = callCostBorderTint(pulse, callCostPulseTint);
+        var tiers = nativeTextTiers(callCostFont);
         GdxCrispButtonText.resolveAmountWithinBox(glyph, liveState.callCostText(),
-                contentWidth, height, nativeTextTiers(callCostFont), crispButtonText, amountZeroMode());
+                contentWidth, height, tiers, crispButtonText, amountZeroMode());
         BitmapFont selected = crispButtonText.font();
+        // The single board slot and rival pocket have little room to spare.
+        // Downscale the adjacent atlas to fill the available space proportionally.
+        if (fillBox) selected = tiers.nextLarger(selected);
         selected.setColor(tint);
         glyph.setText(selected, crispButtonText.text());
-        // Keep the native height when a long amount needs to fit a narrower slot.
-        float scaleX = perspectiveActive
-                ? Math.min(1f, contentWidth / Math.max(1f, glyph.width)) : 1f;
-        float scaleY = perspectiveActive
-                ? Math.min(1f, height / Math.max(1f, glyph.height)) : 1f;
-        float textHeight = glyph.height * scaleY;
+        float scale = Math.min(1f, Math.min(contentWidth / Math.max(1f, glyph.width),
+                height / Math.max(1f, glyph.height)));
+        float textHeight = glyph.height * scale;
         float baseline = y + (onBoard ? (height + textHeight) / 2f : textHeight);
-        float textX = x + inset + (contentWidth - glyph.width * scaleX) / 2f;
-        boolean transformed = projected || scaleX < 1f || scaleY < 1f;
+        float textX = x + inset + (contentWidth - glyph.width * scale) / 2f;
+        boolean transformed = projected || scale < 1f;
         if (transformed) {
-            if (projected) batch.setProjectionMatrix(perspectiveTable.boardProjection());
+            if (projected) {
+                batch.setProjectionMatrix(perspectiveTable.boardProjection());
+            } else {
+                textX = GdxPixelText.snapX(textX, viewport);
+                baseline = GdxPixelText.snapY(baseline, viewport);
+            }
             batch.getProjectionMatrix().translate(textX, baseline, 0f)
-                    .scale(scaleX, scaleY, 1f);
+                    .scale(scale, scale, 1f);
         }
         batch.begin();
         try {
@@ -19799,6 +19816,12 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         float elapsed = active.elapsedSeconds(renderFrameNanos);
         if (elapsed >= active.cycleSeconds && active.animationEnabled && !active.firstEndPresented) {
+            // The shorter WAV loops on the audio device. Stop it at the last
+            // frame of the first pass before any full continuation is drawn.
+            if (active.motion != GdxAppearanceOptions.FULL_SHUFFLE_MOTION && !active.soundStopped) {
+                stopShuffleSound();
+                active.soundStopped = true;
+            }
             active.showFirstEnd = true;
             return;
         }
@@ -19824,8 +19847,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 && cycle >= active.minimumSoundCycle
                 && cycle != active.lastSoundAttempt) {
             active.lastSoundAttempt = cycle;
-            float phase = elapsed - cycle * active.cycleSeconds;
-            active.soundStopped = !startShuffleSound(active.animationEnabled ? riffleTracks.get(active.motion) : shuffleSound, phase);
+            float phase = active.poseAt(elapsed, cycle);
+            Sound track = active.animationEnabled ? riffleTracks.get(active.motionAt(cycle)) : shuffleSound;
+            active.soundStopped = !startShuffleSound(track, phase);
         }
     }
 
@@ -21100,9 +21124,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                     .rotate(com.badlogic.gdx.math.Vector3.X, 90f).scale(cardLength, .5f, cardLength);
         }
         float elapsed = active.elapsedSeconds(renderFrameNanos);
-        int cycle = active.cycleAt(elapsed);
-        if (active.showFirstEnd) cycle = 0;
-        float pose = active.showFirstEnd ? active.cycleSeconds : elapsed - cycle * active.cycleSeconds;
+        int cycle = active.showFirstEnd ? 0 : active.cycleAt(elapsed);
+        float pose = active.showFirstEnd ? active.cycleSeconds : active.poseAt(elapsed, cycle);
         float gather = 0f;
         float flight = 0f;
         if (active.departing) {
@@ -21123,7 +21146,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 pose = active.lastPose;
                 gather = com.badlogic.gdx.math.Interpolation.smooth.apply(age / gatherTime);
             } else {
-                pose = active.cycleSeconds;
+                pose = active.cycleDuration(cycle);
             }
         } else {
             active.lastPose = pose;
@@ -21131,7 +21154,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
         Texture[] faces = tilted ? active.faces(cycle) : null;
         riffle.prepare(pose, tilted ? GdxRiffleShuffle.View.PERSPECTIVE : GdxRiffleShuffle.View.OVERHEAD,
-                active.motion, active.cardAspect, gather);
+                active.motionAt(cycle), active.cardAspect, gather);
         restoreParentFramebufferAfterNestedPass();
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
@@ -29501,6 +29524,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         GdxAppearanceOptions.Choice option =
                                 animationRow.choice();
                         boolean enabled = tableAnimationChoiceEnabled(option);
+                        Properties choiceProperties = settingsSession.appearanceChoiceProperties(
+                                option, tableSettingsProperties());
                         Rectangle bounds = GdxSettingsLayout.groupedRow(x,
                                 rows.rowY(row), width, row, groups,
                                 rowCount);
@@ -29509,11 +29534,9 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                 option.label(gameText),
                                 GdxSettingsContract.markDefault(
                                         GdxAppearanceOptions.selectedLabel(
-                                                option,
-                                                tableSettingsProperties(),
-                                                gameText),
+                                                option, choiceProperties, gameText),
                                         GdxAppearanceOptions.isDefault(option,
-                                                tableSettingsProperties())),
+                                                choiceProperties)),
                                 enabled, alpha);
                     } else {
                         GdxSettingsContract.ToggleOption option =
@@ -30479,7 +30502,8 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 settingsSelectionAppearanceChoice == null ? -1
                         : GdxAppearanceOptions.selectedIndex(
                                 settingsSelectionAppearanceChoice,
-                                tableSettingsProperties());
+                                settingsSession.appearanceChoiceProperties(
+                                        settingsSelectionAppearanceChoice, tableSettingsProperties()));
             case ANTE_MODE -> liveSettingsDraft == null ? -1
                     : liveSettingsDraft.anteMode().ordinal();
             case BLIND_UNIT -> liveSettingsDraft == null ? -1
@@ -33437,6 +33461,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         disposeSafely(callCostFont);
         disposeSafely(callCostMediumFont);
         disposeSafely(callCostCompactFont);
+        disposeSafely(callCostSmallFont);
         disposeSafely(pauseFont);
         disposeSafely(pauseCompactFont);
         clearFittedFinalHeroFont();
@@ -33665,6 +33690,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         callCostFont.dispose();
         callCostMediumFont.dispose();
         callCostCompactFont.dispose();
+        callCostSmallFont.dispose();
         pauseFont.dispose();
         pauseCompactFont.dispose();
         clearFittedFinalHeroFont();
@@ -34512,7 +34538,22 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         }
 
         int cycleAt(float elapsedSeconds) {
-            return Math.max(0, (int) (elapsedSeconds / cycleSeconds));
+            if (elapsedSeconds < cycleSeconds) return 0;
+            return 1 + (int) ((elapsedSeconds - cycleSeconds) / cycleDuration(1));
+        }
+
+        GdxShuffleGeometry.Motion motionAt(int cycle) {
+            return cycle == 0 ? motion : GdxAppearanceOptions.FULL_SHUFFLE_MOTION;
+        }
+
+        float cycleDuration(int cycle) {
+            return animationEnabled ? motionAt(cycle).duration() : cycleSeconds;
+        }
+
+        float poseAt(float elapsedSeconds, int cycle) {
+            if (cycle == 0) return elapsedSeconds;
+            return Math.max(0f, elapsedSeconds - cycleSeconds
+                    - (cycle - 1) * cycleDuration(cycle));
         }
 
     }

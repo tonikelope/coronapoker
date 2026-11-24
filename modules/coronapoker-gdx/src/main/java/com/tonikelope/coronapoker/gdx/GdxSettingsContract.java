@@ -1533,7 +1533,7 @@ final class GdxSettingsContract {
         restoreAppearancePageDefaults(properties, properties, pageIndex, includeStartupGraphics, shuffleLocked);
     }
 
-    static void restoreAppearancePageDefaults(Properties properties, Properties frameRateSettings,
+    static void restoreAppearancePageDefaults(Properties properties, Properties deferredSettings,
             int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
@@ -1559,7 +1559,7 @@ final class GdxSettingsContract {
         if (isAppearanceGraphicsPage(index)) {
             properties.setProperty("gdx_vsync",
                     Boolean.toString(DEFAULT_VSYNC));
-            GdxFrameRateLimit.reset(frameRateSettings);
+            GdxFrameRateLimit.reset(deferredSettings);
             properties.setProperty("gdx_show_fps", "false");
             properties.setProperty("auto_fullscreen", "true");
             properties.setProperty(CARD_RENDERING_KEY,
@@ -1586,7 +1586,9 @@ final class GdxSettingsContract {
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
                 if (!shuffleLocked || !GdxAppearanceOptions.shuffleChoice(choice)) {
-                    properties.setProperty(choice.key(), choice.fallback());
+                    Properties target = choice == GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION
+                            ? deferredSettings : properties;
+                    target.setProperty(choice.key(), choice.fallback());
                 }
             }
         }
@@ -1602,7 +1604,7 @@ final class GdxSettingsContract {
         return appearancePageAtDefaults(properties, properties, pageIndex, includeStartupGraphics, shuffleLocked);
     }
 
-    static boolean appearancePageAtDefaults(Properties properties, Properties frameRateSettings,
+    static boolean appearancePageAtDefaults(Properties properties, Properties deferredSettings,
             int pageIndex, boolean includeStartupGraphics, boolean shuffleLocked) {
         int maximum = APPEARANCE_PAGES.size() + 1;
         int index = Math.max(0, Math.min(pageIndex, maximum));
@@ -1625,7 +1627,7 @@ final class GdxSettingsContract {
         if (isAppearanceGraphicsPage(index)) {
             boolean runtime = booleanAtDefault(properties, "gdx_vsync",
                     DEFAULT_VSYNC)
-                    && GdxFrameRateLimit.isDefault(frameRateSettings)
+                    && GdxFrameRateLimit.isDefault(deferredSettings)
                     && booleanAtDefault(properties, "auto_fullscreen", true)
                     && booleanAtDefault(properties, "gdx_show_fps", false)
                     && cardRenderingMode(properties) == DEFAULT_CARD_RENDERING_MODE;
@@ -1648,7 +1650,9 @@ final class GdxSettingsContract {
             for (GdxAppearanceOptions.Choice choice
                     : GdxAppearanceOptions.ANIMATION_CHOICES) {
                 if (shuffleLocked && GdxAppearanceOptions.shuffleChoice(choice)) continue;
-                if (!GdxAppearanceOptions.isDefault(choice, properties)) return false;
+                Properties target = choice == GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION
+                        ? deferredSettings : properties;
+                if (!GdxAppearanceOptions.isDefault(choice, target)) return false;
             }
         }
         return true;

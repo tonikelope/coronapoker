@@ -63,6 +63,13 @@ final class GdxCrispButtonText {
             }
         }
 
+        BitmapFont nextLarger(BitmapFont font) {
+            for (int index = 1; index < fonts.length; index++) {
+                if (fonts[index] == font) return fonts[index - 1];
+            }
+            return font;
+        }
+
         /**
          * Builds a semantic family headed by {@code preferred}; only smaller
          * native atlases may follow it. The renderer can therefore fit text

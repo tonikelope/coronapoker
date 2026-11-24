@@ -237,6 +237,29 @@ final class GdxFrontendSettingsGpuTest {
             invoke(screen, "cancelApplicationExit", new Class<?>[0]);
             assertFalse(slide.closing());
             assertFalse((boolean) field(screen, "applicationExitConfirmation"));
+
+            GdxAppearanceOptions.select(choice, properties, 4);
+            invoke(screen, "openSettings", new Class<?>[0]);
+            screen.render();
+            for (int direction : new int[]{1, 2}) {
+                invoke(screen, "openAppearanceChoiceDropdown",
+                        new Class<?>[]{GdxAppearanceOptions.Choice.class, Rectangle.class},
+                        choice, new Rectangle(20, 20, 400, 48));
+                Object dropdown = field(screen, "dropdown");
+                invoke(screen, "selectDropdownOption",
+                        new Class<?>[]{dropdown.getClass(), int.class}, dropdown, direction);
+                screen.render();
+                assertSlideDirection(slide, 0, 0);
+                assertEquals("off", properties.getProperty(choice.key()));
+            }
+            invoke(screen, "closeSettings", new Class<?>[]{boolean.class}, true);
+            assertEquals("left", properties.getProperty(choice.key()));
+            invoke(screen, "openSettings", new Class<?>[0]);
+            screen.render();
+            assertSlideDirection(slide, -1, 0);
+            slide.advance(1f);
+            invoke(screen, "closeSettings", new Class<?>[]{boolean.class}, false);
+            slide.advance(1f);
         } finally {
             restoreKey(properties, saved, choice.key());
         }
@@ -636,8 +659,9 @@ final class GdxFrontendSettingsGpuTest {
 
     private static void editForDiscard(Properties props, GdxSettingsContract.Section section, int page) {
         if (section == GdxSettingsContract.Section.APPEARANCE && page == 1) {
-            String current = props.getProperty("duracion_barajado", "medium");
-            props.setProperty("duracion_barajado", "short".equals(current) ? "full" : "short");
+            var duration = GdxAppearanceOptions.SHUFFLE_DURATION;
+            int current = GdxAppearanceOptions.selectedIndex(duration, props);
+            GdxAppearanceOptions.select(duration, props, current == 2 ? 1 : 2);
             return;
         }
         switch (section) {
@@ -1009,6 +1033,21 @@ final class GdxFrontendSettingsGpuTest {
             assertEquals(CoronaPokerGdxTable.UI_SETTINGS, field(table, "uiLayer"));
             slide.advance(1f);
             assertEquals(CoronaPokerGdxTable.UI_NONE, field(table, "uiLayer"));
+            var choice = GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION;
+            var properties = preferences.properties();
+            var saved = new Properties();
+            saved.putAll(properties);
+            GdxAppearanceOptions.select(choice, properties, 4);
+            invoke(table, "openSettings", new Class<?>[0]);
+            table.render();
+            invoke(table, "selectTableAppearanceChoice",
+                    new Class<?>[]{GdxAppearanceOptions.Choice.class, int.class}, choice, 3);
+            table.render();
+            assertSlideDirection(slide, 0, 0);
+            assertEquals("off", properties.getProperty(choice.key()));
+            invoke(table, "closeTableSettings", new Class<?>[]{boolean.class}, true);
+            assertEquals("down", properties.getProperty(choice.key()));
+            restoreKey(properties, saved, choice.key());
             invoke(table, "openSettings", new Class<?>[0]);
             Runnable renderSettings = settledSettingsRender(table, table::render);
             verifyDiscardFromEveryPage(table, GdxSettingsSession.Context.LIVE_TABLE, preferences.properties(),
@@ -1023,6 +1062,7 @@ final class GdxFrontendSettingsGpuTest {
             verifyAngleTrack(table, table.inputProcessor(), table::render, preferences.properties());
             verifyShuffleAngleLock(table, preferences.properties());
             verifyDealerDeparture(table, preferences.properties());
+            verifyShortShuffleContinuation(table, preferences.properties());
             invoke(table, "selectSettingsSubpage", new Class<?>[]{int.class},
                     GdxSettingsContract.appearanceGraphicsPageIndex());
             verifyFrameRateControl(table, table.inputProcessor(), table::render, preferences.properties());
@@ -1109,8 +1149,16 @@ final class GdxFrontendSettingsGpuTest {
         epoch.setAccessible(true);
         epoch.setLong(shuffle, System.nanoTime() - (long) ((cycle + .25) * 1_000_000_000L));
         table.render();
+        Object riffle = field(table, "riffle");
+        assertEquals(GdxShuffleGeometry.Motion.FULL_DECK, field(riffle, "meshMotion"));
         table.render();
         assertTrue((boolean) field(shuffle, "firstEndPresented"));
+        assertEquals(GdxAppearanceOptions.FULL_SHUFFLE_MOTION, field(riffle, "meshMotion"));
+        float continuedSeconds = GdxAppearanceOptions.FULL_SHUFFLE_MOTION.duration();
+        epoch.setLong(shuffle, System.nanoTime() - (long) ((cycle + continuedSeconds + .25) * 1e9));
+        table.render();
+        assertEquals(2, field(shuffle, "lastCycle"));
+        assertEquals(GdxAppearanceOptions.FULL_SHUFFLE_MOTION, field(riffle, "meshMotion"));
         assertSame(shuffle, field(table, "liveShuffle"));
         assertEquals(0f, hit.width);
         input.touchDown(Math.round(end.x), touchY, 0, Input.Buttons.LEFT);
@@ -1130,6 +1178,8 @@ final class GdxFrontendSettingsGpuTest {
 
     private static void verifyDealerDeparture(CoronaPokerGdxTable table, java.util.Properties properties) throws Exception {
         properties.remove(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY);
+        var duration = GdxAppearanceOptions.SHUFFLE_DURATION;
+        GdxAppearanceOptions.select(duration, properties, 2);
         var started = new CompletableFuture<Void>();
         var finished = new CompletableFuture<Void>();
         table.acceptEvent(new TableVisualEvent.Shuffle(5, "goliat", TableVisualEvent.Shuffle.Phase.START), started);
@@ -1141,8 +1191,12 @@ final class GdxFrontendSettingsGpuTest {
         setLong(shuffle, "startedAtNanos", System.nanoTime() - (long) (((float) field(shuffle, "cycleSeconds") + 1f) * 1e9));
         table.render();
         assertEquals(true, field(shuffle, "firstEndPresented"));
+        Object riffle = field(table, "riffle");
+        assertEquals(GdxShuffleGeometry.Motion.ORIGINAL, field(riffle, "meshMotion"));
         table.render();
         assertEquals(true, field(shuffle, "departing"));
+        assertEquals(GdxShuffleGeometry.Motion.ORIGINAL, field(riffle, "meshMotion"),
+                "A ready deal does not start a continuation");
         assertFalse(finished.isDone());
         // Even a late frame must present the opaque deck at the seat before the fade starts.
         setLong(shuffle, "departureStart", System.nanoTime() - 2_000_000_000L);
@@ -1159,12 +1213,43 @@ final class GdxFrontendSettingsGpuTest {
         table.render();
         assertTrue(finished.isDone());
         assertNull(field(table, "liveShuffle"));
+        properties.setProperty(duration.key(), duration.fallback());
     }
 
     private static void setLong(Object owner, String name, long value) throws ReflectiveOperationException {
         var field = owner.getClass().getDeclaredField(name);
         field.setAccessible(true);
         field.setLong(owner, value);
+    }
+
+    private static void verifyShortShuffleContinuation(CoronaPokerGdxTable table,
+            Properties properties) throws Exception {
+        var duration = GdxAppearanceOptions.SHUFFLE_DURATION;
+        GdxAppearanceOptions.select(duration, properties, 2);
+        properties.setProperty(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY, "false");
+        try {
+            table.acceptEvent(new TableVisualEvent.Shuffle(7, "goliat",
+                    TableVisualEvent.Shuffle.Phase.START), new CompletableFuture<>());
+            table.render();
+            Object shuffle = field(table, "liveShuffle");
+            Object riffle = field(table, "riffle");
+            float initialDuration = (float) field(shuffle, "cycleSeconds");
+            setLong(shuffle, "startedAtNanos",
+                    System.nanoTime() - (long) ((initialDuration + .25) * 1e9));
+            table.render();
+            assertEquals(GdxShuffleGeometry.Motion.ORIGINAL, field(riffle, "meshMotion"));
+            table.render();
+            assertEquals(GdxAppearanceOptions.FULL_SHUFFLE_MOTION, field(riffle, "meshMotion"));
+            var finished = new CompletableFuture<Void>();
+            table.acceptEvent(new TableVisualEvent.Shuffle(8, "goliat",
+                    TableVisualEvent.Shuffle.Phase.FINISH), finished);
+            table.render();
+            assertTrue(finished.isDone(), "The full continuation must not delay a ready deal");
+            assertNull(field(table, "liveShuffle"));
+        } finally {
+            properties.setProperty(duration.key(), duration.fallback());
+            properties.remove(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY);
+        }
     }
 
     private static void assertEnlargedFrame(GdxImagePreview preview) throws InterruptedException {

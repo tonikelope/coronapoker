@@ -62,14 +62,15 @@ final class GdxAppearanceOptions {
     static final Choice SHUFFLE_VIEW = exact("vista_barajado", "VISTA DE BARAJADO", "3d",
             new String[]{"2d", "3d"}, new String[]{"2D", "3D"});
 
-    static final Choice SHUFFLE_DURATION = exact("duracion_barajado", "DURACIÓN", "medium",
+    static final Choice SHUFFLE_DURATION = exact("duracion_barajado", "DURACIÓN", "full",
             new String[]{"full", "medium", "short"}, new String[]{"COMPLETA", "MEDIA", "CORTA"});
+    static final GdxShuffleGeometry.Motion FULL_SHUFFLE_MOTION = GdxShuffleGeometry.Motion.MID_BRIDGE;
 
     static GdxShuffleGeometry.Motion shuffleMotion(Properties properties) {
         return switch (selectedIndex(SHUFFLE_DURATION, properties)) {
             case 1 -> GdxShuffleGeometry.Motion.FULL_DECK;
             case 2 -> GdxShuffleGeometry.Motion.ORIGINAL;
-            default -> GdxShuffleGeometry.Motion.MID_BRIDGE;
+            default -> FULL_SHUFFLE_MOTION;
         };
     }
 

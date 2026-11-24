@@ -82,6 +82,8 @@ final class GdxModalBackdropBlur implements Disposable {
     private FrameBuffer backdrop;
     private FrameBuffer scratch;
     private CaptureArea cachedArea;
+    private long cachedFrameId;
+    private boolean pipelineWarmed;
 
     private record CaptureArea(int x, int y, int width, int height) {
         static CaptureArea of(Viewport viewport) {
@@ -125,6 +127,28 @@ final class GdxModalBackdropBlur implements Disposable {
         return true;
     }
 
+    /**
+     * Prepares the two native-size surfaces and exercises the shader offscreen.
+     * Each call performs at most one preparation step.
+     */
+    boolean prepareNextPass(Viewport viewport, SpriteBatch batch) {
+        if (!prepareNextBuffer(viewport)) return false;
+        if (pipelineWarmed) return true;
+
+        CaptureArea area = CaptureArea.of(viewport);
+        boolean clipped = GL11C.glIsEnabled(GL20.GL_SCISSOR_TEST);
+        boolean blending = beginPixelPass(batch, area);
+        try {
+            if (clipped) Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+            filterInto(batch, scratch, backdrop.getColorBufferTexture(), area, 1f, 0f);
+            filterInto(batch, backdrop, scratch.getColorBufferTexture(), area, 0f, 1f);
+            pipelineWarmed = true;
+        } finally {
+            endPixelPass(viewport, batch, blending, clipped);
+        }
+        return false;
+    }
+
     /** Filters the pixels already composed by the live renderer, in place. */
     void blurPresentedScene(Viewport viewport, SpriteBatch batch, boolean cache) {
         while (!prepareNextBuffer(viewport)) {
@@ -138,28 +162,30 @@ final class GdxModalBackdropBlur implements Disposable {
         try {
             if (clipped) Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
             capturePresentedPixels(area);
-            scratch.begin();
-            try {
-                drawPass(batch, backdrop.getColorBufferTexture(), area.width(), area.height(), 1f, 0f);
-            } finally {
-                scratch.end();
-            }
+            filterInto(batch, scratch, backdrop.getColorBufferTexture(), area, 1f, 0f);
             if (cache) {
-                backdrop.begin();
-                try {
-                    drawPass(batch, scratch.getColorBufferTexture(), area.width(), area.height(), 0f, 1f);
-                } finally {
-                    backdrop.end();
-                }
+                filterInto(batch, backdrop, scratch.getColorBufferTexture(), area, 0f, 1f);
                 cachedArea = area;
+                cachedFrameId = Gdx.graphics.getFrameId();
                 viewport.apply();
                 drawTexture(batch, backdrop.getColorBufferTexture(), area.width(), area.height());
             } else {
                 viewport.apply();
                 drawPass(batch, scratch.getColorBufferTexture(), area.width(), area.height(), 0f, 1f);
             }
+            pipelineWarmed = true;
         } finally {
             endPixelPass(viewport, batch, blending, clipped);
+        }
+    }
+
+    private void filterInto(SpriteBatch batch, FrameBuffer output, Texture input, CaptureArea area,
+            float directionX, float directionY) {
+        output.begin();
+        try {
+            drawPass(batch, input, area.width(), area.height(), directionX, directionY);
+        } finally {
+            output.end();
         }
     }
 
@@ -185,13 +211,15 @@ final class GdxModalBackdropBlur implements Disposable {
         }
     }
 
+    /** A nested modal can reuse the root pass only within the current frame. */
     boolean hasCachedFrame(Viewport viewport) {
-        return cachedArea != null && cachedArea.equals(CaptureArea.of(viewport));
+        return cachedArea != null && cachedFrameId == Gdx.graphics.getFrameId()
+                && cachedArea.equals(CaptureArea.of(viewport));
     }
 
     void drawCached(Viewport viewport, SpriteBatch batch, Color clearColor) {
         if (!hasCachedFrame(viewport)) {
-            throw new IllegalStateException("Modal backdrop cache does not match the viewport");
+            throw new IllegalStateException("Modal backdrop cache does not match the current frame and viewport");
         }
         boolean clipped = GL11C.glIsEnabled(GL20.GL_SCISSOR_TEST);
         boolean blending = beginPixelPass(batch, cachedArea);
@@ -277,5 +305,6 @@ final class GdxModalBackdropBlur implements Disposable {
         backdrop = null;
         scratch = null;
         cachedArea = null;
+        pipelineWarmed = false;
     }
 }

@@ -16,6 +16,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tonikelope.coronapoker.core.PreferencesService;
 import com.tonikelope.coronapoker.core.game.ActionControlState;
+import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.table.TableCommand;
 import com.tonikelope.coronapoker.table.TableSnapshot;
 import com.tonikelope.coronapoker.table.TableVisualEvent;
@@ -499,6 +500,16 @@ final class GdxPerspectivePocketGpuTest {
             mouse.peekKeyDown = true;
             for (int frame = 0; frame < 20 && renderer.peekAmount() == 0f; frame++) table.render();
             assertTrue(renderer.peekAmount() > 0f, "Tab still peeks with the button hidden");
+            renderer.dragPeek(1f);
+            table.showDialog(new GdxTableDialog(GdxTableDialog.Kind.INFO,
+                    "Test dialog", GameDialogSink.Icon.NONE, 760, 0));
+            table.render();
+            float modalDelta = Math.min(Gdx.graphics.getDeltaTime(), .05f);
+            float retractingPeek = (1f + 17f * modalDelta) * (float) Math.exp(-17f * modalDelta);
+            assertEquals(retractingPeek, renderer.peekAmount(), .0001f,
+                    "opening a dialog must release the peek without jumping to the closed position");
+            assertTrue(table.resolveActiveDialogChoice(true));
+            table.advanceDialogState();
             mouse.peekKeyDown = false;
             renderer.coverCards();
             var shortcuts = (GdxShortcutBindings) field(table, "shortcutBindings");

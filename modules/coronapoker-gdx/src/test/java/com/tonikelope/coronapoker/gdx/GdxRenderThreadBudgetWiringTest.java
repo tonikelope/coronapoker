@@ -49,8 +49,8 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(table.contains("}, creationPreparationExecutor);"));
         assertFalse(table.contains("case 9, 10 ->"));
         assertTrue(table.contains("case 9 ->"));
-        assertTrue(table.contains("if (!modalBackdropBlur.prepareNextBuffer("));
-        assertTrue(table.contains("modalBackdropBlur.prepareNextBuffer("));
+        assertTrue(table.contains("if (!modalBackdropBlur.prepareNextPass("));
+        assertTrue(table.contains("modalBackdropBlur.prepareNextPass("));
         assertTrue(table.contains("createNextTableFinalizationStep()"));
         assertTrue(table.contains("Recheck immediately before handoff"));
         assertTrue(table.contains("private boolean createNextGraphicsCore() {\n"
@@ -59,7 +59,7 @@ final class GdxRenderThreadBudgetWiringTest {
                 "case 1 -> shapes = new GdxTableShapeRenderer(65_536);"));
         assertTrue(table.contains("case 2 -> batch = new SpriteBatch(2000);"));
         assertTrue(table.contains("case 11 -> {\n"
-                + "                if (!modalBackdropBlur.prepareNextBuffer("));
+                + "                if (!modalBackdropBlur.prepareNextPass("));
         assertTrue(table.contains(
                 "private boolean createNextTableFinalizationStep() {\n"
                 + "        switch (creationResourceIndex) {"));
@@ -72,9 +72,9 @@ final class GdxRenderThreadBudgetWiringTest {
         assertTrue(blur.contains("boolean hasCachedFrame("));
 
         String frontend = source("GdxFrontendScreen.java");
-        assertTrue(frontend.contains("renderCachedLoadingFrame()"));
-        assertTrue(frontend.contains("modalBackdropBlur.blurPresentedScene("));
-        assertTrue(frontend.contains("modalBackdropBlur.hasCachedFrame("));
+        assertFalse(frontend.contains("renderCachedLoadingFrame()"));
+        assertTrue(frontend.contains("modalBackdropBlur.prepareNextPass(viewport, batch)"));
+        assertTrue(frontend.contains("modalBackdropBlur.blurPresentedScene(viewport, batch, nestedFrontendModal)"));
 
         String shell = source("GdxApplicationShell.java");
         assertTrue(shell.contains("switch (pending.handoffStep++)"));

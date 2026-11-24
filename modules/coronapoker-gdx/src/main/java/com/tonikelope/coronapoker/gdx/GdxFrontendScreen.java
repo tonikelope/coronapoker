@@ -512,7 +512,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
     private int handCardMode = -1;
     private GdxModalBackdropBlur modalBackdropBlur;
     private GdxModalBackdropBlur nestedModalBackdropBlur;
-    private boolean loadingBackdropCached;
     private GdxGameText.Language pendingLanguage;
     private BitmapFont titleFont;
     private BitmapFont headingFont;
@@ -1394,14 +1393,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
                 surface == Surface.LOBBY && lobbySession != null
                         ? this::shareLobbyVideo : null);
         boolean backdropBlurActive = GdxVisualEffects.blurActive();
-        if (!loadingOverlay || !backdropBlurActive) {
-            loadingBackdropCached = false;
-        } else if (loadingBackdropCached
-                && modalBackdropBlur.hasCachedFrame(viewport)) {
-            applyFrontendSystemCursor(Cursor.SystemCursor.Arrow);
-            renderCachedLoadingFrame();
-            return;
-        }
         boolean settingsRootModal = isSettingsRootModal();
         boolean rootSurfaceModal = isFrontendRootModal();
         boolean lobbyRootBackdrop = rootSurfaceModal && lobby != null
@@ -1546,8 +1537,7 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
 
         if (blurModalBackdrop) {
             try {
-                modalBackdropBlur.blurPresentedScene(viewport, batch, loadingOverlay || nestedFrontendModal);
-                loadingBackdropCached = loadingOverlay;
+                modalBackdropBlur.blurPresentedScene(viewport, batch, nestedFrontendModal);
             } finally {
                 restoreDefaultFrontendRenderState();
             }
@@ -1764,59 +1754,10 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         }
         drawCenteredFeedbackTopLayer();
         updateFrontendSystemCursor();
-    }
-
-    /**
-     * Reuses the blurred background while a table or language is loading.
-     * Only the indeterminate bar and sharp top layers need to be redrawn.
-     */
-    private void renderCachedLoadingFrame() {
-        viewport.apply();
-        viewport.getCamera().update();
-        shapes.setProjectionMatrix(viewport.getCamera().combined);
-        batch.setProjectionMatrix(viewport.getCamera().combined);
-        texts.clear();
-        lobbyAvatars.clear();
-        uiImages.clear();
-        lobbyChatTexts.clear();
-        lobbyChatAvatars.clear();
-        lobbyChatImages.clear();
-        lobbyChatBubbles.clear();
-        lobbyVoiceControls.clear();
-        settingsDebugTexts.clear();
-        settingsRowTexts.clear();
-        customBotManagerListTexts.clear();
-        customBotManagerListImages.clear();
-        statsChartTexts.clear();
-        statsChartViewport.set(0f, 0f, 0f, 0f);
-        statsChartHorizontalTrack.set(0f, 0f, 0f, 0f);
-        statsChartVerticalTrack.set(0f, 0f, 0f, 0f);
-        statsChartCanvasActive = false;
-        settingsRowsClip.set(0f, 0f, 0f, 0f);
-        settingsRowsActive = false;
-        settingsDebugViewport.set(0f, 0f, 0f, 0f);
-        lobbyChatViewport.set(0f, 0f, 0f, 0f);
-        hits.clear();
-        secondaryHits.clear();
-        textFieldHits.clear();
-        passwordRevealHits.clear();
-        editMenuHits.clear();
-        tooltipHits.clear();
-        tooltipDelay.clear();
-
-        modalBackdropBlur.drawCached(viewport, batch, BACKGROUND);
-        drawUnifiedModalBackdrop();
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA,
-                GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawLoadingOverlay();
-        shapes.end();
-        batch.begin();
-        for (TextItem item : texts) drawTextItem(item);
-        batch.end();
-        drawFrontendTopLayers();
-        drawCenteredFeedbackTopLayer();
+        if (backdropBlurActive && !blurModalBackdrop
+                && modalBackdropBlur.prepareNextPass(viewport, batch)) {
+            nestedModalBackdropBlur.prepareNextPass(viewport, batch);
+        }
     }
 
     /**
@@ -15080,7 +15021,6 @@ final class GdxFrontendScreen extends ApplicationAdapter implements InputProcess
         if (next.tag().equals(gameText.language())) return;
         pendingLanguage = next;
         dropdown = Dropdown.NONE;
-        loadingBackdropCached = false;
         volumeKeyRepeat.clear();
         captureFrontendModalInput();
         fontRefresh.replace(GdxAdaptiveFontQuality.current(WIDTH, HEIGHT));

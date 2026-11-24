@@ -3948,10 +3948,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 nestedModalBackdropBlur = new GdxModalBackdropBlur();
             }
             case 11 -> {
-                if (!modalBackdropBlur.prepareNextBuffer(viewport)) {
+                if (!modalBackdropBlur.prepareNextPass(viewport, batch)) {
                     return false;
                 }
-                if (!nestedModalBackdropBlur.prepareNextBuffer(viewport)) {
+                if (!nestedModalBackdropBlur.prepareNextPass(viewport, batch)) {
                     return false;
                 }
             }
@@ -4438,10 +4438,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
     private boolean createNextTableFinalizationStep() {
         switch (creationResourceIndex) {
             case 0 -> {
-                if (!modalBackdropBlur.prepareNextBuffer(viewport)) {
+                if (!modalBackdropBlur.prepareNextPass(viewport, batch)) {
                     return false;
                 }
-                if (!nestedModalBackdropBlur.prepareNextBuffer(viewport)) {
+                if (!nestedModalBackdropBlur.prepareNextPass(viewport, batch)) {
                     return false;
                 }
             }
@@ -4459,10 +4459,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                 // Recheck immediately before handoff in case the window moved
                 // to a differently scaled monitor during the intervening
                 // preparation frames.
-                if (!modalBackdropBlur.prepareNextBuffer(viewport)) {
+                if (!modalBackdropBlur.prepareNextPass(viewport, batch)) {
                     return false;
                 }
-                if (!nestedModalBackdropBlur.prepareNextBuffer(viewport)) {
+                if (!nestedModalBackdropBlur.prepareNextPass(viewport, batch)) {
                     return false;
                 }
             }
@@ -9975,7 +9975,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                         ? (dialog.isGameOverChoice() ? 570f : 390f)
                 : dialog.isRunItTwice() ? 520f
                 : dialog.isAutoCall() || dialog.isHandLimit() ? 540f
-                : dialog.isRebuy() ? 390f
+                : dialog.isRebuy() ? GdxTableDialogLayout.REBUY_HEIGHT
                 : dialog.isZeroTrust() ? 760f
                 : dialog.isNotice() ? 470f
                 : dialog.hasStandaloneOption() ? 500f
@@ -10014,10 +10014,10 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         float buttonWidth = 82f;
         float valueWidth = 260f;
         float gap = 10f;
-        float height = 92f;
+        float height = GdxTableDialogLayout.REBUY_AMOUNT_HEIGHT;
         float totalWidth = 2f * buttonWidth + valueWidth + 2f * gap;
         float x = panelX + (panelW - totalWidth) / 2f;
-        float y = panelY + 145f;
+        float y = panelY + GdxTableDialogLayout.REBUY_AMOUNT_Y;
         Rectangle minus = new Rectangle(x, y, buttonWidth, height);
         Rectangle value = new Rectangle(x + buttonWidth + gap, y,
                 valueWidth, height);
@@ -15613,18 +15613,24 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
         int peekKey = shortcutBindings.keyCode(GdxShortcutBindings.POCKET_PEEK);
         if ((peekKey == Input.Keys.UNKNOWN || !Gdx.input.isKeyPressed(peekKey))
                 && !Gdx.input.isButtonPressed(Input.Buttons.LEFT)) pocketPeekNeedsRelease = false;
-        boolean canPeek = !pocketPeekNeedsRelease && !publicHand && reveal == null
-                && !dealing && !pocketOrder.busy()
-                && !hasActiveHolePresentation(nickname) && canPeekPerspectivePocket();
-        pocketPeekEnabled = canPeek && cards.stream()
-                .anyMatch(card -> card.visible() && !card.code().isBlank());
+        boolean privatePocketAvailable = !publicHand && reveal == null
+                && !dealing && !pocketOrder.busy() && !hasActiveHolePresentation(nickname)
+                && cards.stream().anyMatch(card -> card.visible() && !card.code().isBlank());
+        boolean canPeek = privatePocketAvailable && !pocketPeekNeedsRelease
+                && canPeekPerspectivePocket();
+        pocketPeekEnabled = canPeek;
         if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
             releasePocketPeekPointer(0, Input.Buttons.LEFT);
             stopPocketPeekInput();
         }
-        if (!canPeek) {
+        if (!privatePocketAvailable) {
             stopPocketPeekInput();
             perspectiveTable.coverCards();
+        } else if (!canPeek) {
+            // Modal pointer ownership releases a peek without snapping the live
+            // scene behind the glass. Card/hand changes still clear it above.
+            stopPocketPeekInput();
+            perspectiveTable.updatePeek(false, Gdx.graphics.getDeltaTime());
         } else if (!Float.isNaN(pocketPeekDragAmount)) {
             perspectiveTable.dragPeek(pocketPeekDragAmount);
         } else {
@@ -26571,6 +26577,14 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
             drawDialogMessage(dialog.message(),
                     new Rectangle(messageX, messageY, messageW, messageH),
                     uiFont, Color.WHITE, Align.left);
+        } else if (dialog.isRebuy()) {
+            String message = dialog.amountCanBeAccepted() ? dialog.message()
+                    : gameText.translate("rebuy.amount_chip_range",
+                            formatAmount(dialog.minimumAmount()),
+                            formatAmount(dialog.maximumAmount()),
+                            formatAmount(dialog.rebuyChipDenomination()));
+            drawDialogMessage(message, GdxTableDialogLayout.rebuyMessage(panelX, panelY, panelW),
+                    settingsBodyFont);
         } else {
             Rectangle messageBounds = dialog.hasAmount()
                     ? new Rectangle(panelX + 56f,
@@ -26582,12 +26596,7 @@ final class CoronaPokerGdxTable extends ApplicationAdapter {
                                             panelX, panelY, panelW, panelH)
                     : GdxTableDialogLayout.standardMessage(
                             panelX, panelY, panelW, panelH);
-            String message = dialog.amountCanBeAccepted() ? dialog.message()
-                    : gameText.translate("rebuy.amount_chip_range",
-                            formatAmount(dialog.minimumAmount()),
-                            formatAmount(dialog.maximumAmount()),
-                            formatAmount(dialog.rebuyChipDenomination()));
-            drawDialogMessage(message, messageBounds,
+            drawDialogMessage(dialog.message(), messageBounds,
                     dialog.isNotice() ? settingsActionFont : uiFont);
         }
         if (dialog.hasAmount()) {

@@ -33,16 +33,52 @@ final class GdxModalBackdropPixelGpuTest {
         config.disableAudio(true);
         var failure = new AtomicReference<Throwable>();
         new Lwjgl3Application(new ApplicationAdapter() {
+            private GdxModalBackdropBlur liveBlur;
+            private FitViewport liveViewport;
+            private SpriteBatch liveBatch;
+            private ShapeRenderer liveShapes;
+            private Vector2 first;
+
             @Override public void render() {
                 try {
                     long window = ((Lwjgl3Graphics) Gdx.graphics).getWindow().getWindowHandle();
                     assertEquals(GLFW.GLFW_FALSE, GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_VISIBLE));
-                    verifyPixelPlacement();
+                    if (liveBlur == null) {
+                        verifyPixelPlacement();
+                        liveViewport = new FitViewport(1920f, 1080f);
+                        liveViewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+                        liveBlur = new GdxModalBackdropBlur();
+                        liveBatch = new SpriteBatch();
+                        liveShapes = new ShapeRenderer();
+                        drawMarker(liveViewport, liveShapes, 350f);
+                        first = redCenter();
+                        while (!liveBlur.prepareNextPass(liveViewport, liveBatch)) {
+                            assertSamePosition(first, redCenter());
+                        }
+                        assertFalse(liveBlur.hasCachedFrame(liveViewport));
+                        liveBlur.blurPresentedScene(liveViewport, liveBatch, true);
+                        assertSamePosition(first, redCenter());
+                        return;
+                    }
+
+                    assertFalse(liveBlur.hasCachedFrame(liveViewport),
+                            "the previous frame must never be reused as the glass backdrop");
+                    drawMarker(liveViewport, liveShapes, 580f);
+                    Vector2 moved = redCenter();
+                    assertTrue(moved.x > first.x + 100f);
+                    liveBlur.blurPresentedScene(liveViewport, liveBatch, true);
+                    assertSamePosition(moved, redCenter());
+                    Gdx.app.exit();
                 } catch (Throwable problem) {
                     failure.set(problem);
-                } finally {
                     Gdx.app.exit();
                 }
+            }
+
+            @Override public void dispose() {
+                if (liveShapes != null) liveShapes.dispose();
+                if (liveBatch != null) liveBatch.dispose();
+                if (liveBlur != null) liveBlur.dispose();
             }
         }, config);
         if (failure.get() != null) throw new AssertionError(failure.get());
@@ -57,12 +93,7 @@ final class GdxModalBackdropPixelGpuTest {
         var batch = new SpriteBatch();
         var shapes = new ShapeRenderer();
         try {
-            ScreenUtils.clear(Color.BLACK);
-            shapes.setProjectionMatrix(viewport.getCamera().combined);
-            shapes.begin(ShapeRenderer.ShapeType.Filled);
-            shapes.setColor(Color.RED);
-            shapes.circle(350f, 180f, 36f);
-            shapes.end();
+            drawMarker(viewport, shapes, 350f);
             Vector2 before = redCenter();
             root.blurPresentedScene(viewport, batch, false);
             assertSamePosition(before, redCenter());
@@ -82,6 +113,16 @@ final class GdxModalBackdropPixelGpuTest {
             nested.dispose();
             root.dispose();
         }
+    }
+
+    private static void drawMarker(FitViewport viewport, ShapeRenderer shapes, float x) {
+        ScreenUtils.clear(Color.BLACK);
+        viewport.apply();
+        shapes.setProjectionMatrix(viewport.getCamera().combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(Color.RED);
+        shapes.circle(x, 180f, 36f);
+        shapes.end();
     }
 
     private static Vector2 redCenter() {

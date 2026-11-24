@@ -134,6 +134,7 @@ final class GdxFrontendSettingsGpuTest {
                 screen.resize(WIDTH, HEIGHT);
                 invoke(screen, "cancelUpdateCheck", new Class<?>[0]);
                 screen.completeStartupReveal();
+                verifyExitDialogKeepsItsPosition(screen);
                 verifyAudioDeviceAlignment(screen);
                 verifyMenuDialogSlide(screen);
                 verifyMenuModalBackdrop(screen);
@@ -246,6 +247,37 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(y, (int) Math.signum(slide.offsetY(HEIGHT)));
     }
 
+    private static void verifyExitDialogKeepsItsPosition(GdxFrontendScreen screen) throws Exception {
+        for (int i = 0; i < 8; i++) screen.render();
+        var viewport = (Viewport) field(screen, "viewport");
+        var slide = (GdxDialogSlide) field(screen, "menuDialogSlide");
+        var panel = GdxUiDialogStyle.confirmationLayout(
+                viewport.getWorldWidth(), viewport.getWorldHeight()).panel();
+        Vector2 edge = viewport.project(new Vector2(panel.x + panel.width / 2f, panel.y + panel.height));
+        int x = com.badlogic.gdx.graphics.glutils.HdpiUtils.toBackBufferX(Math.round(edge.x)) - 30;
+        int y = com.badlogic.gdx.graphics.glutils.HdpiUtils.toBackBufferY(Math.round(edge.y)) - 6;
+
+        screen.requestApplicationExit();
+        screen.render();
+        assertEquals(true, field(screen, "applicationExitConfirmation"));
+        assertFalse(slide.moving(), "Exit must appear without a dialog slide");
+        byte[] first = ScreenUtils.getFrameBufferPixels(x, y, 60, 12, false);
+        screen.render();
+        assertArrayEquals(first, ScreenUtils.getFrameBufferPixels(x, y, 60, 12, false),
+                "the exit panel edge must stay in place after its first appearance");
+
+        screen.keyDown(Input.Keys.ESCAPE);
+        screen.render();
+        assertEquals(false, field(screen, "applicationExitConfirmation"));
+        assertFalse(java.util.Arrays.equals(first, ScreenUtils.getFrameBufferPixels(x, y, 60, 12, false)));
+        screen.requestApplicationExit();
+        screen.render();
+        assertArrayEquals(first, ScreenUtils.getFrameBufferPixels(x, y, 60, 12, false),
+                "opening Exit again must place its edge in the same spot");
+        screen.keyDown(Input.Keys.ESCAPE);
+        screen.render();
+    }
+
     private static void verifyMenuModalBackdrop(GdxFrontendScreen screen)
             throws Exception {
         var properties = (Properties) field(screen, "initialProperties");
@@ -345,7 +377,7 @@ final class GdxFrontendSettingsGpuTest {
                 assertPressHits(screen, context + "/" + section + "/" + page);
             }
         }
-        verifyPercentageTracks(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
+        verifyPercentageTracks(screen, screen, renderSettings, (Properties) field(screen, "initialProperties"));
         session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
         verifyZoomTracks(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         verifyAngleTrack(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));

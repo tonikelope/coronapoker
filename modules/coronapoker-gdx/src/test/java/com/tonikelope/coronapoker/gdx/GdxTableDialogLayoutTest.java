@@ -93,6 +93,20 @@ final class GdxTableDialogLayoutTest {
     }
 
     @Test
+    void rebuyMessageHasClearSpaceAboveTheAmountAndBelowTheTitle() {
+        Rectangle panel = new Rectangle(500f, 200f, 820f, GdxTableDialogLayout.REBUY_HEIGHT);
+        Rectangle title = GdxTableDialogLayout.title(panel.x, panel.y, panel.width, panel.height);
+        Rectangle message = GdxTableDialogLayout.rebuyMessage(panel.x, panel.y, panel.width);
+        float amountTop = panel.y + GdxTableDialogLayout.REBUY_AMOUNT_Y
+                + GdxTableDialogLayout.REBUY_AMOUNT_HEIGHT;
+
+        assertTrue(message.y - amountTop >= 16f);
+        assertTrue(title.y - (message.y + message.height) >= 24f);
+        assertTrue(panel.y + panel.height - 97f - (message.y + message.height) >= 16f,
+                "the hint must remain inside the inset, clear of its top rule");
+    }
+
+    @Test
     void standardMessageAndTitleShareStableInsets() {
         Rectangle title = GdxTableDialogLayout.title(
                 400f, 200f, 980f, 470f);

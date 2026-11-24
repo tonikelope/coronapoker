@@ -56,6 +56,15 @@ final class GdxTableDialogLayout {
                         contentWidth, 34f));
     }
 
+    static final float REBUY_HEIGHT = 430f;
+    static final float REBUY_AMOUNT_Y = 145f;
+    static final float REBUY_AMOUNT_HEIGHT = 92f;
+
+    static Rectangle rebuyMessage(float panelX, float panelY, float panelWidth) {
+        float y = panelY + REBUY_AMOUNT_Y + REBUY_AMOUNT_HEIGHT + 17f;
+        return new Rectangle(panelX + 56f, y, panelWidth - 112f, 60f);
+    }
+
     static Rectangle title(float panelX, float panelY, float panelWidth,
             float panelHeight) {
         return new Rectangle(panelX + 42f, panelY + panelHeight - 80f,

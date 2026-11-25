@@ -114,29 +114,27 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void performanceImpactHighlightsOnlyMeaningfulRenderSettings() {
-        assertEquals(GdxSettingsContract.PerformanceImpact.NONE,
-                GdxSettingsContract.performanceImpact(
-                        "gdx_vsync"));
-
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                GdxSettingsContract.performanceImpact(
-                        "animacion_barajado"));
-        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
-                GdxSettingsContract.performanceImpact(
-                        "animacion_fuego_allin"));
-        assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                GdxSettingsContract.performanceImpact(
-                        "animacion_apuestas"));
-        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
-                GdxSettingsContract.performanceImpact(
-                        "animacion_efecto_ganador"));
-        assertEquals(GdxSettingsContract.PerformanceImpact.MEDIUM,
-                GdxSettingsContract.performanceImpact(
-                        "cinematicas_allin"));
-        assertEquals(GdxSettingsContract.PerformanceImpact.NONE,
-                GdxSettingsContract.performanceImpact(
-                        "show_time"));
+    void performanceImpactDistinguishesLargePassesFromSmallEffects() {
+        var high = GdxSettingsContract.PerformanceImpact.HIGH;
+        var medium = GdxSettingsContract.PerformanceImpact.MEDIUM;
+        var low = GdxSettingsContract.PerformanceImpact.LOW;
+        var none = GdxSettingsContract.PerformanceImpact.NONE;
+        Map.of(
+                high, List.of(GdxSettingsContract.TABLE_VIEW_KEY, "animaciones",
+                        GdxSettingsContract.POKER_VIDEOS_KEY, "animacion_barajado",
+                        GdxSettingsContract.MODAL_BLUR_KEY, "animacion_apuestas"),
+                medium, List.of("chat_images_ingame", "cinematicas_allin",
+                        "cinematicas_gameover", "animacion_reparto",
+                        "animacion_fuego_allin", "animacion_efecto_ganador",
+                        GdxSettingsContract.HALO_EFFECT_KEY),
+                low, List.of(GdxSettingsContract.GLASS_EFFECT_KEY,
+                        "animacion_destape", GdxSettingsContract.COLLECT_HAND_CARDS_KEY,
+                        "vista_barajado", "duracion_barajado"),
+                none, List.of("show_time", GdxSettingsContract.DIM_FOLDED_OPPONENTS_KEY,
+                        GdxShuffleAngle.KEY, GdxSettingsContract.POKER_VIDEO_AUTO_OPEN_KEY,
+                        "auto_fullscreen", "master_volume")
+        ).forEach((impact, keys) -> keys.forEach(key ->
+                assertEquals(impact, GdxSettingsContract.performanceImpact(key), key)));
     }
 
     @Test
@@ -180,12 +178,21 @@ final class GdxSettingsContractTest {
     }
 
     @Test
-    void graphicsImpactIsRatedBySetting() {
-        for (String key : List.of(GdxSettingsContract.MSAA_KEY,
-                GdxSettingsContract.CARD_RENDERING_KEY, "gdx_fps_limit",
+    void graphicsImpactUsesTheSameKeyForBothFpsControlsAndEachShuffleZoom() {
+        var high = GdxSettingsContract.PerformanceImpact.HIGH;
+        var medium = GdxSettingsContract.PerformanceImpact.MEDIUM;
+        for (String key : List.of(GdxSettingsContract.MSAA_KEY, GdxFrameRateLimit.KEY,
                 GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY)) {
-            assertEquals(GdxSettingsContract.PerformanceImpact.HIGH,
-                    GdxSettingsContract.performanceImpact(key), key);
+            assertEquals(high, GdxSettingsContract.performanceImpact(key), key);
+        }
+        for (String key : List.of("gdx_window_mode", "gdx_vsync",
+                GdxSettingsContract.CARD_RENDERING_KEY, GdxCardZoom.SHUFFLE_LABEL,
+                GdxCardZoom.SHUFFLE_2D.key, GdxCardZoom.SHUFFLE_3D.key)) {
+            assertEquals(medium, GdxSettingsContract.performanceImpact(key), key);
+        }
+        for (int row : List.of(GdxSettingsContract.GRAPHICS_FPS_MODE_ROW,
+                GdxSettingsContract.GRAPHICS_FPS_SLIDER_ROW)) {
+            assertEquals(GdxFrameRateLimit.KEY, GdxSettingsContract.APPEARANCE_GRAPHICS_KEYS.get(row));
         }
     }
 

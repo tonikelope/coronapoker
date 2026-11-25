@@ -71,7 +71,7 @@ final class GdxShortcutBindings {
     private final LinkedHashMap<String, Definition> definitions
             = new LinkedHashMap<>();
     private volatile Map<String, Binding> current = Map.of();
-    private Map<String, Binding> editSnapshot;
+    private Map<String, Binding> draft;
 
     GdxShortcutBindings(Properties properties) {
         this.properties = Objects.requireNonNull(properties, "properties");
@@ -193,22 +193,30 @@ final class GdxShortcutBindings {
         return binding == null ? "" : display(binding);
     }
 
+    private Map<String, Binding> editable() {
+        return draft == null ? current : draft;
+    }
+
+    private void storeEdit(Map<String, Binding> bindings) {
+        if (draft == null) current = Map.copyOf(bindings);
+        else draft = Map.copyOf(bindings);
+    }
+
     synchronized void beginEdit() {
-        editSnapshot = new LinkedHashMap<>(current);
+        draft = current;
     }
 
     synchronized boolean hasPendingEdits() {
-        return editSnapshot != null && !editSnapshot.equals(current);
+        return draft != null && !draft.equals(current);
     }
 
     synchronized void cancelEdit() {
-        if (editSnapshot != null) {
-            current = Map.copyOf(editSnapshot);
-            editSnapshot = null;
-        }
+        draft = null;
     }
 
     synchronized void commitEdit() {
+        if (draft != null) current = draft;
+        draft = null;
         for (Definition definition : definitions.values()) {
             Binding binding = current.get(definition.id);
             String key = PREFIX + definition.id;
@@ -221,7 +229,6 @@ final class GdxShortcutBindings {
                         + binding.modifiers);
             }
         }
-        editSnapshot = null;
     }
 
     synchronized void resetAllEdits() {
@@ -229,18 +236,18 @@ final class GdxShortcutBindings {
         for (Definition definition : definitions.values()) {
             reset.put(definition.id, definition.fallback);
         }
-        current = Map.copyOf(reset);
+        storeEdit(reset);
     }
 
     synchronized boolean isDefault(String id) {
         Definition definition = definitions.get(id);
-        return definition != null && Objects.equals(current.get(id),
+        return definition != null && Objects.equals(editable().get(id),
                 definition.fallback);
     }
 
     synchronized boolean allDefaults() {
         return definitions.values().stream().allMatch(definition ->
-                Objects.equals(current.get(definition.id),
+                Objects.equals(editable().get(definition.id),
                         definition.fallback));
     }
 
@@ -269,20 +276,20 @@ final class GdxShortcutBindings {
                 }
             }
         }
-        LinkedHashMap<String, Binding> edited = new LinkedHashMap<>(current);
+        LinkedHashMap<String, Binding> edited = new LinkedHashMap<>(editable());
         // A user-selected shortcut wins over another editable shortcut. The
         // previous action is deliberately left unassigned instead of making
         // one key dispatch two commands.
         for (Definition definition : definitions.values()) {
             if (!definition.id.equals(id)
                     && conflicts(candidate, target.keycodeOnly,
-                            current.get(definition.id),
+                            editable().get(definition.id),
                             definition.keycodeOnly)) {
                 edited.remove(definition.id);
             }
         }
         edited.put(id, candidate);
-        current = Map.copyOf(edited);
+        storeEdit(edited);
         return Assignment.ASSIGNED;
     }
 
@@ -294,7 +301,7 @@ final class GdxShortcutBindings {
         ArrayList<ShortcutEntry> entries = new ArrayList<>();
         for (String id : EDITOR_ORDER) {
             Definition definition = definitions.get(id);
-            Binding binding = current.get(definition.id);
+            Binding binding = editable().get(definition.id);
             entries.add(new ShortcutEntry(definition.id,
                     text == null ? shortcutDescription(definition.id)
                             : shortcutDescription(definition.id, text),

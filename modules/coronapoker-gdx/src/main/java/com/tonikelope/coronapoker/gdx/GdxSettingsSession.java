@@ -1,7 +1,6 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker.gdx;
 
-import com.tonikelope.coronapoker.core.PreferencesService;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,10 +22,7 @@ final class GdxSettingsSession {
         MENU, WAITING_ROOM, LIVE_TABLE
     }
 
-    private static final List<String> DEFERRED_KEYS = List.of(
-            GdxFrameRateLimit.KEY, GdxFrameRateLimit.MODE_KEY,
-            GdxSettingsContract.DIALOG_SLIDE_DIRECTION_KEY);
-    private final Properties deferredProperties = new Properties();
+    private final Properties draft = new Properties();
     private Context context = Context.MENU;
     private int tabIndex;
     private final Map<Context, Integer> lastTabByContext =
@@ -41,9 +37,15 @@ final class GdxSettingsSession {
     void begin(Context nextContext, Properties properties) {
         context = nextContext == null ? Context.MENU : nextContext;
         tabIndex = lastTabByContext.getOrDefault(context, 0);
-        preferenceSnapshot = properties == null
-                ? Map.of() : GdxSettingsContract.snapshot(properties);
-        resetDeferredProperties();
+        preferenceSnapshot = new LinkedHashMap<>();
+        draft.clear();
+        if (properties != null) {
+            synchronized (properties) {
+                properties.stringPropertyNames().forEach(key ->
+                        draft.setProperty(key, properties.getProperty(key)));
+                preferenceSnapshot = GdxSettingsContract.snapshot(draft);
+            }
+        }
         openedPerspective = properties != null && GdxAppearanceOptions.perspectiveTable(properties);
         openedDialogSlideDirection = properties == null ? GdxDialogSlide.Direction.UP
                 : GdxAppearanceOptions.dialogSlideDirection(properties);
@@ -115,14 +117,14 @@ final class GdxSettingsSession {
                 .put(section(), Math.max(0, requested));
     }
 
-    Properties frameRateDraft() {
-        return deferredProperties;
+    Properties draftProperties() {
+        return draft;
     }
 
-    Properties appearanceChoiceProperties(GdxAppearanceOptions.Choice choice,
-            Properties properties) {
-        return open && choice == GdxAppearanceOptions.DIALOG_SLIDE_DIRECTION
-                ? deferredProperties : properties;
+    void initializeSound(boolean enabled) {
+        String value = Boolean.toString(enabled);
+        draft.setProperty("sonidos", value);
+        preferenceSnapshot.put("sonidos", value);
     }
 
     GdxDialogSlide.Direction dialogSlideDirection(Properties properties) {
@@ -130,59 +132,61 @@ final class GdxSettingsSession {
                 : GdxAppearanceOptions.dialogSlideDirection(properties);
     }
 
-    void commitDeferredProperties(Properties properties) {
-        if (!open || properties == null) return;
+    boolean changed(String key) {
+        return !Objects.equals(draft.getProperty(key), preferenceSnapshot.get(key));
+    }
+
+    boolean propertiesChanged() {
+        return !changes().isEmpty();
+    }
+
+    private Map<String, String> changes() {
+        Map<String, String> edited = GdxSettingsContract.snapshot(draft);
+        preferenceSnapshot.keySet().forEach(key -> {
+            if (!edited.containsKey(key)) edited.put(key, null);
+        });
+        if (GdxAppearanceOptions.perspectiveTable(draft) == openedPerspective) {
+            edited.put(GdxSettingsContract.TABLE_VIEW_KEY,
+                    preferenceSnapshot.get(GdxSettingsContract.TABLE_VIEW_KEY));
+        }
+        edited.entrySet().removeIf(entry -> Objects.equals(entry.getValue(),
+                preferenceSnapshot.get(entry.getKey())));
+        return edited;
+    }
+
+    void commitProperties(Properties properties) {
+        if (!open) return;
+        Map<String, String> edited = changes();
         synchronized (properties) {
-            for (String key : DEFERRED_KEYS) {
-                String value = deferredProperties.getProperty(key);
-                if (Objects.equals(value, preferenceSnapshot.get(key))) continue;
+            edited.forEach((key, value) -> {
                 if (value == null) properties.remove(key);
                 else properties.setProperty(key, value);
+            });
+        }
+    }
+
+    void applyNativeChanges() {
+        if (changed(GdxWindowMode.PREFERENCE_KEY)) {
+            GdxWindowMode mode = GdxWindowMode.configured(draft);
+            if (mode != GdxDisplayModeController.activeMode() && !GdxDisplayModeController.apply(mode)) {
+                resetValue(GdxWindowMode.PREFERENCE_KEY);
             }
         }
-    }
-
-    private void resetDeferredProperties() {
-        deferredProperties.clear();
-        for (String key : DEFERRED_KEYS) {
-            String value = preferenceSnapshot.get(key);
-            if (value != null) deferredProperties.setProperty(key, value);
+        if (changed(GdxAudioDevices.OUTPUT_KEY) && !GdxAudioDevices.selectOutput(
+                draft, draft.getProperty(GdxAudioDevices.OUTPUT_KEY, ""))) {
+            resetValue(GdxAudioDevices.OUTPUT_KEY);
         }
     }
 
-    boolean propertiesChanged(Properties properties) {
-        if (properties == null) return false;
-        var current = GdxSettingsContract.snapshot(properties);
-        for (String key : DEFERRED_KEYS) {
-            current.put(key, deferredProperties.getProperty(key));
-        }
-        // Selecting the active view is a no-op even if the opening profile used its implicit default.
-        if (GdxAppearanceOptions.perspectiveTable(properties) == openedPerspective) {
-            current.put(GdxSettingsContract.TABLE_VIEW_KEY, preferenceSnapshot.get(GdxSettingsContract.TABLE_VIEW_KEY));
-        }
-        return !current.equals(preferenceSnapshot);
-    }
-
-    void restore(Properties properties, PreferencesService preferences) {
-        resetDeferredProperties();
-        if (properties == null) return;
-        synchronized (properties) {
-            var current = GdxSettingsContract.snapshot(properties);
-            var opening = new LinkedHashMap<>(preferenceSnapshot);
-            // Deferred edits never touched the shared preferences.
-            for (String key : DEFERRED_KEYS) {
-                opening.put(key, current.get(key));
-            }
-            if (current.equals(opening)) return;
-            GdxSettingsContract.restore(properties, opening);
-        }
-        // An independent save (for example a lobby chat change) can have flushed a live preview.
-        if (preferences != null) preferences.saveDeferred();
+    private void resetValue(String key) {
+        String original = preferenceSnapshot.get(key);
+        if (original == null) draft.remove(key);
+        else draft.setProperty(key, original);
     }
 
     void close() {
-        preferenceSnapshot = Map.of();
-        deferredProperties.clear();
+        preferenceSnapshot = new LinkedHashMap<>();
+        draft.clear();
         open = false;
     }
 

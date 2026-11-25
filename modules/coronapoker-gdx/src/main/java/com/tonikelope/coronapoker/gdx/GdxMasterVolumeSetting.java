@@ -2,12 +2,9 @@
 package com.tonikelope.coronapoker.gdx;
 
 import java.util.Properties;
-import java.util.function.BooleanSupplier;
-import java.util.function.DoubleConsumer;
 
 /** The master volume row uses the same percentage step as the volume shortcut. */
-record GdxMasterVolumeSetting(BooleanSupplier soundEnabled, DoubleConsumer apply)
-        implements GdxSettingsSlider.Setting {
+final class GdxMasterVolumeSetting implements GdxSettingsSlider.Setting {
 
     @Override public int min() { return 0; }
     @Override public int max() { return 100; }
@@ -20,10 +17,10 @@ record GdxMasterVolumeSetting(BooleanSupplier soundEnabled, DoubleConsumer apply
     }
 
     @Override public boolean enabled(Properties settings) {
-        return soundEnabled.getAsBoolean();
+        return Boolean.parseBoolean(settings.getProperty("sonidos", "true"));
     }
 
     @Override public void select(Properties settings, int value) {
-        apply.accept(value / 100f);
+        settings.setProperty("master_volume", Float.toString(value / 100f));
     }
 }

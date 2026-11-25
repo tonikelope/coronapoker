@@ -44,21 +44,25 @@ public final class GdxLauncher {
     public static void main(String[] args) throws IOException {
         if (GdxMacFirstThread.relaunchIfRequired(args)) return;
         Path profile = GdxProfileBackup.profile();
-        GdxProfileBackupTransfer.Request backup;
+        GdxApplicationShell.ExitRequest exit;
         try (var lock = GdxProfileBackup.lock(profile, true)) {
-            backup = runApplication(args);
-            if (backup != null) GdxDebugFile.close();
+            exit = runApplication(args);
+            if (exit != null) GdxDebugFile.close();
         }
+        if (exit == null) return;
+
+        var restart = exit.restart();
+        var backup = exit.backup();
         if (backup != null) {
             var result = backup.importing() ? backup.run(profile, percent -> {})
                     : GdxProfileExportWindow.run(profile, backup);
-            var restart = GdxMacFirstThread.applicationProcess(args);
+            restart = GdxMacFirstThread.applicationProcess(args);
             result.writeTo(restart);
-            restart.start();
         }
+        restart.start();
     }
 
-    private static GdxProfileBackupTransfer.Request runApplication(String[] args) {
+    private static GdxApplicationShell.ExitRequest runApplication(String[] args) {
         Path debugFile = GdxDebugFile.install();
         Logger.getLogger(GdxLauncher.class.getName()).log(Level.INFO,
                 "GDX debug log: {0}", debugFile);
@@ -86,7 +90,7 @@ public final class GdxLauncher {
         }
     }
 
-    private static GdxProfileBackupTransfer.Request launchWindow(String[] args,
+    private static GdxApplicationShell.ExitRequest launchWindow(String[] args,
             CoronaPokerApplication application) {
         boolean silent = java.util.Arrays.stream(args)
                 .anyMatch("--silent"::equalsIgnoreCase);
@@ -193,7 +197,7 @@ public final class GdxLauncher {
                         statsSync)) {
             NewGameSessionGateway sessions = lobbyGateway;
             GdxApplicationShell shell = new GdxApplicationShell(
-                    display.refreshRate, application, sessions, gameLog,
+                    args, display.refreshRate, application, sessions, gameLog,
                     presentationSettings, gameText, language -> {
                         gameText.setLanguage(language);
                         configureModSounds(modMedia, presentationSettings.language());
@@ -205,7 +209,7 @@ public final class GdxLauncher {
                 }
             });
             new Lwjgl3Application(shell, config);
-            return shell.profileBackupRequest();
+            return shell.exitRequest();
         }
     }
 

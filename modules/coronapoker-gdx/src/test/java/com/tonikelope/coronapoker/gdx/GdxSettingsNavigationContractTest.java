@@ -33,7 +33,7 @@ final class GdxSettingsNavigationContractTest {
         assertTrue(shapes.contains("|| row == 5 || row == 6"));
         assertTrue(shapes.contains("drawSettingsDropdownShape(bounds.x"));
         assertTrue(shapes.contains("row == GdxSettingsContract.GRAPHICS_FPS_SLIDER_ROW"));
-        assertTrue(shapes.contains("fpsControl.draw(shapes, bounds, rows, settingsSession.frameRateDraft()"));
+        assertTrue(shapes.contains("fpsControl.draw(shapes, bounds, rows, settingsDraft()"));
         assertTrue(shapes.contains("else if (row == 7)"));
         assertTrue(shapes.contains(
                 "drawSettingsInfoShape(bounds.x, bounds.y"));

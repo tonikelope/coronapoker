@@ -827,27 +827,32 @@ final class GdxSettingsContract {
     }
 
     /**
-     * Rates what a setting can cost on supported hardware. The rating and
-     * its tooltip color are independent of the currently selected value.
+     * Estimates how much rendering or processing this setting can change.
+     * Whole-scene work and heavy effects are high, substantial local work
+     * or indirect frame pacing is medium, and small local effects are low.
+     * The rating describes the control across its supported values.
      */
     static PerformanceImpact performanceImpact(String key) {
         if (key == null || key.isBlank()) return PerformanceImpact.NONE;
         return switch (key) {
-            case "animaciones", POKER_VIDEOS_KEY, "animacion_barajado",
-                    MODAL_BLUR_KEY, "animacion_apuestas",
-                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY, CARD_RENDERING_KEY,
-                    "gdx_fps_limit" -> PerformanceImpact.HIGH;
-            case "cinematicas", "cinematicas_accion", "cinematicas_allin",
+            case TABLE_VIEW_KEY, "animaciones", POKER_VIDEOS_KEY,
+                    "animacion_barajado", MODAL_BLUR_KEY, "animacion_apuestas",
+                    FLYING_CHIP_SHADOW_QUALITY_KEY, MSAA_KEY,
+                    GdxFrameRateLimit.KEY -> PerformanceImpact.HIGH;
+            case "gdx_window_mode", "gdx_vsync", CARD_RENDERING_KEY,
+                    "chat_images_ingame", GdxCardZoom.SHUFFLE_LABEL,
+                    "zoom_barajado_2d", "zoom_barajado_3d",
+                    "cinematicas", "cinematicas_accion", "cinematicas_allin",
                     "cinematicas_gameover", "animacion_reparto",
-                    "animacion_destape", COLLECT_HAND_CARDS_KEY,
                     "animacion_fuego_allin", "animacion_efecto_ganador",
-                    HALO_EFFECT_KEY, GLASS_EFFECT_KEY -> PerformanceImpact.MEDIUM;
-            case SHUFFLE_TO_DEALER_KEY, POKER_VIDEO_WINDOW_ANIMATION_KEY, DIM_FOLDED_OPPONENTS_KEY,
-                    "animacion_ciegas_dealer", "animacion_contadores",
-                    "animacion_entrada_asientos", "animacion_swap",
-                    FINAL_SUMMARY_CARDS_ANIMATION_KEY, STACK_BET_PREVIEW_KEY,
-                    "animacion_contador_final", "animacion_downgrade" ->
-                PerformanceImpact.LOW;
+                    HALO_EFFECT_KEY -> PerformanceImpact.MEDIUM;
+            case GLASS_EFFECT_KEY, "animacion_destape", COLLECT_HAND_CARDS_KEY,
+                    "vista_barajado", "duracion_barajado", SHUFFLE_TO_DEALER_KEY,
+                    POKER_VIDEO_WINDOW_ANIMATION_KEY, "animacion_ciegas_dealer",
+                    "animacion_contadores", "animacion_entrada_asientos",
+                    "animacion_swap", FINAL_SUMMARY_CARDS_ANIMATION_KEY,
+                    STACK_BET_PREVIEW_KEY, "animacion_contador_final",
+                    "animacion_downgrade" -> PerformanceImpact.LOW;
             default -> PerformanceImpact.NONE;
         };
     }

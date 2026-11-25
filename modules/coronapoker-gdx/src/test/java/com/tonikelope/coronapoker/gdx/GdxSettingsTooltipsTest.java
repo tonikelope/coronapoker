@@ -91,7 +91,7 @@ final class GdxSettingsTooltipsTest {
         GdxSettingsTooltips.Content english = GdxSettingsTooltips.content(
                 "gdx_vsync", new GdxGameText("en"));
         assertTrue(english.text().contains("Synchronizes frames"));
-        assertFalse(english.text().contains("Estimated performance impact"));
+        assertTrue(english.text().contains("Estimated performance impact: MEDIUM"));
 
         GdxSettingsTooltips.Content monitorRefresh = GdxSettingsTooltips.content(
                 "gdx_fps_limit", new GdxGameText("en"));
@@ -104,6 +104,23 @@ final class GdxSettingsTooltipsTest {
                 GdxSettingsContract.FLYING_CHIP_SHADOW_QUALITY_KEY, new GdxGameText("es"));
         assertTrue(shadows.text().contains("fichas en vuelo"));
         assertEquals(GdxSettingsContract.PerformanceImpact.HIGH, shadows.performanceImpact());
+
+        for (String language : List.of("es", "en")) {
+            var text = new GdxGameText(language);
+            var medium = GdxSettingsContract.PerformanceImpact.MEDIUM;
+            var zoom = GdxSettingsTooltips.content(GdxCardZoom.SHUFFLE_LABEL, text);
+            assertEquals(medium, zoom.performanceImpact());
+            assertEquals(zoom, GdxSettingsTooltips.content(GdxCardZoom.SHUFFLE_2D.key, text));
+            assertEquals(zoom, GdxSettingsTooltips.content(GdxCardZoom.SHUFFLE_3D.key, text));
+            var cardRendering = GdxSettingsTooltips.content(
+                    GdxSettingsContract.CARD_RENDERING_KEY, text);
+            assertEquals(medium, cardRendering.performanceImpact());
+            var glass = GdxSettingsTooltips.content(GdxSettingsContract.GLASS_EFFECT_KEY, text);
+            assertEquals(GdxSettingsContract.PerformanceImpact.LOW, glass.performanceImpact());
+            var dim = GdxSettingsTooltips.content(GdxSettingsContract.DIM_FOLDED_OPPONENTS_KEY, text);
+            assertEquals(GdxSettingsContract.PerformanceImpact.NONE, dim.performanceImpact());
+            assertFalse(dim.text().contains("\n"));
+        }
     }
 
     @Test

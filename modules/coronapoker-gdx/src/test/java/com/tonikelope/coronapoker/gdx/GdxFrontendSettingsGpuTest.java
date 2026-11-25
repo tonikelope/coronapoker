@@ -144,10 +144,12 @@ final class GdxFrontendSettingsGpuTest {
                 verifyMenuModalBackdrop(screen);
                 verifyNewGameSliders(screen);
                 verifySettings(screen, presentation, GdxSettingsSession.Context.MENU);
+                verifyMsaaRestartNotice(screen, presentation, true);
                 verifyImageViewer(screen);
                 try (var lobby = lobby()) {
                     screen.openLobby(lobby);
                     verifySettings(screen, presentation, GdxSettingsSession.Context.WAITING_ROOM);
+                    verifyMsaaRestartNotice(screen, presentation, false);
                 }
                 verifyLobbyNoticeHandoff(screen);
             } finally {
@@ -406,7 +408,11 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(0.67d, autoCall.autoCallAmount());
         typeSliderExact(screen, screen, "amountSliders", Control.AUTO_CALL, "0.01");
         assertEquals(0.67d, autoCall.autoCallAmount());
-        invoke(screen, "closeSettingsAutoCallDialog", new Class<?>[]{boolean.class}, false);
+        var active = (Properties) field(screen, "initialProperties");
+        var before = GdxSettingsContract.snapshot(active);
+        invoke(screen, "closeSettingsAutoCallDialog", new Class<?>[]{boolean.class}, true);
+        assertEquals(0.67d, GdxSettingsContract.automaticCallLimit(session.draftProperties()));
+        assertEquals(before, GdxSettingsContract.snapshot(active));
         for (var section : session.sections()) {
             session.selectTab(session.sections().indexOf(section));
             List<?> pages = (List<?>) invoke(screen, "settingsSubpageLabels", new Class<?>[0]);
@@ -422,26 +428,93 @@ final class GdxFrontendSettingsGpuTest {
         verifyAngleTrack(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, GdxSettingsContract.appearanceGraphicsPageIndex());
         verifyFrameRateControl(screen, screen, screen::render, (Properties) field(screen, "initialProperties"));
+        GdxWindowMode activeWindow = GdxDisplayModeController.activeMode();
+        GdxWindowMode pendingWindow = activeWindow == GdxWindowMode.WINDOWED
+                ? GdxWindowMode.BORDERLESS : GdxWindowMode.WINDOWED;
+        var windowOption = pressOption(screen, "WINDOW_MODE", pendingWindow.ordinal());
+        assertEquals(pendingWindow, GdxWindowMode.configured(session.draftProperties()));
+        assertEquals(activeWindow, GdxDisplayModeController.activeMode());
+        assertEquals(before.get(GdxWindowMode.PREFERENCE_KEY), active.getProperty(GdxWindowMode.PREFERENCE_KEY));
+        screen.touchUp((int) windowOption.x, (int) windowOption.y, 0, Input.Buttons.LEFT);
+        var draftPresentation = (GdxGamePresentationSettings) field(screen, "settingsPresentation");
+        int activeRenderingMode = presentation.requestedCardRenderingMode();
         var modes = presentation.cardRenderingModes();
         assertEquals(List.of(GdxCardSmaaRenderer.RENDERING_PERFORMANCE, GdxCardSmaaRenderer.RENDERING_BALANCED,
                 GdxCardSmaaRenderer.RENDERING_SMOOTH_AF), modes);
         for (int mode : modes) {
             var point = pressOption(screen, "CARD_RENDERING", modes.indexOf(mode));
-            assertEquals(mode, presentation.requestedCardRenderingMode());
+            assertEquals(mode, draftPresentation.requestedCardRenderingMode());
+            assertEquals(activeRenderingMode, presentation.requestedCardRenderingMode());
             screen.touchUp((int) point.x, (int) point.y, 0, Input.Buttons.LEFT);
         }
         invoke(screen, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
         for (String felt : List.of("azul", "verde", "azul", "verde", "azul")) {
-            chooseFelt(screen, presentation, felt);
+            chooseFelt(screen, draftPresentation, felt);
         }
-        assertTrue(presentation.secretFelt());
-        assertEquals(true, field(screen, "secretFeltTexture"));
-        chooseFelt(screen, presentation, "azul");
-        assertFalse(presentation.secretFelt());
-        assertEquals(false, field(screen, "secretFeltTexture"));
-        verifyDeckPreview(screen, presentation);
+        assertTrue(draftPresentation.secretFelt());
+        assertEquals(presentation.secretFelt(), field(screen, "secretFeltTexture"));
+        chooseFelt(screen, draftPresentation, "azul");
+        assertFalse(draftPresentation.secretFelt());
+        assertEquals(presentation.secretFelt(), field(screen, "secretFeltTexture"));
+        verifyDeckPreview(screen, draftPresentation);
         invoke(screen, "closeSettings", new Class<?>[]{boolean.class}, false);
         renderSettings.run();
+    }
+
+    private static void verifyMsaaRestartNotice(GdxFrontendScreen screen,
+            GdxGamePresentationSettings presentation, boolean restartOffered) throws Exception {
+        var active = (Properties) field(screen, "initialProperties");
+        var saved = (Properties) active.clone();
+        var viewport = (Viewport) field(screen, "viewport");
+        var session = (GdxSettingsSession) field(screen, "settingsSession");
+        Runnable render = settledSettingsRender(screen, screen::render);
+        int openingSamples = presentation.requestedMsaaSamples();
+        int requested = openingSamples == 2 ? 4 : 2;
+        presentation.setActualMsaaSamples(openingSamples);
+        try {
+            invoke(screen, "openSettings", new Class<?>[0]);
+            render.run();
+            var frame = GdxSettingsLayout.frame(viewport.getWorldWidth(), viewport.getWorldHeight(),
+                    session.sections().size(), ((List<?>) invoke(screen, "settingsSubpageLabels",
+                            new Class<?>[0])).size());
+            var save = frame.saveButton().getCenter(new Vector2());
+            click(screen, save);
+            render.run();
+            assertTrue(session.open(), "Save is disabled without pending changes");
+            assertFalse((boolean) field(screen, "settingsRestartNotice"));
+
+            session.draftProperties().setProperty(GdxSettingsContract.MSAA_KEY, Integer.toString(requested));
+            render.run();
+            assertEquals(openingSamples, presentation.requestedMsaaSamples());
+            click(screen, save);
+            render.run();
+
+            assertFalse(session.open());
+            assertTrue((boolean) field(screen, "settingsRestartNotice"));
+            assertEquals(requested, presentation.requestedMsaaSamples());
+            assertEquals(openingSamples, presentation.actualMsaaSamples());
+
+            var labels = new java.util.ArrayList<String>();
+            for (Object item : (List<?>) field(screen, "texts")) {
+                labels.add((String) field(item, "text"));
+            }
+            assertEquals(restartOffered, labels.contains("REINICIAR AHORA"));
+            assertEquals(restartOffered, labels.contains("REINICIAR MÁS TARDE"));
+            assertEquals(!restartOffered, labels.contains("ACEPTAR"));
+
+            render.run();
+            var bounds = restartOffered
+                    ? GdxUiDialogStyle.confirmationLayout(viewport.getWorldWidth(),
+                            viewport.getWorldHeight()).negativeButton()
+                    : GdxUiDialogStyle.noticeLayout(viewport.getWorldWidth(),
+                            viewport.getWorldHeight()).button();
+            click(screen, bounds.getCenter(new Vector2()));
+            render.run();
+            assertFalse((boolean) field(screen, "settingsRestartNotice"));
+            assertEquals(requested, presentation.requestedMsaaSamples());
+        } finally {
+            restoreKey(active, saved, GdxSettingsContract.MSAA_KEY);
+        }
     }
 
     private static void verifyNewGameSliders(GdxFrontendScreen screen) throws Exception {
@@ -677,6 +750,7 @@ final class GdxFrontendSettingsGpuTest {
     private static void verifyDiscardFromEveryPage(Object owner, GdxSettingsSession.Context context,
             Properties props, Runnable render, SettingsClick click) throws Exception {
         var session = (GdxSettingsSession) field(owner, "settingsSession");
+        var draftProperties = session.draftProperties();
         var viewport = (Viewport) field(owner, "viewport");
         var prompt = GdxUiDialogStyle.confirmationLayout(viewport.getWorldWidth(), viewport.getWorldHeight());
         for (var section : session.sections()) {
@@ -697,6 +771,7 @@ final class GdxFrontendSettingsGpuTest {
                 render.run();
                 if (section != GdxSettingsContract.Section.DEBUG) verifyScrollableSettingsRows(owner, render);
                 var baseline = GdxSettingsContract.snapshot(props);
+                var openingProperties = GdxSettingsContract.snapshot(draftProperties);
                 // A pending edit may also originate on another tab when the current rule is locked.
                 NewGameTableDraft draft = owner instanceof GdxFrontendScreen
                         && section == GdxSettingsContract.Section.GAME
@@ -718,7 +793,7 @@ final class GdxFrontendSettingsGpuTest {
                 } else if (section == GdxSettingsContract.Section.DEBUG) {
                     click.at(GdxSettingsLayout.debugPerformanceRow(frame.content()).getCenter(new Vector2()));
                 } else {
-                    editForDiscard(props, section, page);
+                    editForDiscard(draftProperties, section, page);
                 }
                 render.run();
                 var discard = prompt.positiveButton().getCenter(new Vector2());
@@ -736,11 +811,12 @@ final class GdxFrontendSettingsGpuTest {
                     discard.set((Math.max(hit.x, button.x) + Math.min(hit.x + hit.width, button.x + button.width)) / 2f,
                             (Math.max(hit.y, button.y) + Math.min(hit.y + hit.height, button.y + button.height)) / 2f);
                     click.at(discard);
-                    assertNotEquals(baseline.get(GdxShuffleAngle.KEY), props.getProperty(GdxShuffleAngle.KEY), label);
+                    assertNotEquals(openingProperties.get(GdxShuffleAngle.KEY), draftProperties.getProperty(GdxShuffleAngle.KEY), label);
                 }
-                var edited = GdxSettingsContract.snapshot(props);
-                if (onlyGameDraftChanged) assertEquals(baseline, edited, label);
-                else assertNotEquals(baseline, edited, label);
+                var edited = GdxSettingsContract.snapshot(draftProperties);
+                assertEquals(baseline, GdxSettingsContract.snapshot(props), label);
+                if (onlyGameDraftChanged) assertEquals(openingProperties, edited, label);
+                else assertNotEquals(openingProperties, edited, label);
                 assertEquals(true, invoke(owner, "settingsHavePendingChanges", new Class<?>[0]), label);
                 render.run();
                 click.at(frame.cancelButton().getCenter(new Vector2()));
@@ -755,7 +831,7 @@ final class GdxFrontendSettingsGpuTest {
                 click.at(frame.restoreButton().getCenter(new Vector2()));
                 render.run();
                 assertDiscardPrompt(owner, true, label);
-                assertEquals(edited, GdxSettingsContract.snapshot(props), label);
+                assertEquals(edited, GdxSettingsContract.snapshot(draftProperties), label);
                 click.at(prompt.negativeButton().getCenter(new Vector2()));
                 assertTrue(session.open(), label);
                 assertDiscardPrompt(owner, false, label);
@@ -763,7 +839,7 @@ final class GdxFrontendSettingsGpuTest {
                     click(screen, prompt.positiveButton().getCenter(new Vector2()));
                     assertTrue(session.open(), label);
                 }
-                assertEquals(edited, GdxSettingsContract.snapshot(props), label);
+                assertEquals(edited, GdxSettingsContract.snapshot(draftProperties), label);
                 render.run();
                 click.at(frame.cancelButton().getCenter(new Vector2()));
                 render.run();
@@ -782,10 +858,10 @@ final class GdxFrontendSettingsGpuTest {
                     assertEquals(CoronaPokerGdxTable.UI_NONE, field(owner, "uiLayer"), label);
                     invoke(owner, "openSettings", new Class<?>[0]);
                 }
-                assertFalse(session.propertiesChanged(props), label);
+                assertFalse(session.propertiesChanged(), label);
                 assertEquals(false, invoke(owner, "settingsHavePendingChanges", new Class<?>[0]), label);
                 if (GdxSettingsContract.hasRestoreDefaults(section)) {
-                    editForDiscard(props, section, page);
+                    editForDiscard(draftProperties, section, page);
                     render.run();
                     assertEquals(false, invoke(owner, "currentSettingsSubsectionAtDefaults", new Class<?>[0]), label);
                     click.at(frame.restoreButton().getCenter(new Vector2()));
@@ -840,10 +916,11 @@ final class GdxFrontendSettingsGpuTest {
     private static void verifySettingsKeyboardAndSave(Object owner, GdxSettingsSession.Context context,
             Properties props, Runnable render, SettingsClick click) throws Exception {
         var session = (GdxSettingsSession) field(owner, "settingsSession");
+        var draft = session.draftProperties();
         var viewport = (Viewport) field(owner, "viewport");
         var duration = GdxAppearanceOptions.SHUFFLE_DURATION;
         var beforeKeys = GdxSettingsContract.snapshot(props);
-        GdxAppearanceOptions.cycle(duration, props);
+        GdxAppearanceOptions.cycle(duration, draft);
         render.run();
         settingsKey(owner, Input.Keys.ESCAPE);
         render.run();
@@ -851,7 +928,7 @@ final class GdxFrontendSettingsGpuTest {
         settingsKey(owner, Input.Keys.ESCAPE);
         assertDiscardPrompt(owner, false, context.toString());
         assertTrue(session.open());
-        assertTrue(session.propertiesChanged(props));
+        assertTrue(session.propertiesChanged());
         render.run();
         settingsKey(owner, Input.Keys.ESCAPE);
         render.run();
@@ -863,8 +940,12 @@ final class GdxFrontendSettingsGpuTest {
         render.run();
         var frame = GdxSettingsLayout.frame(viewport.getWorldWidth(), viewport.getWorldHeight(),
                 session.sections().size(), ((List<?>) invoke(owner, "settingsSubpageLabels", new Class<?>[0])).size());
-        GdxAppearanceOptions.cycle(duration, props);
-        String selected = props.getProperty(duration.key());
+        GdxAppearanceOptions.cycle(duration, draft);
+        draft.setProperty("master_volume", "0.51");
+        draft.setProperty("auto_call_enabled", "true");
+        draft.setProperty("auto_call_max", "0.67");
+        String selected = draft.getProperty(duration.key());
+        assertEquals(beforeKeys, GdxSettingsContract.snapshot(props));
         render.run();
         click.at(frame.saveButton().getCenter(new Vector2()));
         render.run();
@@ -872,7 +953,14 @@ final class GdxFrontendSettingsGpuTest {
         assertDiscardPrompt(owner, false, context.toString());
         invoke(owner, "openSettings", new Class<?>[0]);
         assertEquals(selected, props.getProperty(duration.key()));
-        assertFalse(session.propertiesChanged(props));
+        assertEquals(0.51f, GdxSettingsContract.masterVolume(props));
+        assertEquals(0.67d, GdxSettingsContract.automaticCallLimit(props));
+        if (owner instanceof CoronaPokerGdxTable) {
+            assertEquals(0.51f, field(owner, "effectsVolume"));
+            assertEquals(true, field(owner, "autoCallEnabled"));
+            assertEquals(0.67d, field(owner, "autoCallMax"));
+        }
+        assertFalse(session.propertiesChanged());
         render.run();
         click.at(frame.cancelButton().getCenter(new Vector2()));
         render.run();
@@ -984,7 +1072,7 @@ final class GdxFrontendSettingsGpuTest {
     private static void verifyFrameRateControl(Object owner, com.badlogic.gdx.InputProcessor input,
             Runnable render, Properties savedSettings) throws Exception {
         var session = (GdxSettingsSession) field(owner, "settingsSession");
-        var settings = session.frameRateDraft();
+        var settings = session.draftProperties();
         var presentation = (GdxGamePresentationSettings) field(owner, "presentationSettings");
         int openingLimit = presentation.requestedFrameRateLimit();
         var control = (GdxFrameRateControl) field(owner, "fpsControl");
@@ -1035,7 +1123,7 @@ final class GdxFrontendSettingsGpuTest {
             assertTrue(control.editable(settings));
             assertEquals("400", control.text(settings));
             assertEquals(openingLimit, presentation.requestedFrameRateLimit());
-            assertTrue(session.propertiesChanged(savedSettings));
+            assertTrue(session.propertiesChanged());
         } finally {
             restoreKey(settings, saved, GdxFrameRateLimit.KEY);
             restoreKey(settings, saved, GdxFrameRateLimit.MODE_KEY);
@@ -1044,7 +1132,9 @@ final class GdxFrontendSettingsGpuTest {
     }
 
     private static void verifyZoomTracks(Object owner, com.badlogic.gdx.InputProcessor input, Runnable render,
-            java.util.Properties properties) throws Exception {
+            java.util.Properties active) throws Exception {
+        var properties = ((GdxSettingsSession) field(owner, "settingsSession")).draftProperties();
+        var before = GdxSettingsContract.snapshot(active);
         var slider = field(owner, "cardZoomSlider");
         var viewport = (Viewport) field(owner, "viewport");
         var scroll = owner.getClass().getDeclaredField("settingsAppearanceScroll");
@@ -1080,6 +1170,7 @@ final class GdxFrontendSettingsGpuTest {
                 assertTrue(input.touchUp(Math.round(end.x), y, 0, Input.Buttons.LEFT));
                 assertEquals(zoom.max, zoom.percent(properties));
                 assertEquals(otherValue, other.percent(properties));
+                assertEquals(before, GdxSettingsContract.snapshot(active));
             }
         } finally {
             for (var zoom : GdxCardZoom.values()) restoreKey(properties, saved, zoom.key);
@@ -1089,8 +1180,10 @@ final class GdxFrontendSettingsGpuTest {
     }
 
     private static void verifyPercentageTracks(Object owner, com.badlogic.gdx.InputProcessor input,
-            Runnable render, Properties properties) throws Exception {
+            Runnable render, Properties active) throws Exception {
         var session = (GdxSettingsSession) field(owner, "settingsSession");
+        var properties = session.draftProperties();
+        var before = GdxSettingsContract.snapshot(active);
         var slider = field(owner, "percentageSlider");
         var volume = (GdxMasterVolumeSetting) field(owner, "masterVolumeSetting");
         var audio = (GdxAudioControl) field(owner, "audioControl");
@@ -1100,10 +1193,10 @@ final class GdxFrontendSettingsGpuTest {
         try {
             session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.AUDIO));
             invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, 0);
-            audio.restoreSessionEnabled(false);
+            properties.setProperty("sonidos", "false");
             render.run();
             assertNull(field(slider, "visible"));
-            audio.restoreSessionEnabled(true);
+            properties.setProperty("sonidos", "true");
             render.run();
             assertSame(volume, field(slider, "visible"));
             dragPercentageTrack(owner, input, slider, () -> volume.value(properties), 0, 36, 100);
@@ -1111,7 +1204,7 @@ final class GdxFrontendSettingsGpuTest {
             assertEquals(overlay, field(owner, "volumeOverlayUntil"),
                     "Settings volume changes must not open the global volume overlay");
             if (owner instanceof CoronaPokerGdxTable) {
-                assertEquals(1f, field(owner, "effectsVolume"));
+                assertEquals(GdxSettingsContract.masterVolume(active), field(owner, "effectsVolume"));
             }
 
             session.selectTab(session.sections().indexOf(GdxSettingsContract.Section.APPEARANCE));
@@ -1121,10 +1214,9 @@ final class GdxFrontendSettingsGpuTest {
             assertSame(light, field(slider, "visible"));
             dragPercentageTrack(owner, input, slider, () -> light.value(properties), 10, 39, 90);
         } finally {
-            audio.restoreSessionEnabled(soundEnabled);
-            invoke(owner, owner instanceof CoronaPokerGdxTable
-                    ? "applyMasterVolume" : "applyFrontendMasterVolume", new Class<?>[]{float.class},
-                    GdxSettingsContract.masterVolume(saved));
+            assertEquals(soundEnabled, audio.enabled());
+            assertEquals(before, GdxSettingsContract.snapshot(active));
+            restoreKey(properties, saved, "sonidos");
             restoreKey(properties, saved, "master_volume");
             restoreKey(properties, saved, "nivel_luz");
         }
@@ -1153,7 +1245,10 @@ final class GdxFrontendSettingsGpuTest {
     }
 
     private static void verifyAngleTrack(Object owner, com.badlogic.gdx.InputProcessor input, Runnable render,
-            java.util.Properties properties) throws Exception {
+            java.util.Properties active) throws Exception {
+        var session = (GdxSettingsSession) field(owner, "settingsSession");
+        var properties = session.draftProperties();
+        int before = GdxShuffleAngle.value(active);
         invoke(owner, "selectSettingsSubpage", new Class<?>[]{int.class}, 1);
         var slider = field(owner, "shuffleAngleSlider");
         var track = (Rectangle) field(slider, "track");
@@ -1177,7 +1272,8 @@ final class GdxFrontendSettingsGpuTest {
         assertTrue(input.touchDragged(Math.round(end.x), touchY, 0));
         assertTrue(input.touchUp(Math.round(end.x), touchY, 0, Input.Buttons.LEFT));
         assertEquals(180, GdxShuffleAngle.value(properties));
-        assertTrue(((GdxSettingsSession) field(owner, "settingsSession")).propertiesChanged(properties));
+        assertTrue(session.propertiesChanged());
+        assertEquals(before, GdxShuffleAngle.value(active));
         GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
         assertEquals(GdxShuffleAngle.DEFAULT, GdxShuffleAngle.value(properties));
     }
@@ -1301,11 +1397,13 @@ final class GdxFrontendSettingsGpuTest {
                 invoke(table, "selectTableFeltOption", new Class<?>[]{int.class},
                         GdxGamePresentationSettings.FELTS.indexOf(felt));
             }
-            assertTrue(presentation.secretFelt());
-            assertEquals(true, field(table, "secretFeltTexture"));
+            var draftPresentation = (GdxGamePresentationSettings) field(table, "settingsPresentation");
+            assertTrue(draftPresentation.secretFelt());
+            assertEquals(presentation.secretFelt(), field(table, "secretFeltTexture"));
             invoke(table, "selectTableFeltOption", new Class<?>[]{int.class},
                     GdxGamePresentationSettings.FELTS.indexOf("azul"));
-            assertEquals(false, field(table, "secretFeltTexture"));
+            assertFalse(draftPresentation.secretFelt());
+            assertEquals(presentation.secretFelt(), field(table, "secretFeltTexture"));
 
             var preview = (GdxImagePreview) field(table, "imagePreview");
             int deck = presentation.availableDecks().indexOf("interstate60");
@@ -1379,6 +1477,8 @@ final class GdxFrontendSettingsGpuTest {
     }
 
     private static void verifyShuffleAngleLock(CoronaPokerGdxTable table, java.util.Properties properties) throws Exception {
+        var draft = ((GdxSettingsSession) field(table, "settingsSession")).draftProperties();
+        int initialAngle = GdxShuffleAngle.value(properties);
         properties.setProperty(GdxSettingsContract.SHUFFLE_TO_DEALER_KEY, "false");
         var slider = field(table, "shuffleAngleSlider");
         var track = (Rectangle) field(slider, "track");
@@ -1389,8 +1489,9 @@ final class GdxFrontendSettingsGpuTest {
         Vector2 end = viewport.project(new Vector2(track.x, hit.y + hit.height * .5f));
         int touchY = HEIGHT - 1 - Math.round(start.y);
         assertTrue(input.touchDown(Math.round(start.x), touchY, 0, Input.Buttons.LEFT));
-        int initialAngle = GdxShuffleAngle.value(properties);
-        assertTrue(initialAngle > 60 && initialAngle < 80);
+        int draftAngle = GdxShuffleAngle.value(draft);
+        assertTrue(draftAngle > 60 && draftAngle < 80);
+        assertEquals(initialAngle, GdxShuffleAngle.value(properties));
         properties.setProperty(GdxCardZoom.SHUFFLE_2D.key, "115");
         properties.setProperty(GdxCardZoom.SHUFFLE_3D.key, "175");
         var view = GdxAppearanceOptions.SHUFFLE_VIEW;
@@ -1425,7 +1526,7 @@ final class GdxFrontendSettingsGpuTest {
         assertEquals(HEIGHT, Gdx.graphics.getHeight(), "Resetting animations must preserve the window size");
         assertEquals("3d", properties.getProperty(view.key()));
         assertEquals(initialAngle, GdxShuffleAngle.value(properties));
-        // Cancelling uncommitted settings may restore the next hand's preference.
+        // An independent preference change must not alter an active shuffle.
         properties.setProperty(GdxShuffleAngle.KEY, "15");
         assertEquals(initialAngle, invoke(table, "shuffleAngle", new Class<?>[0]));
         properties.setProperty(GdxShuffleAngle.KEY, Integer.toString(initialAngle));
@@ -1458,8 +1559,9 @@ final class GdxFrontendSettingsGpuTest {
         assertTrue(hit.width > 0f);
         assertTrue(input.touchDown((int) end.x, touchY, 0, Input.Buttons.LEFT));
         input.touchUp((int) end.x, touchY, 0, Input.Buttons.LEFT);
-        assertEquals(-180, GdxShuffleAngle.value(properties));
-        GdxSettingsContract.restoreAppearancePageDefaults(properties, 1, true);
+        assertEquals(-180, GdxShuffleAngle.value(draft));
+        assertEquals(initialAngle, GdxShuffleAngle.value(properties));
+        GdxSettingsContract.restoreAppearancePageDefaults(draft, 1, true);
     }
 
     private static void verifyDealerDeparture(CoronaPokerGdxTable table, java.util.Properties properties) throws Exception {

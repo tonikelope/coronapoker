@@ -52,9 +52,15 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
 
     GdxGamePresentationSettings(PreferencesService preferences,
             ModMediaCatalog modMedia) {
-        this.preferences = Objects.requireNonNull(preferences, "preferences");
+        this(Objects.requireNonNull(preferences, "preferences"),
+                preferences.properties(), modMedia);
+    }
+
+    private GdxGamePresentationSettings(PreferencesService preferences,
+            Properties properties, ModMediaCatalog modMedia) {
+        this.preferences = preferences;
+        this.properties = properties;
         this.modMedia = Objects.requireNonNull(modMedia, "modMedia");
-        properties = preferences.properties();
         LinkedHashMap<String, String> decks = new LinkedHashMap<>();
         for (String deck : OFFICIAL_DECKS) {
             decks.put(deck.toLowerCase(Locale.ROOT), deck);
@@ -66,6 +72,12 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         availableDecks = List.copyOf(new ArrayList<>(decks.values()));
         refreshRuntimePreferences();
         commitCommunityDealStyle();
+    }
+
+    GdxGamePresentationSettings settingsDraft(Properties draft) {
+        GdxGamePresentationSettings result = new GdxGamePresentationSettings(null, draft, modMedia);
+        result.windowMsaa = windowMsaa;
+        return result;
     }
 
     void commitCommunityDealStyle() {
@@ -192,7 +204,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         String selected = normalizedDecks.getOrDefault(normalized, this.deck());
         if (!selected.equals(this.deck())) deckPreviewSelections = 0;
         properties.setProperty("baraja", selected);
-        if (persist) preferences.saveDeferred();
+        if (persist && preferences != null) preferences.saveDeferred();
         return selected;
     }
 
@@ -241,7 +253,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         } else {
             registerSecretFeltSwitch(previous, selected);
         }
-        if (persist) preferences.saveDeferred();
+        if (persist && preferences != null) preferences.saveDeferred();
         return selected;
     }
     private void registerSecretFeltSwitch(String previous, String selected) {
@@ -318,7 +330,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 ? "default" : normalizedDecks.getOrDefault(normalized,
                         this.cardBack());
         properties.setProperty("trasera", selected);
-        if (persist) preferences.saveDeferred();
+        if (persist && preferences != null) preferences.saveDeferred();
         return selected;
     }
     private static int previousIndex(int current, int size) {
@@ -451,7 +463,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
         int selected = MSAA_LEVELS.contains(samples) ? samples
                 : requestedMsaaSamples();
         properties.setProperty(GdxSettingsContract.MSAA_KEY, Integer.toString(selected));
-        if (persist) preferences.saveDeferred();
+        if (persist && preferences != null) preferences.saveDeferred();
         return selected;
     }
     int selectNextMsaaSamples() {
@@ -485,7 +497,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
                 : requestedCardRenderingMode();
         properties.setProperty(GdxSettingsContract.CARD_RENDERING_KEY,
                 Integer.toString(selected));
-        if (persist) preferences.saveDeferred();
+        if (persist && preferences != null) preferences.saveDeferred();
         return selected;
     }
     int requestedFrameRateLimit() {
@@ -502,7 +514,7 @@ final class GdxGamePresentationSettings implements GamePresentationSettings {
     boolean toggleVsync(boolean persist) {
         boolean selected = !vsyncEnabled();
         properties.setProperty("gdx_vsync", Boolean.toString(selected));
-        if (persist) preferences.saveDeferred();
+        if (persist && preferences != null) preferences.saveDeferred();
         return selected;
     }
     int effectiveFrameRateLimit(int monitorRefreshRate) {

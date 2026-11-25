@@ -19,6 +19,7 @@ import com.tonikelope.coronapoker.core.game.GameDialogSink;
 import com.tonikelope.coronapoker.table.TableCommandSink;
 import com.tonikelope.coronapoker.table.TableSession;
 import com.tonikelope.coronapoker.table.TableSnapshot;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +45,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private static final AtomicReference<GdxApplicationShell> ACTIVE =
             new AtomicReference<>();
 
+    private final String[] applicationArgs;
     private final int refreshRate;
     private final CoronaPokerApplication application;
     private final NewGameSessionGateway sessionGateway;
@@ -62,7 +64,7 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private Boolean independentWakeLockRequired;
     private PreferencesService preferences;
     private GdxFrontendScreen menu;
-    private GdxProfileBackupTransfer.Request profileBackupRequest;
+    private ExitRequest exitRequest;
     private volatile LobbySession lobby;
     private CoronaPokerGdxTable startupIntro;
     private ShaderProgram allInFireShader;
@@ -77,11 +79,13 @@ final class GdxApplicationShell extends ApplicationAdapter {
     private JvmDeadlockWatchdog deadlockWatchdog;
     private volatile boolean fatalDeadlockExitRequested;
 
-    GdxApplicationShell(int refreshRate, CoronaPokerApplication application,
+    GdxApplicationShell(String[] applicationArgs, int refreshRate,
+            CoronaPokerApplication application,
             NewGameSessionGateway sessionGateway, GdxGameLogSink gameLog,
             GdxGamePresentationSettings presentationSettings,
             GdxGameText gameText, Consumer<String> languageChanged,
             IdentityTrustStore identityTrust) {
+        this.applicationArgs = applicationArgs.clone();
         this.refreshRate = refreshRate;
         this.frameRateMonitorRefresh = refreshRate > 0 ? refreshRate : 60;
         this.application = Objects.requireNonNull(application, "application");
@@ -100,15 +104,31 @@ final class GdxApplicationShell extends ApplicationAdapter {
         return ACTIVE.get();
     }
 
+    private boolean canExitFromMenu() {
+        return table == null && pendingTableOpen == null && lobby == null
+                && exitRequest == null;
+    }
+
     void exitForProfileBackup(GdxProfileBackupTransfer.Request request) {
-        if (table != null || pendingTableOpen != null || lobby != null
-                || profileBackupRequest != null) return;
-        profileBackupRequest = Objects.requireNonNull(request);
+        if (!canExitFromMenu()) return;
+        exitRequest = new ExitRequest(Objects.requireNonNull(request), null);
         Gdx.app.exit();
     }
 
-    GdxProfileBackupTransfer.Request profileBackupRequest() {
-        return profileBackupRequest;
+    boolean exitForSettingsRestart() throws IOException {
+        if (!canExitFromMenu()) return false;
+        ProcessBuilder restart = GdxMacFirstThread.applicationProcess(applicationArgs);
+        preferences.save();
+        exitRequest = new ExitRequest(null, restart);
+        Gdx.app.exit();
+        return true;
+    }
+
+    ExitRequest exitRequest() {
+        return exitRequest;
+    }
+
+    record ExitRequest(GdxProfileBackupTransfer.Request backup, ProcessBuilder restart) {
     }
 
     static GdxApplicationShell requireActive() {

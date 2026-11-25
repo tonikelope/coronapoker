@@ -603,7 +603,7 @@ final class GdxFrontendSettingsWiringTest {
                     key + " must participate in Cancel/Save transactions");
         }
         assertTrue(frontend.contains(
-                "presentationSettings.autoRebuyOnBroke()"));
+                "settingsPresentation().autoRebuyOnBroke()"));
         assertTrue(table.contains("presentationSettings.autoRebuyOnBroke()"));
     }
 

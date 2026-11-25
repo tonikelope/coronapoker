@@ -277,24 +277,25 @@ final class GdxTableShortcutTest {
     }
 
     @Test
-    void editingMovesAnOccupiedCombinationAndStillRejectsFixedAliases() {
+    void editingMovesAnOccupiedCombinationOnlyAfterSaveAndStillRejectsFixedAliases() {
         GdxShortcutBindings bindings = bindings();
         bindings.beginEdit();
 
         assertEquals(GdxShortcutBindings.Assignment.ASSIGNED,
                 bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.SPACE,
                         false, false, false));
-        assertEquals(GdxShortcutBindings.PAUSE,
-                bindings.actionFor(Input.Keys.SPACE,
-                        false, false, false));
-        assertEquals("SIN ASIGNAR", bindings.displayFor(
-                GdxShortcutBindings.CHECK));
+        assertEquals(GdxShortcutBindings.CHECK,
+                bindings.actionFor(Input.Keys.SPACE, false, false, false));
+        assertEquals("SIN ASIGNAR", bindings.editableEntries().stream()
+                .filter(entry -> GdxShortcutBindings.CHECK.equals(entry.id()))
+                .findFirst().orElseThrow().display());
         assertEquals(GdxShortcutBindings.Assignment.CONFLICT,
                 bindings.assign(GdxShortcutBindings.PAUSE, Input.Keys.RIGHT,
                         false, false, false));
+
+        bindings.commitEdit();
         assertEquals(GdxShortcutBindings.PAUSE,
-                bindings.actionFor(Input.Keys.SPACE,
-                        false, false, false));
+                bindings.actionFor(Input.Keys.SPACE, false, false, false));
     }
 
     @Test
@@ -332,7 +333,8 @@ final class GdxTableShortcutTest {
         bindings.resetAllEdits();
 
         assertEquals(GdxShortcutBindings.PAUSE,
-                bindings.actionFor(Input.Keys.P, true, false, false));
+                bindings.actionFor(Input.Keys.K, true, false, false));
+        assertNull(bindings.actionFor(Input.Keys.P, true, false, false));
         assertTrue(properties.containsKey("shortcut.PAUSE"));
 
         bindings.commitEdit();

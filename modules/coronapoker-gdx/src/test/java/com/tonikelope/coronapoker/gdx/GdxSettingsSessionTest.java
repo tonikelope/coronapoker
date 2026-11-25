@@ -13,41 +13,51 @@ import org.junit.jupiter.api.Test;
 final class GdxSettingsSessionTest {
 
     @Test
-    void viewSelectionAloneActivatesSaveAndCancelRestoresThePreviousView() {
+    void tableViewDoesNotChangeUntilTheDraftIsCommitted() {
         Properties preferences = new Properties();
         GdxSettingsSession session = new GdxSettingsSession();
         for (var context : GdxSettingsSession.Context.values()) {
             session.begin(context, preferences);
-            assertFalse(session.propertiesChanged(preferences));
-            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, preferences, 0);
-            assertTrue(session.propertiesChanged(preferences));
-            session.restore(preferences, null);
+            assertFalse(session.propertiesChanged());
+            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, session.draftProperties(), 0);
+            assertTrue(session.propertiesChanged());
             assertTrue(GdxAppearanceOptions.perspectiveTable(preferences));
-            assertFalse(session.propertiesChanged(preferences));
             session.close();
+            assertTrue(GdxAppearanceOptions.perspectiveTable(preferences));
         }
     }
 
     @Test
-    void discardRepairsAnIndependentDiskFlushAndPreservesUnrelatedChanges(
+    void independentDiskFlushCannotWriteDraftAndSaveMergesOnlyEditedKeys(
             @TempDir Path directory) throws Exception {
         var file = directory.resolve("settings.properties");
         try (var prefs = new PreferencesService(file)) {
             prefs.start();
             var properties = prefs.properties();
             properties.setProperty(GdxShuffleAngle.KEY, "45");
+            properties.setProperty("musica", "true");
             var session = new GdxSettingsSession();
             session.begin(GdxSettingsSession.Context.LIVE_TABLE, properties);
-            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, properties, 1);
-            assertFalse(session.propertiesChanged(properties));
-            properties.setProperty(GdxShuffleAngle.KEY, "85");
+            var draft = session.draftProperties();
+            GdxAppearanceOptions.select(GdxAppearanceOptions.TABLE_VIEW, draft, 1);
+            assertFalse(session.propertiesChanged());
+            draft.setProperty(GdxShuffleAngle.KEY, "85");
+            draft.setProperty("gdx_show_fps", "true");
+            properties.setProperty("musica", "false");
             properties.setProperty("unrelated", "keep");
             prefs.save();
-            session.restore(properties, prefs);
+            try (var reloaded = new PreferencesService(file)) {
+                assertEquals("45", reloaded.properties().getProperty(GdxShuffleAngle.KEY));
+                assertFalse(reloaded.properties().containsKey("gdx_show_fps"));
+            }
+            session.commitProperties(properties);
+            prefs.save();
         }
         try (var reloaded = new PreferencesService(file)) {
             var properties = reloaded.properties();
-            assertEquals("45", properties.getProperty(GdxShuffleAngle.KEY));
+            assertEquals("85", properties.getProperty(GdxShuffleAngle.KEY));
+            assertEquals("true", properties.getProperty("gdx_show_fps"));
+            assertEquals("false", properties.getProperty("musica"));
             assertFalse(properties.containsKey(GdxSettingsContract.TABLE_VIEW_KEY));
             assertEquals("keep", properties.getProperty("unrelated"));
         }
@@ -66,11 +76,11 @@ final class GdxSettingsSessionTest {
                 GdxFrameRateLimit.reset(settings);
                 GdxFrameRateLimit.CUSTOM.select(settings, 165);
                 session.begin(context, settings);
-                var draft = session.frameRateDraft();
+                var draft = session.draftProperties();
                 assertEquals(165, GdxFrameRateLimit.CUSTOM.value(draft));
                 GdxFrameRateLimit.CUSTOM.select(draft, 197);
                 GdxFrameRateLimit.selectMode(draft, 0);
-                assertTrue(session.propertiesChanged(settings));
+                assertTrue(session.propertiesChanged());
                 assertEquals(165, presentation.effectiveFrameRateLimit(240));
                 prefs.save();
                 try (var reloaded = new PreferencesService(file)) {
@@ -78,16 +88,17 @@ final class GdxSettingsSessionTest {
                     assertFalse(GdxFrameRateLimit.matchRefresh(reloaded.properties()));
                 }
 
-                session.restore(settings, prefs);
+                session.close();
+                session.begin(context, settings);
                 assertEquals(165, GdxFrameRateLimit.CUSTOM.value(draft));
-                assertFalse(session.propertiesChanged(settings));
+                assertFalse(session.propertiesChanged());
                 assertEquals(165, presentation.effectiveFrameRateLimit(240));
 
                 int graphics = GdxSettingsContract.appearanceGraphicsPageIndex();
-                GdxSettingsContract.restoreAppearancePageDefaults(settings, draft, graphics, true, false);
-                assertTrue(GdxSettingsContract.appearancePageAtDefaults(settings, draft, graphics, true, false));
+                GdxSettingsContract.restoreAppearancePageDefaults(draft, graphics, true, false);
+                assertTrue(GdxSettingsContract.appearancePageAtDefaults(draft, graphics, true, false));
                 assertEquals(165, presentation.effectiveFrameRateLimit(240));
-                session.commitDeferredProperties(settings);
+                session.commitProperties(settings);
                 assertEquals(120, presentation.effectiveFrameRateLimit(240));
                 session.close();
 
@@ -95,7 +106,7 @@ final class GdxSettingsSessionTest {
                 GdxFrameRateLimit.CUSTOM.select(draft, 197);
                 GdxFrameRateLimit.selectMode(draft, 0);
                 assertEquals(120, presentation.effectiveFrameRateLimit(240));
-                session.commitDeferredProperties(settings);
+                session.commitProperties(settings);
                 assertEquals(241, presentation.effectiveFrameRateLimit(240));
                 assertEquals(197, GdxFrameRateLimit.CUSTOM.value(settings));
                 session.close();
@@ -111,21 +122,22 @@ final class GdxSettingsSessionTest {
         for (var context : GdxSettingsSession.Context.values()) {
             properties.setProperty(choice.key(), "off");
             session.begin(context, properties);
-            var draft = session.appearanceChoiceProperties(choice, properties);
+            var draft = session.draftProperties();
             GdxAppearanceOptions.select(choice, draft, 1);
             GdxAppearanceOptions.select(choice, draft, 2);
             assertEquals("off", properties.getProperty(choice.key()));
             assertEquals(GdxDialogSlide.Direction.OFF, session.dialogSlideDirection(properties));
-            assertTrue(session.propertiesChanged(properties));
-            session.restore(properties, null);
-            assertFalse(session.propertiesChanged(properties));
+            assertTrue(session.propertiesChanged());
+            session.close();
+            session.begin(context, properties);
+            assertFalse(session.propertiesChanged());
             assertEquals(4, GdxAppearanceOptions.selectedIndex(choice, draft));
 
-            GdxSettingsContract.restoreAppearancePageDefaults(properties, draft, 1, true, false);
-            assertTrue(GdxSettingsContract.appearancePageAtDefaults(properties, draft, 1, true, false));
+            GdxSettingsContract.restoreAppearancePageDefaults(draft, 1, true, false);
+            assertTrue(GdxSettingsContract.appearancePageAtDefaults(draft, 1, true, false));
             assertEquals("off", properties.getProperty(choice.key()));
-            assertTrue(session.propertiesChanged(properties));
-            session.commitDeferredProperties(properties);
+            assertTrue(session.propertiesChanged());
+            session.commitProperties(properties);
             session.close();
             assertEquals(GdxDialogSlide.Direction.UP, session.dialogSlideDirection(properties));
         }
@@ -234,7 +246,7 @@ final class GdxSettingsSessionTest {
     }
 
     @Test
-    void cancelRestoresTheExactSharedPreferenceSnapshot() {
+    void discardingTheDraftLeavesEverySharedPreferenceIntact() {
         Properties properties = new Properties();
         properties.setProperty("baraja", "goliat");
         properties.setProperty("shortcut.pause", "ALT+P");
@@ -248,18 +260,18 @@ final class GdxSettingsSessionTest {
         GdxSettingsSession session = new GdxSettingsSession();
         session.begin(GdxSettingsSession.Context.LIVE_TABLE, properties);
 
-        properties.setProperty("baraja", "goliat4");
-        properties.setProperty("shortcut.pause", "P");
-        properties.setProperty("auto_action_buttons", "true");
-        properties.setProperty("auto_action_persist", "false");
-        properties.setProperty("modo_auto_confirm", "false");
-        properties.setProperty("confirmar_todo", "true");
-        properties.setProperty(GdxSettingsContract.AUTO_REBUY_KEY, "true");
-        properties.setProperty("auto_call_enabled", "true");
-        properties.setProperty("auto_call_max", "4.5");
-        assertTrue(session.propertiesChanged(properties));
-        session.restore(properties, null);
-        assertFalse(session.propertiesChanged(properties));
+        session.draftProperties().setProperty("baraja", "goliat4");
+        session.draftProperties().setProperty("shortcut.pause", "P");
+        session.draftProperties().setProperty("auto_action_buttons", "true");
+        session.draftProperties().setProperty("auto_action_persist", "false");
+        session.draftProperties().setProperty("modo_auto_confirm", "false");
+        session.draftProperties().setProperty("confirmar_todo", "true");
+        session.draftProperties().setProperty(GdxSettingsContract.AUTO_REBUY_KEY, "true");
+        session.draftProperties().setProperty("auto_call_enabled", "true");
+        session.draftProperties().setProperty("auto_call_max", "4.5");
+        assertTrue(session.propertiesChanged());
+        session.close();
+        assertFalse(session.propertiesChanged());
         assertEquals("goliat", properties.getProperty("baraja"));
         assertEquals("ALT+P", properties.getProperty("shortcut.pause"));
         assertEquals("false", properties.getProperty("auto_action_buttons"));

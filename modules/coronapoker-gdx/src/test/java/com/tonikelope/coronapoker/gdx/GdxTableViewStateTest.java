@@ -744,42 +744,18 @@ final class GdxTableViewStateTest {
     }
 
     @Test
-    void dimmedRightCardIsStillComposedAboveAnOpaqueLeftCard() {
+    void opacityOverridesTheUsualHoleCardOrderOnlyWhenTheCardsDiffer() {
         float dimmed = CoronaPokerGdxTable.DISABLED_CARD_ALPHA;
-
-        assertEquals(0, CoronaPokerGdxTable.disabledHoleCardPass(
-                0, 0, 1, 1f, dimmed),
-                "the opaque lower card belongs to the normal painter pass");
-        assertEquals(CoronaPokerGdxTable.DISABLED_HOLE_CARD_UPPER_PASS,
-                CoronaPokerGdxTable.disabledHoleCardPass(
-                        1, 0, 1, 1f, dimmed),
-                "a dimmed right card must be repainted after its opaque rear card");
-
-        assertEquals(CoronaPokerGdxTable.DISABLED_HOLE_CARD_UPPER_PASS,
-                CoronaPokerGdxTable.disabledHoleCardPass(
-                        0, 1, 0, 1f, dimmed),
-                "the rule follows physical screen order, not snapshot slot order");
-    }
-
-    @Test
-    void disabledPocketPassPreservesEveryOtherOpacityCombination() {
-        float dimmed = CoronaPokerGdxTable.DISABLED_CARD_ALPHA;
-
-        assertEquals(CoronaPokerGdxTable.DISABLED_HOLE_CARD_BASE_PASS,
-                CoronaPokerGdxTable.disabledHoleCardPass(
-                        0, 0, 1, dimmed, 1f));
-        assertEquals(0, CoronaPokerGdxTable.disabledHoleCardPass(
-                1, 0, 1, dimmed, 1f));
-        assertEquals(CoronaPokerGdxTable.DISABLED_HOLE_CARD_BASE_PASS,
-                CoronaPokerGdxTable.disabledHoleCardPass(
-                        0, 0, 1, dimmed, dimmed));
-        assertEquals(CoronaPokerGdxTable.DISABLED_HOLE_CARD_BASE_PASS,
-                CoronaPokerGdxTable.disabledHoleCardPass(
-                        1, 0, 1, dimmed, dimmed));
-        assertEquals(CoronaPokerGdxTable.DISABLED_HOLE_CARD_BASE_PASS,
-                CoronaPokerGdxTable.disabledHoleCardPass(
-                        0, 0, 0, dimmed, dimmed),
-                "a single visible card never needs the deferred upper pass");
+        for (int usualUpperSlot = 0; usualUpperSlot < 2; usualUpperSlot++) {
+            assertEquals(usualUpperSlot, CoronaPokerGdxTable.upperHoleCardSlotForOpacity(
+                    usualUpperSlot, dimmed, dimmed));
+            assertEquals(usualUpperSlot, CoronaPokerGdxTable.upperHoleCardSlotForOpacity(
+                    usualUpperSlot, 1f, 1f));
+            assertEquals(0, CoronaPokerGdxTable.upperHoleCardSlotForOpacity(
+                    usualUpperSlot, 1f, dimmed));
+            assertEquals(1, CoronaPokerGdxTable.upperHoleCardSlotForOpacity(
+                    usualUpperSlot, dimmed, 1f));
+        }
     }
 
     @Test

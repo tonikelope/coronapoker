@@ -158,7 +158,7 @@ final class GdxCardShell implements Disposable {
 
     void render(ShaderProgram shader, FloatArray source, int cols, int strips,
             int material, Texture top, Texture bottom, float cardWidth, float aspect,
-            float worldWidth, float worldHeight, boolean resolveColour) {
+            float worldWidth, float worldHeight, boolean resolveColour, boolean clearPreviousDepth) {
         columns = cols;
         rows = strips;
         halfThickness = GdxPlasticCard.thickness(cardWidth) * 0.5f;
@@ -212,7 +212,7 @@ final class GdxCardShell implements Disposable {
             draw(shader);
             shader.setUniformi("u_material", material);
             shader.setUniformi("u_cardSide", 0);
-        }, worldWidth, worldHeight, null, resolveColour);
+        }, worldWidth, worldHeight, null, resolveColour, clearPreviousDepth);
     }
 
     void renderSolid(ShaderProgram shader, FloatArray geometry, float worldWidth, float worldHeight,
@@ -248,10 +248,11 @@ final class GdxCardShell implements Disposable {
     }
 
     void renderLayer(Runnable drawing, float worldWidth, float worldHeight, Rectangle clip) {
-        renderLayer(drawing, worldWidth, worldHeight, clip, true);
+        renderLayer(drawing, worldWidth, worldHeight, clip, true, false);
     }
 
-    private void renderLayer(Runnable drawing, float worldWidth, float worldHeight, Rectangle clip, boolean resolveColour) {
+    private void renderLayer(Runnable drawing, float worldWidth, float worldHeight,
+            Rectangle clip, boolean resolveColour, boolean clearPreviousDepth) {
         GL20 gl = Gdx.gl;
         gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, parent);
         gl.glGetIntegerv(GL20.GL_VIEWPORT, viewport);
@@ -306,6 +307,10 @@ final class GdxCardShell implements Disposable {
             gl.glClearColor(0f, 0f, 0f, 0f);
             if (!grouping || !groupHasCards) {
                 gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+            } else if (clearPreviousDepth) {
+                // Keep the dimmed sheet's colour while letting the opaque
+                // sheet cover it without changing either mesh's height.
+                gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
             }
             gl.glEnable(GL20.GL_DEPTH_TEST);
             gl.glDepthFunc(GL20.GL_LEQUAL);
